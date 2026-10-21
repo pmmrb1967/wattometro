@@ -40,7 +40,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - O **Worker** é fino: recebe, valida (zod), grava, serve agregados, autentica. Limite de **10 ms de CPU por pedido** no plano gratuito → nada de contas pesadas no Worker.
 - **Agregações** (1 min → 15 min → dia) feitas por Cron Trigger com `INSERT … SELECT` em SQL (o trabalho é do D1, não da CPU do Worker), sempre incrementais.
 - **Cálculos de domínio** (custos, simulador de tarifários, potência contratada, consumo base, previsões, ML) correm **no browser**, em `src/domain/` e `src/ml/`, sobre agregados pedidos ao Worker e guardados em cache no Dexie.
-- **Uma só origem:** o Worker `app` serve a PWA (Workers Assets) e encaminha `/v1/*` para o Worker `api` por *service binding* (`server/src/gateway.ts`). O `api` não tem endereço `workers.dev`; o Shelly envia para `https://app.wattometro.workers.dev/v1/ingest`. Um só Cloudflare Access cobre app e API.
+- **Uma só origem:** o Worker `app` serve a PWA (Workers Assets) e encaminha `/v1/*` para o Worker `api` por *service binding* (`server/src/gateway.ts`). O `api` não tem endereço `workers.dev`; o Shelly envia para `https://app.wattometro.workers.dev/v1/ingest`. O cookie de sessão fica na mesma origem da API (sem CORS).
 - **Tempo real = último minuto.** A PWA não consegue ler o Shelly diretamente (HTTPS → HTTP local é bloqueado pelos browsers). O valor ao segundo continua disponível na app oficial do Shelly.
 
 ## Stack
@@ -53,7 +53,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - **PDF:** gerado no browser
 - **Testes:** Vitest (unitários, incluindo servidor com SQLite em memória), Playwright (e2e mínimo)
 - **Gestor de pacotes:** pnpm
-- **Autenticação (fase familiar):** Cloudflare Access à frente da app e da API; `/v1/ingest` fica fora do Access e autentica-se por **token por dispositivo** (guardado só como hash)
+- **Autenticação:** login próprio em `server/src/auth.ts` (o Zero Trust pede cartão de crédito mesmo no plano Free). Email + password (PBKDF2-SHA256, `server/src/password.ts`); sessão de 30 dias em cookie `__Host-wm_session` HttpOnly/Secure/SameSite=Strict assinado com HMAC (`SESSION_SECRET`); escritas exigem `Origin` da própria app; 5 falhas → bloqueio de 15 min. **Sem registo público:** as contas criam-se com `pnpm user:create --remote`. `/v1/ingest` autentica-se por **token por dispositivo** (guardado só como hash)
 
 ## Estrutura
 
@@ -83,7 +83,9 @@ wattometro/
 │   │   ├── repo/              # ÚNICO sítio com SQL
 │   │   ├── ingest.ts
 │   │   ├── rollups.ts         # agregações do Cron
-│   │   └── auth.ts            # tokens de dispositivo; identidade do Access
+│   │   ├── auth.ts            # sessões de utilizador; tokens de dispositivo
+│   │   ├── password.ts        # PBKDF2 (partilhado com scripts/create-user.ts)
+│   │   └── gateway.ts         # Worker `app`: /v1/* → Worker `api`
 │   ├── migrations/
 │   └── wrangler.toml
 ├── public/data/               # dados de referência servidos (ofertas ERSE, ciclos horários)
@@ -126,9 +128,9 @@ Copiar (e adaptar, mantendo a fonte) em vez de reescrever:
 
 | Etapa | Mudança necessária |
 |---|---|
-| Família (agora) | Plano gratuito; Cloudflare Access |
+| Família (agora) | Plano gratuito; login próprio, contas criadas por script |
 | Amigos / primeiros utilizadores | Workers Paid (mudança de plano); limites por variáveis em `wrangler.toml` |
-| Grande público | Autenticação própria em `auth.ts` em vez do Access; dados por casa (uma base D1 por casa/grupo, ou Durable Objects) atrás de `repo/`; política de privacidade e RGPD |
+| Grande público | Registo público, recuperação de password e limites por IP em `auth.ts`; dados por casa (uma base D1 por casa/grupo, ou Durable Objects) atrás de `repo/`; política de privacidade e RGPD |
 | Sair da Cloudflare | Hono corre em Node; `repo/` passa a falar com PostgreSQL |
 
 Se uma decisão tornar alguma destas passagens mais difícil, parar e assinalar.
@@ -145,6 +147,7 @@ pnpm build
 pnpm icons               # gera os ícones da PWA a partir de public/icon.svg
 pnpm db:migrate:local    # migrações D1 locais
 pnpm db:migrate:remote   # migrações D1 na Cloudflare
+pnpm user:create --remote  # cria uma conta ou muda a password (num terminal normal: pede a password)
 pnpm deploy:server       # Worker `api` (sem endereço público; publicar antes da app)
 pnpm deploy:app          # build + Worker `app` → https://app.wattometro.workers.dev (/v1/* → api)
 ```

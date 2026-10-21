@@ -3,7 +3,22 @@
 export const t = {
   appName: 'Wattómetro',
   tagline: 'O consumo elétrico da casa transformado em poupança concreta.',
+  loading: 'A carregar…',
+  login: {
+    title: 'Entrar',
+    email: 'Email',
+    password: 'Password',
+    submit: 'Entrar',
+    submitting: 'A entrar…',
+    invalid: 'Email ou password errados.',
+    locked: (minutes: number) =>
+      `Demasiadas tentativas. Tenta outra vez daqui a ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}.`,
+    unavailable: 'Não foi possível contactar o servidor. Tenta outra vez.',
+    noAccount: 'As contas são criadas pelo responsável da instalação.',
+  },
   home: {
+    signedInAs: (email: string) => `Entraste como ${email}`,
+    logout: 'Sair',
     status: 'Em construção',
     intro:
       'O Wattómetro vai ler o consumo do teu quadro elétrico (Shelly) e os dados da E-Redes para te dizer, em euros, onde podes poupar.',

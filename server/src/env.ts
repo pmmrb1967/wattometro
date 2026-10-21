@@ -4,7 +4,9 @@ import type { D1Like } from './db';
 
 export interface Env {
   DB: D1Like;
-  /** Comma-separated app origins allowed to call the API. */
+  /** Secret (wrangler secret put SESSION_SECRET): at least 32 random characters. */
+  SESSION_SECRET: string;
+  /** Comma-separated extra origins allowed to send writes (local development). */
   ALLOWED_ORIGINS: string;
 }
 

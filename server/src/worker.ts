@@ -6,7 +6,11 @@ import { allowedOrigins, type Env } from './env';
 
 export default {
   fetch(request: Request, env: Env): Response | Promise<Response> {
-    const app = createApp({ sql: d1(env.DB), allowedOrigins: allowedOrigins(env) });
+    const app = createApp({
+      sql: d1(env.DB),
+      sessionSecret: env.SESSION_SECRET,
+      allowedOrigins: allowedOrigins(env),
+    });
     return app.fetch(request);
   },
 };

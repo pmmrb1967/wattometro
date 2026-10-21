@@ -24,7 +24,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 
 | Fase | Nome | Resultado |
 |---|---|---|
-| 0 | Fundações | Repositório, PWA e Worker publicados, D1 na UE, Access ativo |
+| 0 | Fundações | Repositório, PWA e Worker publicados, D1 na UE, login próprio |
 | 1 | Ingestão Shelly | Script no Shelly, dados por minuto e ao segundo na D1, agregações, "agora" na app |
 | 2 | Importação E-Redes | Histórico a 15 min importado e reconciliado com o Shelly |
 | 3 | Poupança PT | Custos, simulador de tarifários (ofertas ERSE), potência contratada, consumo base, PDF mensal |
@@ -48,12 +48,12 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] `server/` com Hono: `worker.ts`, `app.ts`, `env.ts`, `GET /v1/health`
 - [x] D1 `wattometro` criada com `--jurisdiction eu`; migração inicial (`households`, `devices`)
 - [x] Camada `server/src/repo/` com testes em SQLite em memória
-- [ ] Cloudflare Access à frente da app e da API (exceto `/v1/ingest` e `/v1/health`)
+- [x] ~~Cloudflare Access~~ → login próprio (o Zero Trust Free pede cartão): migração `0002_users`, `server/src/auth.ts`, `scripts/create-user.ts`, ecrã de entrada
 - [x] `src/lib/money.ts`, `units.ts`, `time.ts` com testes (incluindo dias de 23 h e 25 h)
 - [x] `.gitignore` com `fixtures/private/`, `.dev.vars`, `dist/`
 - [x] Confirmar comandos reais e atualizar `CLAUDE.md`
 
-**Aceitação:** app e Worker publicados; `/v1/health` responde; só a família entra (Access); `pnpm typecheck && pnpm lint && pnpm test` passam.
+**Aceitação:** app e Worker publicados; `/v1/health` responde; só a família entra (login próprio); `pnpm typecheck && pnpm lint && pnpm test` passam.
 
 ---
 
@@ -227,7 +227,7 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - [ ] Registo de casas e convites; limites de capacidade (padrão do Faturómetro: `MAX_ACCOUNTS`, admissão)
 
 ### Grande público
-- [ ] Autenticação própria em `auth.ts` (substitui o Access)
+- [ ] Registo público, recuperação de password e limites por IP em `auth.ts` (o login próprio já existe)
 - [ ] Dados por casa atrás de `repo/` (uma base D1 por casa/grupo, ou Durable Objects)
 - [ ] Política de privacidade, exportação e eliminação de dados (RGPD)
 - [ ] Registo da marca "Wattómetro" (INPI/EUIPO) e domínio
@@ -250,7 +250,7 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 | 10 ms de CPU por pedido | Worker fino; agregações em SQL; cálculos no browser |
 | Formato do CSV E-Redes | Parser tolerante; fixtures reais privadas |
 | Valores regulatórios mudam | Dados versionados com fonte e data em `docs/` |
-| Dados de consumo revelam presença em casa | D1 na UE, Access, nada em analytics; rever antes do público |
+| Dados de consumo revelam presença em casa | D1 na UE, login próprio, nada em analytics; rever antes do público |
 | Tempo real só ao minuto | Assumido; app Shelly para o valor ao segundo |
 
 ## Decisões
@@ -264,6 +264,7 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-21 — Multi-casa e camada de repositório desde o início, para permitir crescer sem reescrita.
 - 2026-10-21 — Licença AGPL-3.0-or-later; CLA para contribuições externas.
 - 2026-10-21 — Conta Cloudflare própria (separada da do Faturómetro, que tem o subdomínio `faturometro`): conta de wattometro@outlook.com, Account ID `0fcf1ed22512b5ad46f39cf8eb61d82f`, subdomínio `wattometro.workers.dev`. A app é o Worker `app` (`app.wattometro.workers.dev`); o `account_id` fica explícito em todos os `wrangler*.toml`.
-- 2026-10-21 — Workers: `app` (PWA, `app.wattometro.workers.dev`) e `api`. Uma só origem: o `app` encaminha `/v1/*` para o `api` por service binding (`server/src/gateway.ts`) e o `api` não tem endereço público (`workers_dev = false`). Motivo: o Access protege navegações, não pedidos `fetch` entre origens; assim basta uma aplicação Access, sem CORS nem cookies entre domínios. D1 `wattometro` (id `78e9cd53-…`, região EEUR, `--jurisdiction eu`).
+- 2026-10-21 — Workers: `app` (PWA, `app.wattometro.workers.dev`) e `api`. Uma só origem: o `app` encaminha `/v1/*` para o `api` por service binding (`server/src/gateway.ts`) e o `api` não tem endereço público (`workers_dev = false`). Motivo: uma só origem dispensa CORS e cookies entre domínios (pensado para o Access, continua certo com o login próprio). D1 `wattometro` (id `78e9cd53-…`, região EEUR, `--jurisdiction eu`).
 - 2026-10-21 — Deploy manual por agora (`pnpm deploy:server`, `pnpm deploy:app`); o CI no GitHub só faz verificações. Ícones da PWA gerados de `public/icon.svg` com fundo da marca nos ícones maskable/Apple.
+- 2026-10-21 — **Cloudflare Zero Trust posto de parte** (o plano Free pede cartão de crédito, como no poderebeleza). Login próprio adaptado do poderebeleza: tabela `users` (com `household_id`), PBKDF2-SHA256 100 000 iterações (medido em produção: cabe no limite de CPU gratuito), sessão de 30 dias em cookie `__Host-wm_session` assinado (HMAC, secret `SESSION_SECRET`), `session_version` para terminar sessões, 5 falhas → 15 min de bloqueio, contas só por `pnpm user:create`.
 - 2026-10-21 — Logótipo: "Traço W" — um W (de Watt) sob o arco de um mostrador, ciano `#5fdde3` e branco `#f6f7f4` sobre violeta `#2e2250`; mesma construção do ícone do Faturómetro. Fonte: `public/icon.svg` (gera os ícones da PWA); versão com nome em `assets/logo-lockup.svg` (texto ainda por converter em contornos).

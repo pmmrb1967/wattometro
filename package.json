@@ -17,7 +17,8 @@
     "db:migrate:local": "wrangler d1 migrations apply wattometro --local -c server/wrangler.toml",
     "db:migrate:remote": "wrangler d1 migrations apply wattometro --remote -c server/wrangler.toml",
     "deploy:app": "pnpm build && wrangler deploy -c wrangler.app.toml",
-    "deploy:server": "wrangler deploy -c server/wrangler.toml"
+    "deploy:server": "wrangler deploy -c server/wrangler.toml",
+    "user:create": "tsx scripts/create-user.ts"
   },
   "packageManager": "pnpm@12.11.2",
   "license": "AGPL-3.0-or-later",
@@ -42,6 +43,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.4",
