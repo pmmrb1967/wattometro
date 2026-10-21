@@ -5,15 +5,14 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { headersFile } from './security-headers.ts';
-import { PROJECT_API_URL } from './src/app/api-config.ts';
 
 /** dist/_headers: CSP and other security headers for Cloudflare (security-headers.ts). */
-function securityHeaders(apiUrl: string): Plugin {
+function securityHeaders(): Plugin {
   return {
     name: 'wattometro-security-headers',
     apply: 'build',
     generateBundle() {
-      this.emitFile({ type: 'asset', fileName: '_headers', source: headersFile(apiUrl) });
+      this.emitFile({ type: 'asset', fileName: '_headers', source: headersFile() });
     },
   };
 }
@@ -33,7 +32,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    securityHeaders(loadEnv(mode, process.cwd(), 'VITE_').VITE_API_URL || PROJECT_API_URL),
+    securityHeaders(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'icon.svg'],
@@ -62,9 +61,21 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
+        // The API shares the origin: never answer it with the app shell.
+        navigateFallbackDenylist: [/^\/v1(\/|$)/],
       },
     }),
   ],
+  // The API is same-origin in production (server/src/gateway.ts); in development /v1 goes to
+  // `pnpm dev:server` unless VITE_API_PROXY points elsewhere.
+  server: {
+    proxy: {
+      '/v1': {
+        target: loadEnv(mode, process.cwd(), 'VITE_').VITE_API_PROXY || 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'server/**/*.test.ts'],

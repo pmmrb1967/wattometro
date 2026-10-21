@@ -3,12 +3,11 @@
  * Security headers of the published app, written to dist/_headers at build
  * time; Cloudflare's static assets serve them. Adapted from Faturómetro.
  *
- * The app may only connect to itself, the project's API, the Anthropic API
- * (AI, with the user's own key) and Open-Meteo (weather, no personal data);
- * see CLAUDE.md, rule 1.
+ * The app may only connect to itself (the API is same-origin, under /v1), the
+ * Anthropic API (AI, with the user's own key) and Open-Meteo (weather, no
+ * personal data); see CLAUDE.md, rule 1.
  */
-export function contentSecurityPolicy(apiUrl: string): string {
-  const apiOrigin = new URL(apiUrl).origin;
+export function contentSecurityPolicy(): string {
   return [
     "default-src 'self'",
     "script-src 'self'",
@@ -16,7 +15,7 @@ export function contentSecurityPolicy(apiUrl: string): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "worker-src 'self' blob:",
-    `connect-src 'self' ${apiOrigin} https://api.anthropic.com https://api.open-meteo.com https://archive-api.open-meteo.com`,
+    "connect-src 'self' https://api.anthropic.com https://api.open-meteo.com https://archive-api.open-meteo.com",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -25,9 +24,9 @@ export function contentSecurityPolicy(apiUrl: string): string {
   ].join('; ');
 }
 
-export function headersFile(apiUrl: string): string {
+export function headersFile(): string {
   return `/*
-  Content-Security-Policy: ${contentSecurityPolicy(apiUrl)}
+  Content-Security-Policy: ${contentSecurityPolicy()}
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   X-Frame-Options: DENY

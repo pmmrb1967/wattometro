@@ -1,11 +1,20 @@
-# The app (static PWA) on Cloudflare: https://app.wattometro.workers.dev
-# Deploy: pnpm deploy:app (builds first). The API has its own configuration in server/wrangler.toml.
+# The app on Cloudflare: https://app.wattometro.workers.dev
+# Deploy: pnpm deploy:app (builds first). Deploy the API (server/wrangler.toml) first:
+# /v1/* is forwarded to it through a service binding (server/src/gateway.ts).
 name = "app"
+main = "server/src/gateway.ts"
 # Wattómetro's own Cloudflare account (never Faturómetro's): the login on this machine sees several.
 account_id = "0fcf1ed22512b5ad46f39cf8eb61d82f"
 compatibility_date = "2026-10-01"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 # Client-side routes are served by index.html.
 not_found_handling = "single-page-application"
+# Only the API runs code; every other path is a static file.
+run_worker_first = ["/v1/*", "/v1"]
+
+[[services]]
+binding = "API"
+service = "api"

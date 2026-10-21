@@ -40,6 +40,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - O **Worker** é fino: recebe, valida (zod), grava, serve agregados, autentica. Limite de **10 ms de CPU por pedido** no plano gratuito → nada de contas pesadas no Worker.
 - **Agregações** (1 min → 15 min → dia) feitas por Cron Trigger com `INSERT … SELECT` em SQL (o trabalho é do D1, não da CPU do Worker), sempre incrementais.
 - **Cálculos de domínio** (custos, simulador de tarifários, potência contratada, consumo base, previsões, ML) correm **no browser**, em `src/domain/` e `src/ml/`, sobre agregados pedidos ao Worker e guardados em cache no Dexie.
+- **Uma só origem:** o Worker `app` serve a PWA (Workers Assets) e encaminha `/v1/*` para o Worker `api` por *service binding* (`server/src/gateway.ts`). O `api` não tem endereço `workers.dev`; o Shelly envia para `https://app.wattometro.workers.dev/v1/ingest`. Um só Cloudflare Access cobre app e API.
 - **Tempo real = último minuto.** A PWA não consegue ler o Shelly diretamente (HTTPS → HTTP local é bloqueado pelos browsers). O valor ao segundo continua disponível na app oficial do Shelly.
 
 ## Stack
@@ -135,7 +136,7 @@ Se uma decisão tornar alguma destas passagens mais difícil, parar e assinalar.
 ## Comandos
 
 ```bash
-pnpm dev                 # PWA em desenvolvimento (VITE_API_URL para outra API)
+pnpm dev                 # PWA em desenvolvimento; /v1 vai para pnpm dev:server (ou VITE_API_PROXY)
 pnpm dev:server          # API local (wrangler dev, D1 local)
 pnpm test                # vitest (app + servidor, SQLite em memória)
 pnpm typecheck
@@ -144,8 +145,8 @@ pnpm build
 pnpm icons               # gera os ícones da PWA a partir de public/icon.svg
 pnpm db:migrate:local    # migrações D1 locais
 pnpm db:migrate:remote   # migrações D1 na Cloudflare
-pnpm deploy:server       # API → https://api.wattometro.workers.dev
-pnpm deploy:app          # build + PWA → https://app.wattometro.workers.dev
+pnpm deploy:server       # Worker `api` (sem endereço público; publicar antes da app)
+pnpm deploy:app          # build + Worker `app` → https://app.wattometro.workers.dev (/v1/* → api)
 ```
 
 `pnpm erse:sync` chega na Fase 3. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas.
