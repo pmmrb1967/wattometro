@@ -263,4 +263,5 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-21 — Cálculos, ML e IA no browser; Worker só recebe, grava, agrega (SQL) e serve.
 - 2026-10-21 — Multi-casa e camada de repositório desde o início, para permitir crescer sem reescrita.
 - 2026-10-21 — Licença AGPL-3.0-or-later; CLA para contribuições externas.
+- 2026-10-21 — Conta Cloudflare própria (separada da do Faturómetro, que tem o subdomínio `faturometro`): conta de wattometro@outlook.com, Account ID `0fcf1ed22512b5ad46f39cf8eb61d82f`, subdomínio `wattometro.workers.dev`. A app é o Worker `app` (`app.wattometro.workers.dev`); o `account_id` fica explícito em todos os `wrangler*.toml`.
 - 2026-10-21 — Logótipo: "Traço W" — um W (de Watt) sob o arco de um mostrador, ciano `#5fdde3` e branco `#f6f7f4` sobre violeta `#2e2250`; mesma construção do ícone do Faturómetro. Fonte: `public/icon.svg` (gera os ícones da PWA); versão com nome em `assets/logo-lockup.svg` (texto ainda por converter em contornos).
