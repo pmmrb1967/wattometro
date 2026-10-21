@@ -1,0 +1,21 @@
+# Wattómetro API (Cloudflare Workers + D1, free plan): https://api.wattometro.workers.dev
+# Setup (done once; kept here for a new installation):
+#   pnpm exec wrangler login
+#   CLOUDFLARE_ACCOUNT_ID=<account> pnpm exec wrangler d1 create wattometro --jurisdiction eu   # data stays in the EU
+#   pnpm db:migrate:remote
+#   pnpm deploy:server
+name = "api"
+main = "src/worker.ts"
+# Wattómetro's own Cloudflare account (never Faturómetro's): the login on this machine sees several.
+account_id = "0fcf1ed22512b5ad46f39cf8eb61d82f"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wattometro"
+database_id = "78e9cd53-083e-4120-9abf-604eaf9bbae3" # created with --jurisdiction eu
+migrations_dir = "migrations"
+
+[vars]
+# Origins of the app allowed to call the API (comma-separated).
+ALLOWED_ORIGINS = "https://app.wattometro.workers.dev,http://localhost:5173,http://localhost:4173"
