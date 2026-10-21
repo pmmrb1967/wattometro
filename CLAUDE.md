@@ -132,18 +132,23 @@ Copiar (e adaptar, mantendo a fonte) em vez de reescrever:
 
 Se uma decisão tornar alguma destas passagens mais difícil, parar e assinalar.
 
-## Comandos (a confirmar na Fase 0)
+## Comandos
 
 ```bash
-pnpm dev              # PWA em desenvolvimento
-pnpm test             # vitest (app + servidor)
+pnpm dev                 # PWA em desenvolvimento (VITE_API_URL para outra API)
+pnpm dev:server          # API local (wrangler dev, D1 local)
+pnpm test                # vitest (app + servidor, SQLite em memória)
 pnpm typecheck
 pnpm lint
 pnpm build
-pnpm deploy:app       # pnpm build && wrangler deploy -c wrangler.app.toml
-pnpm deploy:server    # wrangler deploy -c server/wrangler.toml
-pnpm erse:sync        # atualiza public/data/erse-offers.json
+pnpm icons               # gera os ícones da PWA a partir de public/icon.svg
+pnpm db:migrate:local    # migrações D1 locais
+pnpm db:migrate:remote   # migrações D1 na Cloudflare
+pnpm deploy:server       # API → https://api.wattometro.workers.dev
+pnpm deploy:app          # build + PWA → https://app.wattometro.workers.dev
 ```
+
+`pnpm erse:sync` chega na Fase 3. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas.
 
 Antes de dar uma tarefa por concluída: `pnpm typecheck && pnpm lint && pnpm test` sem erros.
 

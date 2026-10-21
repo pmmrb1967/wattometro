@@ -42,16 +42,16 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 ## Fase 0 — Fundações
 
 - [x] Criar repositório público `wattometro` com `LICENSE` (AGPL-3.0) e `README.md`
-- [ ] Copiar do Faturómetro a configuração base: pnpm, TypeScript strict, ESLint, Prettier, Vitest, `vite-plugin-pwa`, `security-headers.ts`
-- [ ] PWA mínima (Vite + React) com `src/i18n/pt-PT.ts` e rodapé com link para o código-fonte
-- [ ] `wrangler.app.toml` (Workers Assets, SPA) e `pnpm deploy:app`
-- [ ] `server/` com Hono: `worker.ts`, `app.ts`, `env.ts`, `GET /v1/health`
-- [ ] D1 `wattometro` criada com `--jurisdiction eu`; migração inicial (`households`, `devices`)
-- [ ] Camada `server/src/repo/` com testes em SQLite em memória
+- [x] Copiar do Faturómetro a configuração base: pnpm, TypeScript strict, ESLint, Prettier, Vitest, `vite-plugin-pwa`, `security-headers.ts`
+- [x] PWA mínima (Vite + React) com `src/i18n/pt-PT.ts` e rodapé com link para o código-fonte
+- [x] `wrangler.app.toml` (Workers Assets, SPA) e `pnpm deploy:app`
+- [x] `server/` com Hono: `worker.ts`, `app.ts`, `env.ts`, `GET /v1/health`
+- [x] D1 `wattometro` criada com `--jurisdiction eu`; migração inicial (`households`, `devices`)
+- [x] Camada `server/src/repo/` com testes em SQLite em memória
 - [ ] Cloudflare Access à frente da app e da API (exceto `/v1/ingest` e `/v1/health`)
-- [ ] `src/lib/money.ts`, `units.ts`, `time.ts` com testes (incluindo dias de 23 h e 25 h)
+- [x] `src/lib/money.ts`, `units.ts`, `time.ts` com testes (incluindo dias de 23 h e 25 h)
 - [x] `.gitignore` com `fixtures/private/`, `.dev.vars`, `dist/`
-- [ ] Confirmar comandos reais e atualizar `CLAUDE.md`
+- [x] Confirmar comandos reais e atualizar `CLAUDE.md`
 
 **Aceitação:** app e Worker publicados; `/v1/health` responde; só a família entra (Access); `pnpm typecheck && pnpm lint && pnpm test` passam.
 
@@ -264,4 +264,6 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-21 — Multi-casa e camada de repositório desde o início, para permitir crescer sem reescrita.
 - 2026-10-21 — Licença AGPL-3.0-or-later; CLA para contribuições externas.
 - 2026-10-21 — Conta Cloudflare própria (separada da do Faturómetro, que tem o subdomínio `faturometro`): conta de wattometro@outlook.com, Account ID `0fcf1ed22512b5ad46f39cf8eb61d82f`, subdomínio `wattometro.workers.dev`. A app é o Worker `app` (`app.wattometro.workers.dev`); o `account_id` fica explícito em todos os `wrangler*.toml`.
+- 2026-10-21 — Workers: `app` (PWA, `app.wattometro.workers.dev`) e `api` (`api.wattometro.workers.dev`). D1 `wattometro` (id `78e9cd53-…`, região EEUR, `--jurisdiction eu`).
+- 2026-10-21 — Deploy manual por agora (`pnpm deploy:server`, `pnpm deploy:app`); o CI no GitHub só faz verificações. Ícones da PWA gerados de `public/icon.svg` com fundo da marca nos ícones maskable/Apple.
 - 2026-10-21 — Logótipo: "Traço W" — um W (de Watt) sob o arco de um mostrador, ciano `#5fdde3` e branco `#f6f7f4` sobre violeta `#2e2250`; mesma construção do ícone do Faturómetro. Fonte: `public/icon.svg` (gera os ícones da PWA); versão com nome em `assets/logo-lockup.svg` (texto ainda por converter em contornos).
