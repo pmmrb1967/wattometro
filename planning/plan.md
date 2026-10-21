@@ -1,0 +1,265 @@
+# Wattómetro — Plano
+
+> Documento vivo. Marcar `[x]` ao concluir; registar decisões e desvios na secção "Decisões".
+> Regras, stack e convenções: `../CLAUDE.md`.
+
+## 1. Visão
+
+Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança concreta**: potência contratada certa, tarifário mais barato para o perfil real, consumo fantasma visível, fatura prevista, aparelhos a degradar detetados cedo e problemas de tensão registados com prova — com explicações opcionais por IA.
+
+- **Fonte principal:** Shelly no quadro elétrico, a enviar diretamente para a cloud (sem PC em casa).
+- **Fonte complementar:** CSV de 15 min da E-Redes (histórico anterior ao Shelly; casas sem Shelly no futuro).
+- **Âmbito atual:** uso familiar, plano gratuito da Cloudflare.
+- **Futuro possível:** plano pago e grande público, sem reescrita.
+
+## 2. Diferenciação
+
+| Existente | Limitação | Wattómetro |
+|---|---|---|
+| App Shelly / Home Assistant | Gráficos, sem conhecimento de tarifas portuguesas | Conclusões em euros com regras ERSE |
+| Simulador ERSE | Usa perfis médios | Usa o consumo real a 15 min/1 min |
+| Ninguém (consumidor) | — | Otimização da potência contratada; registo de tensão para reclamar |
+
+## 3. Visão geral das fases
+
+| Fase | Nome | Resultado |
+|---|---|---|
+| 0 | Fundações | Repositório, PWA e Worker publicados, D1 na UE, Access ativo |
+| 1 | Ingestão Shelly | Script no Shelly, dados por minuto e ao segundo na D1, agregações, "agora" na app |
+| 2 | Importação E-Redes | Histórico a 15 min importado e reconciliado com o Shelly |
+| 3 | Poupança PT | Custos, simulador de tarifários (ofertas ERSE), potência contratada, consumo base, PDF mensal |
+| 4 | Alertas | Alerta/corte de potência local no Shelly; notificações push |
+| 5 | Qualidade de energia | Eventos de tensão e falhas, relatório para reclamação |
+| 6 | ML no browser | Previsão da fatura, anomalias, saúde de aparelhos |
+| 7 | IA | Perguntas em linguagem natural, relatório narrado, alertas explicados |
+| 8 | NILM | Deteção ao segundo no browser, calibração, rotulagem, custo por aparelho |
+| 9 | Crescimento | Plano pago, público, extensões |
+
+**Primeiro marco útil:** fases 0 a 3.
+
+---
+
+## Fase 0 — Fundações
+
+- [x] Criar repositório público `wattometro` com `LICENSE` (AGPL-3.0) e `README.md`
+- [ ] Copiar do Faturómetro a configuração base: pnpm, TypeScript strict, ESLint, Prettier, Vitest, `vite-plugin-pwa`, `security-headers.ts`
+- [ ] PWA mínima (Vite + React) com `src/i18n/pt-PT.ts` e rodapé com link para o código-fonte
+- [ ] `wrangler.app.toml` (Workers Assets, SPA) e `pnpm deploy:app`
+- [ ] `server/` com Hono: `worker.ts`, `app.ts`, `env.ts`, `GET /v1/health`
+- [ ] D1 `wattometro` criada com `--jurisdiction eu`; migração inicial (`households`, `devices`)
+- [ ] Camada `server/src/repo/` com testes em SQLite em memória
+- [ ] Cloudflare Access à frente da app e da API (exceto `/v1/ingest` e `/v1/health`)
+- [ ] `src/lib/money.ts`, `units.ts`, `time.ts` com testes (incluindo dias de 23 h e 25 h)
+- [x] `.gitignore` com `fixtures/private/`, `.dev.vars`, `dist/`
+- [ ] Confirmar comandos reais e atualizar `CLAUDE.md`
+
+**Aceitação:** app e Worker publicados; `/v1/health` responde; só a família entra (Access); `pnpm typecheck && pnpm lint && pnpm test` passam.
+
+---
+
+## Fase 1 — Ingestão Shelly
+
+### 1.1 Preparação
+- [ ] **Confirmar modelo do Shelly** (ex.: EM Gen3, Pro EM-50) e firmware; registar em `docs/shelly.md`
+- [ ] Capturar respostas reais de `EM1.GetStatus`/`EM.GetStatus` e `EM1Data`/`EMData` → `fixtures/private/`; criar equivalentes sintéticas
+- [ ] Confirmar suporte de scripts, `Timer`, `HTTP.POST` com HTTPS e limites de memória do script
+- [ ] Confirmar **como o script obtém medições a cada segundo** (handler de estado vs `Timer` a 1 s com `EM1.GetStatus`) e **que grandezas existem ao segundo** (potência ativa, aparente, FP; potência reativa direta ou derivada)
+- [ ] Medir o tamanho real do pedido por minuto (agregado + arrays) e confirmar que o Shelly o envia sem problemas
+
+### 1.2 Servidor
+- [ ] Migração `readings_1m` (ver `CLAUDE.md`), com índice `(device_id, ts)`
+- [ ] Migração `readings_1s` (uma linha por minuto, valores ao segundo num BLOB); formato binário versionado e documentado em `docs/readings-1s.md` (ex.: int16/int32 little-endian, segundos em falta marcados)
+- [ ] Funções de codificação/descodificação partilhadas entre servidor e browser, com testes de ida e volta
+- [ ] Registo de dispositivo: gera token, guarda só o hash, mostra o token uma vez
+- [ ] `POST /v1/ingest`: autenticação por token, validação zod, payload com versão do script, idempotente (reenvio do mesmo minuto não duplica), aceita lotes (minutos em atraso); grava o agregado em `readings_1m` e os arrays em `readings_1s` na mesma operação
+- [ ] Limites por dispositivo (tamanho do payload, pedidos por minuto)
+- [ ] Testes: duplicados, minutos fora de ordem, payload inválido, token errado
+
+### 1.3 Script no Shelly (`shelly/wattometro.js`)
+- [ ] Ler medições a ~1 s; agregar por minuto: energia (Wh), potência méd./mín./máx., tensão mín./méd./máx., FP médio
+- [ ] Juntar ao pedido os 60 valores ao segundo (potência ativa; e reativa ou FP, se disponível), como inteiros
+- [ ] **Sem lógica de deteção no script** (só recolhe e envia), exceto o alerta/corte de potência da Fase 4
+- [ ] Enviar 1×/min; em falha, guardar os minutos em fila (limitada pela memória; se faltar memória, descartar primeiro os arrays ao segundo e manter os agregados) e reenviar em lote
+- [ ] Configuração por `KVS` do Shelly (URL, token, limiares) — nada fixo no código
+- [ ] `shelly/README.md` com instalação passo a passo
+
+### 1.4 Agregações (Cron)
+- [ ] Migrações `readings_15m`, `daily`
+- [ ] `rollups.ts`: `INSERT … SELECT` incremental 1 min → 15 min → dia; marca de "último processado"
+- [ ] Purga de `readings_1m` e `readings_1s` conforme retenção (por defeito 24 meses e 90 dias); nunca purgar minutos referenciados em `signatures`
+- [ ] Monitorização do tamanho da base (alerta perto dos 500 MB)
+
+### 1.5 App
+- [ ] Página "Agora": último minuto (potência, tensão), energia e custo provisório de hoje, estado do Shelly (último envio)
+- [ ] Gráficos dia/semana/mês e mapa de calor hora × dia da semana
+
+**Aceitação:** 7 dias de dados sem perdas relevantes; um corte de internet de 30 min é recuperado sem buracos.
+
+---
+
+## Fase 2 — Importação E-Redes
+
+- [ ] **Obter um CSV real** do Balcão Digital → `fixtures/private/`; documentar formato em `docs/eredes-csv.md`; criar fixture sintética
+- [ ] Parser no browser (`src/import/eredes.ts`): separador, decimal com vírgula, codificação, cabeçalhos e linhas de resumo
+- [ ] Convenção início/fim do intervalo confirmada e aplicada em `src/lib/time.ts`
+- [ ] `POST /v1/import/eredes` (lotes de 15 min, idempotente, origem `eredes`)
+- [ ] Reconciliação Shelly vs E-Redes nos períodos sobrepostos (diferença em %; mostrar ao utilizador)
+- [ ] Regra de prioridade por período (por defeito: E-Redes é a referência de faturação; Shelly para detalhe)
+
+**Aceitação:** um ano importado; totais mensais coerentes com as faturas; diferença Shelly/E-Redes documentada.
+
+---
+
+## Fase 3 — Poupança PT
+
+### 3.1 Dados de referência
+- [ ] Copiar e adaptar do Faturómetro: `docs/electricity-vat.md`, `docs/erse-data.md`, `scripts/erse-sync.ts`
+- [ ] `docs/time-cycles.md` + `public/data/time-cycles.json`: ciclos simples, bi-horário e tri-horário (diário e semanal), verão/inverno — **com fonte ERSE e data**
+- [ ] Escalões de potência em vigor — **com fonte e data**
+
+### 3.2 Motor de custos (`src/domain/`)
+- [ ] Reaproveitar `electricity-cost.ts` do Faturómetro; adaptar a consumo por intervalo
+- [ ] `classifyPeriod(ts, cycle)` com testes de fronteiras, fins de semana e mudança de hora
+- [ ] Custo por período: energia, potência, taxas, IVA (incluindo limiar proporcional aos dias), em cêntimos
+- [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável
+
+### 3.3 Simulador de tarifários
+- [ ] Aplicar o consumo real de 12 meses a **todas as ofertas ERSE** (`erse-offers.json`) e opções horárias
+- [ ] Ranking anual com poupança face ao atual
+- [ ] "Quanto teria de deslocar para o vazio para o bi-horário compensar"
+
+### 3.4 Potência contratada
+- [ ] Potência máxima por 15 min e por minuto (`power_max_w`)
+- [ ] Recomendação do escalão mínimo com margem configurável; poupança anual
+- [ ] Lista dos momentos mais próximos do limite; aviso quando só há dados E-Redes
+
+### 3.5 Consumo base
+- [ ] Percentil baixo noturno robusto; custo anual; evolução mensal
+
+### 3.6 Relatório mensal PDF
+- [ ] Gerado no browser: consumo, custo, comparação com mês anterior e homólogo, consumo base, potência máxima, sugestões determinísticas
+
+**Aceitação:** a app indica o tarifário e a potência mais baratos e quanto se poupa; o custo calculado bate com as faturas dentro da margem definida.
+
+---
+
+## Fase 4 — Alertas
+
+- [ ] Script do Shelly: alerta quando a potência se aproxima da contratada (limiar em `KVS`)
+- [ ] Corte local de carga adiável (saída do Shelly ou outro Shelly de relé na rede) — desligado por defeito, com confirmação nas definições
+- [ ] Web Push a partir do Worker (chaves VAPID como secrets) para: limite de potência, Shelly sem enviar há N minutos, anomalias (Fase 6)
+- [ ] Supressão de alertas repetidos
+
+**Aceitação:** teste com carga real dispara alerta (e corte, se ativo) mesmo sem internet.
+
+---
+
+## Fase 5 — Qualidade de energia
+
+- [ ] **Confirmar limites de tensão e regulamento aplicáveis** → `docs/voltage.md`
+- [ ] Eventos de sobretensão/subtensão a partir de `voltage_min/max` por minuto (duração mínima configurável)
+- [ ] Falhas de energia: buracos nos minutos + tempo de arranque (uptime) do Shelly
+- [ ] Histórico na app e PDF factual para anexar a reclamação (sem afirmações legais)
+
+**Aceitação:** eventos sintéticos detetados com início, fim, duração e extremos.
+
+---
+
+## Fase 6 — ML no browser
+
+- [ ] Open-Meteo: histórico e previsão para a localização da casa; cache em Dexie
+- [ ] Previsão da fatura do mês: regressão com consumo até à data, dia da semana, feriados, temperatura; baseline ingénua para comparação; backtest
+- [ ] Anomalias: perfil esperado hora × dia da semana × temperatura; desvio com limiar estatístico
+- [ ] Saúde de aparelhos (com Fase 8): duty cycle do frigorífico vs temperatura exterior; duração dos ciclos do termoacumulador
+
+**Aceitação:** previsão melhor que a baseline no backtest; anomalias plantadas são detetadas.
+
+---
+
+## Fase 7 — IA (opcional)
+
+- [ ] Copiar do Faturómetro a abstração `src/ai/` (provider, estimativa de custo, sessão)
+- [ ] Ferramentas executadas no browser (ver `CLAUDE.md`), com contratos zod e respostas pequenas
+- [ ] Chat "Pergunta ao Wattómetro"
+- [ ] Relatório mensal narrado sobre números já calculados
+- [ ] Alertas explicados em linguagem simples
+- [ ] `pnpm ai:eval`: perguntas com respostas esperadas; os números têm de bater com o motor de cálculo
+
+**Aceitação:** "quanto gastei em setembro?" e "compensa-me o bi-horário?" respondidos com números idênticos aos da app.
+
+---
+
+## Fase 8 — NILM (no browser, sobre os dados ao segundo)
+
+Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e reprocessada sobre os últimos 90 dias sem tocar no Shelly.
+
+### 8.1 Deteção de eventos
+- [ ] Deteção de saltos de potência (ΔP, e ΔQ quando houver) com filtragem de ruído e estados estáveis antes/depois
+- [ ] Descritor de cada evento ao segundo: ΔP, ΔQ/ΔFP, pico de arranque (overshoot) e duração do transitório, rampa (aparelhos com inversor), estabilidade do estado seguinte
+- [ ] Emparelhamento liga/desliga → ciclos com duração e energia; aparelhos multi-estado (ex.: fases da máquina de lavar)
+- [ ] Padrões periódicos de segundos (ex.: placa de indução a pulsar)
+- [ ] Migração `events` (resultado sincronizado) e reprocessamento idempotente por intervalo de datas
+
+### 8.2 Modo de calibração
+- [ ] Ecrã "Calibrar": o utilizador indica o aparelho, liga-o e desliga-o com a app aberta
+- [ ] Os minutos correspondentes são copiados para `signatures` (sem expiração) com o rótulo
+- [ ] Biblioteca de assinaturas da casa, usada para classificar eventos futuros e passados
+
+### 8.3 Agrupamento e rotulagem
+- [ ] Agrupamento de eventos por descritor (ΔP, transitório, duração, hora do dia)
+- [ ] Rotulagem: "Detetei isto — o que é?" com exemplos do grupo; rótulo propaga-se ao grupo
+- [ ] Classificação de eventos novos contra a biblioteca de assinaturas e os grupos rotulados
+
+### 8.4 Resultados
+- [ ] Energia e custo por aparelho rotulado; percentagem da energia explicada (métrica honesta)
+- [ ] Ciclos por aparelho para a saúde de aparelhos (Fase 6): duty cycle do frigorífico, duração do aquecimento do termoacumulador
+
+**Limite assumido:** com ~1 amostra por segundo não há transitórios ao milissegundo nem harmónicos; isso exigiria outro hardware e fica fora do âmbito.
+
+**Aceitação:** termoacumulador, forno/placa, máquina de lavar e frigorífico identificados de forma consistente; um algoritmo melhorado consegue reprocessar os últimos 90 dias.
+
+---
+
+## Fase 9 — Crescimento e extensões
+
+### Plano pago / primeiros utilizadores
+- [ ] Passar a Workers Paid; rever limites em `wrangler.toml`
+- [ ] Registo de casas e convites; limites de capacidade (padrão do Faturómetro: `MAX_ACCOUNTS`, admissão)
+
+### Grande público
+- [ ] Autenticação própria em `auth.ts` (substitui o Access)
+- [ ] Dados por casa atrás de `repo/` (uma base D1 por casa/grupo, ou Durable Objects)
+- [ ] Política de privacidade, exportação e eliminação de dados (RGPD)
+- [ ] Registo da marca "Wattómetro" (INPI/EUIPO) e domínio
+
+### Extensões
+- [ ] Solar e bateria: "vale a pena?" com o perfil real
+- [ ] Tarifas indexadas (OMIE) e intensidade carbónica: indicação "hora verde e barata"
+- [ ] Ligação ao Faturómetro: reconciliar faturas com o consumo medido
+- [ ] Ponte Cuidote: rotinas a partir do consumo (consentimento explícito)
+
+---
+
+## Riscos e questões em aberto
+
+| Risco / questão | Mitigação |
+|---|---|
+| Limites do script do Shelly (memória, HTTPS) | Validar na Fase 1.1 antes de desenhar o payload final |
+| 500 MB por base D1 no plano gratuito | Retenção de `readings_1s` (90 dias) e `readings_1m`; base separada se necessário; alerta de tamanho |
+| Tamanho do pedido por minuto e memória do script | Inteiros compactos; medir na Fase 1.1; em falta de memória, a fila descarta primeiro os arrays ao segundo |
+| 10 ms de CPU por pedido | Worker fino; agregações em SQL; cálculos no browser |
+| Formato do CSV E-Redes | Parser tolerante; fixtures reais privadas |
+| Valores regulatórios mudam | Dados versionados com fonte e data em `docs/` |
+| Dados de consumo revelam presença em casa | D1 na UE, Access, nada em analytics; rever antes do público |
+| Tempo real só ao minuto | Assumido; app Shelly para o valor ao segundo |
+
+## Decisões
+
+- 2026-10-21 — Nome do projeto: **wattometro** (marca Wattómetro).
+- 2026-10-21 — Stack igual ao Faturómetro: PWA Vite + React + TypeScript; Worker TypeScript + D1 (`--jurisdiction eu`); pnpm; Vitest. Router Hono no servidor.
+- 2026-10-21 — Só Shelly como hardware; Efergy fora do âmbito; sem PC/hub em casa.
+- 2026-10-21 — Shelly envia, uma vez por minuto e diretamente para o Worker, o agregado do minuto **e os 60 valores ao segundo**; alerta de potência local no Shelly.
+- 2026-10-21 — Script do Shelly sem lógica de deteção: deteção de eventos e NILM no browser sobre `readings_1s` (BLOB por minuto, 90 dias), para poder melhorar e reprocessar. Modo de calibração guarda assinaturas sem expiração.
+- 2026-10-21 — Cálculos, ML e IA no browser; Worker só recebe, grava, agrega (SQL) e serve.
+- 2026-10-21 — Multi-casa e camada de repositório desde o início, para permitir crescer sem reescrita.
+- 2026-10-21 — Licença AGPL-3.0-or-later; CLA para contribuições externas.

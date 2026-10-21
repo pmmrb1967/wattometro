@@ -1,0 +1,36 @@
+# Real data (E-Redes CSVs, invoices, Shelly captures) — NEVER commit (see CLAUDE.md)
+fixtures/private/
+*.pdf
+*.PDF
+
+# Dependencies and build output
+node_modules/
+dist/
+dev-dist/
+coverage/
+playwright-report/
+test-results/
+
+# Environment and local files
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+.playwright-mcp/
+
+# Cloudflare local state and dev secrets
+.wrangler/
+.dev.vars
+
+# AI evaluation reports (may quote private data)
+ai-eval-reports/
