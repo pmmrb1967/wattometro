@@ -37,3 +37,7 @@ export async function getHousehold(sql: Sql, id: string): Promise<Household | nu
   );
   return row ? fromRow(row) : null;
 }
+
+export async function renameHousehold(sql: Sql, id: string, name: string): Promise<void> {
+  await sql.run('UPDATE households SET name = ? WHERE id = ?', name, id);
+}

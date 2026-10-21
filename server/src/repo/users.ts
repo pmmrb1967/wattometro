@@ -62,6 +62,20 @@ export async function getUser(sql: Sql, id: string): Promise<User | null> {
   return row ? fromRow(row) : null;
 }
 
+/** Stores a new password hash and ends every session; the updated user, or null if gone. */
+export async function setPasswordHash(
+  sql: Sql,
+  userId: string,
+  passwordHash: string,
+): Promise<User | null> {
+  await sql.run(
+    'UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?',
+    passwordHash,
+    userId,
+  );
+  return getUser(sql, userId);
+}
+
 /** Seconds until the email may try again, or 0. */
 export async function lockedFor(sql: Sql, email: string, now: number): Promise<number> {
   const row = await sql.first<{ locked_until: number | null }>(

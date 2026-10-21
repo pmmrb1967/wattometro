@@ -3,7 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memorySql } from '../test/sqlite';
 import { createApp } from './app';
-import { LOCK_SECONDS, MAX_LOGIN_FAILURES, SESSION_SECONDS } from './auth';
+import { LOCK_SECONDS, MAX_LOGIN_FAILURES, RENEW_AFTER_SECONDS, SESSION_SECONDS } from './auth';
 import type { Sql } from './db';
 import { allowedOrigins } from './env';
 import { hashPassword } from './password';
@@ -90,7 +90,7 @@ describe('login', () => {
   it('sets a strict, HttpOnly, host-only session cookie', async () => {
     const response = await loginAs();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ email: EMAIL, householdId });
+    expect(await response.json()).toEqual({ email: EMAIL, householdId, householdName: 'Casa' });
     const cookie = response.headers.get('Set-Cookie') ?? '';
     expect(cookie).toContain(`${COOKIE}=`);
     expect(cookie).toContain('HttpOnly');
@@ -151,7 +151,7 @@ describe('session', () => {
   it('identifies the user', async () => {
     const response = await me(sessionFrom(await loginAs()));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ email: EMAIL, householdId });
+    expect(await response.json()).toEqual({ email: EMAIL, householdId, householdName: 'Casa' });
   });
 
   it('is required', async () => {
@@ -197,6 +197,107 @@ describe('session', () => {
     expect(
       (await other.request(`${ORIGIN}/v1/auth/me`, { headers: { Cookie: cookie } })).status,
     ).toBe(401);
+  });
+});
+
+describe('sliding session', () => {
+  it('is not renewed on its first day', async () => {
+    const cookie = sessionFrom(await loginAs());
+    clock += RENEW_AFTER_SECONDS - 1;
+    expect((await me(cookie)).headers.get('Set-Cookie')).toBeNull();
+  });
+
+  it('is renewed when used later, so regular use never signs out', async () => {
+    let cookie = sessionFrom(await loginAs());
+    for (let day = 0; day < 90; day += 20) {
+      clock += 20 * 24 * 3600;
+      const response = await me(cookie);
+      expect(response.status).toBe(200);
+      cookie = sessionFrom(response);
+    }
+  });
+
+  it('still ends after SESSION_SECONDS without use', async () => {
+    const cookie = sessionFrom(await loginAs());
+    clock += SESSION_SECONDS;
+    expect((await me(cookie)).status).toBe(401);
+  });
+});
+
+describe('POST /v1/account/password', () => {
+  const NEW_PASSWORD = 'outra password comprida';
+
+  const change = (cookie: string, body: unknown, origin = ORIGIN) =>
+    post('/v1/account/password', body, { Cookie: cookie, Origin: origin });
+
+  it('changes the password, keeps this device and signs out the others', async () => {
+    const here = sessionFrom(await loginAs());
+    const elsewhere = sessionFrom(await loginAs());
+
+    const response = await change(here, { currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    expect(response.status).toBe(204);
+    expect((await me(sessionFrom(response))).status).toBe(200);
+    expect((await me(elsewhere)).status).toBe(401);
+
+    expect((await loginAs(PASSWORD)).status).toBe(401);
+    expect((await loginAs(NEW_PASSWORD)).status).toBe(200);
+  });
+
+  it('refuses a wrong current password and counts it towards the lockout', async () => {
+    const cookie = sessionFrom(await loginAs());
+    const wrong = { currentPassword: 'errada', newPassword: NEW_PASSWORD };
+    for (let i = 0; i < MAX_LOGIN_FAILURES; i++) {
+      const response = await change(cookie, wrong);
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({ error: 'wrong_password' });
+    }
+    expect((await change(cookie, wrong)).status).toBe(429);
+  });
+
+  it('refuses a short new password', async () => {
+    const cookie = sessionFrom(await loginAs());
+    const response = await change(cookie, { currentPassword: PASSWORD, newPassword: 'curta' });
+    expect(response.status).toBe(400);
+  });
+
+  it('needs a session and the app origin', async () => {
+    const cookie = sessionFrom(await loginAs());
+    const body = { currentPassword: PASSWORD, newPassword: NEW_PASSWORD };
+    expect((await change(cookie, body, 'https://evil.example')).status).toBe(403);
+    expect((await post('/v1/account/password', body)).status).toBe(401);
+  });
+});
+
+describe('PUT /v1/household', () => {
+  const rename = (cookie: string, body: unknown, origin = ORIGIN) =>
+    app.request(`${ORIGIN}/v1/household`, {
+      method: 'PUT',
+      headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it('renames the household, trimming spaces', async () => {
+    const cookie = sessionFrom(await loginAs());
+    const response = await rename(cookie, { name: '  Casa da Praia ' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      email: EMAIL,
+      householdId,
+      householdName: 'Casa da Praia',
+    });
+    expect(await (await me(cookie)).json()).toMatchObject({ householdName: 'Casa da Praia' });
+  });
+
+  it('rejects empty and overlong names', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect((await rename(cookie, { name: '   ' })).status).toBe(400);
+    expect((await rename(cookie, { name: 'x'.repeat(61) })).status).toBe(400);
+  });
+
+  it('needs a session and the app origin', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect((await rename(cookie, { name: 'X' }, 'https://evil.example')).status).toBe(403);
+    expect((await rename('', { name: 'X' })).status).toBe(401);
   });
 });
 

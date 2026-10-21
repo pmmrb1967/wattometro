@@ -53,7 +53,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - **PDF:** gerado no browser
 - **Testes:** Vitest (unitários, incluindo servidor com SQLite em memória), Playwright (e2e mínimo)
 - **Gestor de pacotes:** pnpm
-- **Autenticação:** login próprio em `server/src/auth.ts` (o Zero Trust pede cartão de crédito mesmo no plano Free). Email + password (PBKDF2-SHA256, `server/src/password.ts`); sessão de 30 dias em cookie `__Host-wm_session` HttpOnly/Secure/SameSite=Strict assinado com HMAC (`SESSION_SECRET`); escritas exigem `Origin` da própria app; 5 falhas → bloqueio de 15 min. **Sem registo público:** as contas criam-se com `pnpm user:create --remote`. `/v1/ingest` autentica-se por **token por dispositivo** (guardado só como hash)
+- **Autenticação:** login próprio em `server/src/auth.ts` (o Zero Trust pede cartão de crédito mesmo no plano Free). Email + password (PBKDF2-SHA256, `server/src/password.ts`); sessão deslizante (renova-se com o uso; termina ao fim de 30 dias sem uso) em cookie `__Host-wm_session` HttpOnly/Secure/SameSite=Strict assinado com HMAC (`SESSION_SECRET`); escritas exigem `Origin` da própria app; 5 falhas → bloqueio de 15 min. **Sem registo público:** as contas criam-se com `pnpm user:create --remote`; a password e o nome da casa mudam-se em Definições (`/definicoes`). `/v1/ingest` autentica-se por **token por dispositivo** (guardado só como hash)
 
 ## Estrutura
 

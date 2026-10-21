@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet } from 'react-router';
+import { t } from '../i18n/pt-PT';
+import { fetchHealth, fetchMe, logout, type Me } from './api';
+import { APP_COMMIT, SOURCE_URL } from './build-info';
+import { Login } from './Login';
+import type { SessionContext } from './session';
+
+type ServerState = 'checking' | 'ok' | 'unavailable';
+
+function useServerState(): ServerState {
+  const [state, setState] = useState<ServerState>('checking');
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchHealth(controller.signal)
+      .then((health) => setState(health.status === 'ok' ? 'ok' : 'unavailable'))
+      .catch(() => {
+        if (!controller.signal.aborted) setState('unavailable');
+      });
+    return () => controller.abort();
+  }, []);
+  return state;
+}
+
+/** undefined while the session is being checked; checking also renews it (sliding expiry). */
+function useMe(): [Me | null | undefined, (me: Me | null) => void] {
+  const [me, setMe] = useState<Me | null | undefined>(undefined);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchMe(controller.signal)
+      .then(setMe)
+      .catch(() => {
+        if (!controller.signal.aborted) setMe(null);
+      });
+    return () => controller.abort();
+  }, []);
+  return [me, setMe];
+}
+
+/** Brand, navigation, the login gate and the footer around every page. */
+export function AppShell() {
+  const server = useServerState();
+  const [me, setMe] = useMe();
+
+  const context: SessionContext | null = me
+    ? { me, update: setMe, signOut: () => void logout().then(() => setMe(null)) }
+    : null;
+
+  return (
+    <div className="page">
+      <header className="topbar">
+        <NavLink to="/" className="brand">
+          <img src="/icon.svg" alt="" width={36} height={36} />
+          <span>{t.appName}</span>
+        </NavLink>
+        {context && (
+          <nav className="nav">
+            <NavLink to="/" end>
+              {t.nav.home}
+            </NavLink>
+            <NavLink to="/definicoes">{t.nav.settings}</NavLink>
+          </nav>
+        )}
+      </header>
+
+      <main className="content">
+        {me === undefined && <p className="hint">{t.loading}</p>}
+        {me === null && (
+          <>
+            <p className="tagline">{t.tagline}</p>
+            <Login onSignedIn={setMe} />
+          </>
+        )}
+        {context && <Outlet context={context} />}
+      </main>
+
+      <footer className="footer">
+        <p className={`server server-${server}`} role="status">
+          <span className="dot" aria-hidden="true" />
+          {t.server[server]}
+        </p>
+        <p>
+          {t.footer.license} <a href={SOURCE_URL}>{t.footer.source}</a> ·{' '}
+          {t.footer.version(APP_COMMIT)}
+        </p>
+      </footer>
+    </div>
+  );
+}

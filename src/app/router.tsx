@@ -1,5 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
+import { AppShell } from './AppShell';
 import { Home } from './Home';
+import { Settings } from './Settings';
 
-export const router = createBrowserRouter([{ path: '*', element: <Home /> }]);
+export const router = createBrowserRouter([
+  {
+    element: <AppShell />,
+    children: [
+      { index: true, element: <Home /> },
+      { path: 'definicoes', element: <Settings /> },
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+]);

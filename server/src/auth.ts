@@ -7,21 +7,25 @@
  *
  * The session carries the user's session_version, so raising it in the
  * database (e.g. on a password change) signs the user out everywhere.
+ * Sessions slide: one used more than RENEW_AFTER_SECONDS after it was issued
+ * is replaced by a fresh one, so only SESSION_SECONDS without use sign out.
  */
 import { z } from 'zod';
 import type { Sql } from './db';
-import { DUMMY_HASH, fromBase64Url, toBase64Url, verifyPassword } from './password';
+import { DUMMY_HASH, fromBase64Url, hashPassword, toBase64Url, verifyPassword } from './password';
 import {
   clearLoginFailures,
   findUserByEmail,
   getUser,
   lockedFor,
   recordLoginFailure,
+  setPasswordHash,
   type User,
 } from './repo/users';
 
 export const SESSION_COOKIE = 'wm_session';
 export const SESSION_SECONDS = 30 * 24 * 3600;
+export const RENEW_AFTER_SECONDS = 24 * 3600;
 export const MAX_LOGIN_FAILURES = 5;
 export const LOCK_SECONDS = 15 * 60;
 export const MIN_SECRET_LENGTH = 32;
@@ -48,13 +52,19 @@ export async function signSession(user: User, secret: string, now: number): Prom
   return `${data}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
-/** The user of a valid, unexpired session whose account still exists and was not signed out. */
+export interface Session {
+  user: User;
+  /** True when the cookie should be replaced by a fresh one (sliding expiry). */
+  renew: boolean;
+}
+
+/** A valid, unexpired session whose account still exists and was not signed out. */
 export async function readSession(
   sql: Sql,
   token: string,
   secret: string,
   now: number,
-): Promise<User | null> {
+): Promise<Session | null> {
   const [data, signature, extra] = token.split('.');
   if (!data || !signature || extra !== undefined) return null;
   try {
@@ -68,7 +78,8 @@ export async function readSession(
     const payload = SessionPayload.parse(JSON.parse(new TextDecoder().decode(fromBase64Url(data))));
     if (payload.exp <= now) return null;
     const user = await getUser(sql, payload.uid);
-    return user && user.sessionVersion === payload.ver ? user : null;
+    if (!user || user.sessionVersion !== payload.ver) return null;
+    return { user, renew: payload.exp - now < SESSION_SECONDS - RENEW_AFTER_SECONDS };
   } catch {
     return null;
   }
@@ -98,4 +109,26 @@ export async function login(
   }
   await recordLoginFailure(sql, email, now, MAX_LOGIN_FAILURES, LOCK_SECONDS);
   return { ok: false, reason: 'invalid' };
+}
+
+export type PasswordChangeResult =
+  | { ok: true; user: User }
+  | { ok: false; reason: 'invalid' }
+  | { ok: false; reason: 'locked'; retryAfter: number };
+
+/**
+ * Sets a new password after checking the current one (with the same lockout as
+ * the login). Raises session_version: every other device is signed out.
+ */
+export async function changePassword(
+  sql: Sql,
+  user: User,
+  currentPassword: string,
+  newPassword: string,
+  now: number,
+): Promise<PasswordChangeResult> {
+  const check = await login(sql, user.email, currentPassword, now);
+  if (!check.ok) return check;
+  const updated = await setPasswordHash(sql, user.id, await hashPassword(newPassword));
+  return updated ? { ok: true, user: updated } : { ok: false, reason: 'invalid' };
 }
