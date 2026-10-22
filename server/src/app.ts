@@ -12,9 +12,15 @@
  *   POST /v1/account/password  {currentPassword, newPassword} → 204 + new cookie;
  *                              403 wrong_password, 429 locked; other devices are signed out
  *   PUT  /v1/household         {name} → Me
+ *   GET  /v1/devices           → {devices: DeviceView[]} (not revoked)
+ *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
+ *   DELETE /v1/devices/:id     → 204, the device's token stops working
+ *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
+ *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
  * Me = {email, householdId, householdName}. Every signed-in request renews an
- * older session cookie (sliding expiry, auth.ts).
+ * older session cookie (sliding expiry, auth.ts). /v1/ingest is for devices:
+ * no cookie, no Origin.
  */
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
@@ -22,14 +28,24 @@ import { createMiddleware } from 'hono/factory';
 import { z } from 'zod';
 import {
   changePassword,
+  hashDeviceToken,
   login,
+  newDeviceToken,
   readSession,
   SESSION_COOKIE,
   SESSION_SECONDS,
   signSession,
 } from './auth';
 import type { Sql } from './db';
+import { DEFAULT_REQUESTS_PER_MINUTE, ingest, MAX_INGEST_BYTES } from './ingest';
 import { MIN_PASSWORD_LENGTH } from './password';
+import {
+  createDevice,
+  findActiveDeviceByTokenHash,
+  listDevices,
+  revokeDevice,
+  type Device,
+} from './repo/devices';
 import { databaseReachable } from './repo/health';
 import { getHousehold, renameHousehold } from './repo/households';
 import type { User } from './repo/users';
@@ -42,6 +58,8 @@ export interface AppConfig {
   allowedOrigins: string[];
   /** Current time in epoch seconds (tests set it). */
   now?: () => number;
+  /** Ingest requests a device may send per minute (catching up sends several). */
+  ingestRequestsPerMinute?: number;
 }
 
 type AppEnv = { Variables: { user: User } };
@@ -58,6 +76,21 @@ const PasswordBody = z.object({
 
 export const MAX_HOUSEHOLD_NAME = 60;
 const HouseholdBody = z.object({ name: z.string().trim().min(1).max(MAX_HOUSEHOLD_NAME) });
+
+export const MAX_DEVICE_NAME = 60;
+const DeviceBody = z.object({ name: z.string().trim().min(1).max(MAX_DEVICE_NAME) });
+
+const deviceView = (device: Device) => ({
+  id: device.id,
+  name: device.name,
+  model: device.model,
+  firmware: device.firmware,
+  scriptVersion: device.scriptVersion,
+  createdAt: device.createdAt,
+  lastSeenAt: device.lastSeenAt,
+});
+
+const BEARER = /^Bearer (\S{1,200})$/;
 
 const COOKIE_OPTIONS = {
   path: '/',
@@ -171,6 +204,55 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const user = c.get('user');
     await renameHousehold(config.sql, user.householdId, parsed.data.name);
     return c.json(await me(user));
+  });
+
+  app.get('/v1/devices', requireUser, async (c) => {
+    const devices = await listDevices(config.sql, c.get('user').householdId);
+    return c.json({ devices: devices.filter((d) => d.revokedAt === null).map(deviceView) });
+  });
+
+  app.post('/v1/devices', requireUser, async (c) => {
+    const parsed = await body(c, DeviceBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const token = newDeviceToken();
+    const device = await createDevice(
+      config.sql,
+      {
+        householdId: c.get('user').householdId,
+        name: parsed.data.name,
+        tokenHash: await hashDeviceToken(token),
+      },
+      now(),
+    );
+    return c.json({ device: deviceView(device), token }, 201);
+  });
+
+  app.delete('/v1/devices/:id', requireUser, async (c) => {
+    await revokeDevice(config.sql, c.get('user').householdId, c.req.param('id'), now());
+    return c.body(null, 204);
+  });
+
+  app.post('/v1/ingest', async (c) => {
+    const token = BEARER.exec(c.req.header('Authorization') ?? '')?.[1];
+    const device = token
+      ? await findActiveDeviceByTokenHash(config.sql, await hashDeviceToken(token))
+      : null;
+    if (!device) return c.json({ error: 'unauthenticated' }, 401);
+    if (Number(c.req.header('Content-Length') ?? 0) > MAX_INGEST_BYTES) {
+      return c.json({ error: 'payload_too_large' }, 413);
+    }
+    const outcome = await ingest(config.sql, device, await c.req.text(), now(), {
+      requestsPerMinute: config.ingestRequestsPerMinute ?? DEFAULT_REQUESTS_PER_MINUTE,
+    });
+    if (outcome.ok) {
+      const { stored, duplicates, rejected } = outcome;
+      return c.json({ stored, duplicates, rejected });
+    }
+    if (outcome.status === 429) {
+      c.header('Retry-After', String(outcome.retryAfter));
+      return c.json({ error: outcome.error, retryAfter: outcome.retryAfter }, 429);
+    }
+    return c.json({ error: outcome.error }, outcome.status);
   });
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));

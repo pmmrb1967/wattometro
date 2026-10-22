@@ -169,6 +169,66 @@ h2 {
   margin: 0;
 }
 
+/* Devices */
+.devices {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.device:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.created {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.created h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.copy-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.copy-label {
+  grid-column: 1 / -1;
+  font-weight: 600;
+}
+
+.copy-field code {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
 /* Forms */
 .form label {
   display: grid;

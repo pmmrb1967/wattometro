@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { Sql, SqlValue } from '../src/db';
+import type { Sql, SqlValue, Statement } from '../src/db';
 
 /** `source`: a migrations folder (every *.sql, in order) or one .sql file. */
 export function memorySql(source = 'migrations'): { sql: Sql; db: DatabaseSync } {
@@ -24,6 +24,17 @@ export function memorySql(source = 'migrations'): { sql: Sql; db: DatabaseSync }
     all: async <T>(query: string, ...params: SqlValue[]) => db.prepare(query).all(...params) as T[],
     run: async (query: string, ...params: SqlValue[]) => {
       db.prepare(query).run(...params);
+    },
+    batch: async (statements: Statement[]) => {
+      db.exec('BEGIN');
+      try {
+        const changes = statements.map((s) => Number(db.prepare(s.query).run(...s.params).changes));
+        db.exec('COMMIT');
+        return changes;
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
     },
   };
   return { sql, db };

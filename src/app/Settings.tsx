@@ -2,24 +2,12 @@
 import { useState, type FormEvent } from 'react';
 import { t } from '../i18n/pt-PT';
 import { changePassword, renameHousehold } from './api';
+import { DevicesSection } from './Devices';
 import { failureText, useSession } from './session';
+import { StatusLine, type Status } from './StatusLine';
 
 /** Same minimum as the server (server/src/password.ts), checked here for a quicker message. */
 const MIN_PASSWORD_LENGTH = 12;
-
-type Status = { kind: 'idle' | 'busy' } | { kind: 'done' | 'error'; text: string };
-
-function StatusLine({ status }: { status: Status }) {
-  if (status.kind === 'done') return <p className="success">{status.text}</p>;
-  if (status.kind === 'error') {
-    return (
-      <p className="error" role="alert">
-        {status.text}
-      </p>
-    );
-  }
-  return null;
-}
 
 function HouseholdForm() {
   const { me, update, signOut } = useSession();
@@ -139,6 +127,7 @@ export function Settings() {
       </section>
 
       <HouseholdForm />
+      <DevicesSection />
       <PasswordForm />
     </>
   );

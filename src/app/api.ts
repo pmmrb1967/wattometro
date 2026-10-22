@@ -5,6 +5,17 @@ import { z } from 'zod';
 const Health = z.object({ status: z.enum(['ok', 'degraded']), database: z.boolean() });
 export type Health = z.infer<typeof Health>;
 
+const Device = z.object({
+  id: z.string(),
+  name: z.string(),
+  model: z.string().nullable(),
+  firmware: z.string().nullable(),
+  scriptVersion: z.string().nullable(),
+  createdAt: z.number().int(),
+  lastSeenAt: z.number().int().nullable(),
+});
+export type Device = z.infer<typeof Device>;
+
 const Me = z.object({ email: z.string(), householdId: z.string(), householdName: z.string() });
 export type Me = z.infer<typeof Me>;
 
@@ -84,4 +95,33 @@ export async function renameHousehold(name: string): Promise<{ ok: true; me: Me 
   const response = await send('PUT', '/v1/household', { name });
   if (response?.ok) return { ok: true, me: Me.parse(await response.json()) };
   return failure(response, [400]);
+}
+
+export async function fetchDevices(): Promise<{ ok: true; devices: Device[] } | Failure> {
+  const response = await send('GET', '/v1/devices');
+  if (response?.ok) {
+    return {
+      ok: true,
+      devices: z.object({ devices: z.array(Device) }).parse(await response.json()).devices,
+    };
+  }
+  return failure(response, []);
+}
+
+/** The token comes only in this response: the server keeps just its hash. */
+export async function createDevice(
+  name: string,
+): Promise<{ ok: true; device: Device; token: string } | Failure> {
+  const response = await send('POST', '/v1/devices', { name });
+  if (response?.ok) {
+    const created = z.object({ device: Device, token: z.string() }).parse(await response.json());
+    return { ok: true, ...created };
+  }
+  return failure(response, [400]);
+}
+
+export async function revokeDevice(id: string): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', `/v1/devices/${encodeURIComponent(id)}`);
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
 }

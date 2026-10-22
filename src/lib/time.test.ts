@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   floorTo,
+  formatLisbonDateTime,
   HOUR,
   lisbonDate,
   lisbonDayLength,
@@ -95,5 +96,13 @@ describe('floorTo', () => {
 
   it('rejects intervals that do not divide an hour', () => {
     expect(() => floorTo(0, 7 * 60)).toThrow(RangeError);
+  });
+});
+
+describe('formatLisbonDateTime', () => {
+  it('shows Lisbon time, including both 01:30 of the 25-hour day', () => {
+    expect(formatLisbonDateTime(at('2026-07-05T08:07:00Z'))).toBe('05/07/2026 09:07');
+    expect(formatLisbonDateTime(at('2026-10-25T00:30:00Z'))).toBe('25/10/2026 01:30');
+    expect(formatLisbonDateTime(at('2026-10-25T01:30:00Z'))).toBe('25/10/2026 01:30');
   });
 });

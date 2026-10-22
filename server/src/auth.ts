@@ -3,7 +3,8 @@
  * Who is calling (adapted from poderebeleza, worker/auth.ts):
  * - people: email + password (password.ts), then a session in a signed
  *   HttpOnly/Secure/SameSite=Strict cookie (HMAC-SHA256 with SESSION_SECRET);
- * - Shelly devices: a per-device token, stored only as a hash (Phase 1).
+ * - Shelly devices: a per-device bearer token, stored only as its SHA-256
+ *   (a random 256-bit token needs no slow hash).
  *
  * The session carries the user's session_version, so raising it in the
  * database (e.g. on a password change) signs the user out everywhere.
@@ -83,6 +84,20 @@ export async function readSession(
   } catch {
     return null;
   }
+}
+
+/** Prefix of device tokens; a new token format would change it. */
+export const DEVICE_TOKEN_PREFIX = 'wm1_';
+
+/** A new device token (shown once to the user; only its hash is stored). */
+export function newDeviceToken(): string {
+  return DEVICE_TOKEN_PREFIX + toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+/** SHA-256 of a device token, hex: what devices.token_hash holds. */
+export async function hashDeviceToken(token: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(token)));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export type LoginResult =

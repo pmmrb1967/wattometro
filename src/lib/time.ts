@@ -108,3 +108,9 @@ export function floorTo(ts: EpochSeconds, size: number): EpochSeconds {
   }
   return ts - (((ts % size) + size) % size);
 }
+
+/** An instant as shown to the user: 'DD/MM/YYYY HH:MM' in Lisbon. */
+export function formatLisbonDateTime(ts: EpochSeconds): string {
+  const { year, month, day, hour, minute } = lisbonParts(ts);
+  return `${pad(day)}/${pad(month)}/${year} ${pad(hour)}:${pad(minute)}`;
+}

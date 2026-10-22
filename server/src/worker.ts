@@ -2,7 +2,7 @@
 /** Cloudflare Worker entry point. Configuration in server/wrangler.toml. */
 import { createApp } from './app';
 import { d1 } from './db';
-import { allowedOrigins, type Env } from './env';
+import { allowedOrigins, positiveInteger, type Env } from './env';
 
 export default {
   fetch(request: Request, env: Env): Response | Promise<Response> {
@@ -10,6 +10,7 @@ export default {
       sql: d1(env.DB),
       sessionSecret: env.SESSION_SECRET,
       allowedOrigins: allowedOrigins(env),
+      ingestRequestsPerMinute: positiveInteger(env.INGEST_REQUESTS_PER_MINUTE),
     });
     return app.fetch(request);
   },

@@ -35,7 +35,11 @@ describe('devices', () => {
       { householdId: home.id, name: 'Quadro', model: 'S3EM', tokenHash: HASH },
       NOW,
     );
-    expect(await findActiveDeviceByTokenHash(sql, HASH)).toEqual(device);
+    expect(await findActiveDeviceByTokenHash(sql, HASH)).toEqual({
+      ...device,
+      rateWindow: null,
+      rateCount: 0,
+    });
 
     await revokeDevice(sql, home.id, device.id, NOW + 60);
     expect(await findActiveDeviceByTokenHash(sql, HASH)).toBeNull();
@@ -81,6 +85,7 @@ describe('databaseReachable', () => {
       first: () => Promise.reject(new Error('down')),
       all: () => Promise.reject(new Error('down')),
       run: () => Promise.reject(new Error('down')),
+      batch: () => Promise.reject(new Error('down')),
     };
     expect(await databaseReachable(broken)).toBe(false);
   });

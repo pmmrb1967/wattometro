@@ -35,7 +35,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 ```
 
 - **Sem PC nem hub em casa.** O Shelly envia diretamente para o Worker através de um script interno.
-- O **script do Shelly** lê as medições a ~1 s e envia **um pedido por minuto** com: (a) o agregado do minuto (energia, potência média/mín./máx., tensão mín./méd./máx., fator de potência) e (b) os **60 valores ao segundo** de potência ativa (e potência reativa ou fator de potência, se o modelo os der ao segundo). Também trata **localmente** do alerta/corte de potência (funciona sem internet).
+- O **script do Shelly** lê as medições a ~1 s e envia **um pedido por minuto** com: (a) o agregado do minuto (energia, potência média/mín./máx., tensão mín./méd./máx., fator de potência) e (b) os **60 valores ao segundo** de potência ativa, potência não ativa (√(S² − P²)) e tensão. Também trata **localmente** do alerta/corte de potência (funciona sem internet).
 - **O script é "burro" e estável:** só recolhe e envia. Nenhuma deteção de eventos nem NILM no Shelly — essa lógica vive no browser, para poder ser melhorada e reprocessada sobre os dados ao segundo guardados. Única exceção: o alerta/corte de potência.
 - O **Worker** é fino: recebe, valida (zod), grava, serve agregados, autentica. Limite de **10 ms de CPU por pedido** no plano gratuito → nada de contas pesadas no Worker.
 - **Agregações** (1 min → 15 min → dia) feitas por Cron Trigger com `INSERT … SELECT` em SQL (o trabalho é do D1, não da CPU do Worker), sempre incrementais.
@@ -96,8 +96,8 @@ wattometro/
 ## Modelo de dados (resumo)
 
 - `households`, `devices` (token em hash, modelo Shelly, versão do script)
-- `readings_1m` — uma linha por dispositivo e minuto: `energy_wh`, `power_avg_w`, `power_min_w`, `power_max_w`, `voltage_min_dv`, `voltage_avg_dv`, `voltage_max_dv` (decivolts inteiros), `pf_avg_pct`. Retenção configurável (por defeito 24 meses).
-- `readings_1s` — uma linha por dispositivo e minuto com os valores ao segundo **compactados num BLOB** (inteiros; formato documentado em `docs/readings-1s.md`, com versão). Retenção curta (por defeito **90 dias**). Base da deteção de eventos e do NILM no browser.
+- `readings_1m` — uma linha por dispositivo, canal e minuto: `energy_wh`, `power_avg_w`, `power_min_w`, `power_max_w`, `voltage_min_dv`, `voltage_avg_dv`, `voltage_max_dv` (decivolts inteiros), `pf_avg_pct`. Retenção configurável (por defeito 24 meses).
+- `readings_1s` — uma linha por dispositivo, canal e minuto com os valores ao segundo **compactados num BLOB** (inteiros; formato documentado em `docs/readings-1s.md`, com versão). Retenção curta (por defeito **90 dias**). Base da deteção de eventos e do NILM no browser.
 - `signatures` — minutos marcados no modo de calibração ("liguei a máquina de lavar"), copiados de `readings_1s` e **sem expiração**.
 - `events`, `appliances`, `event_labels` — eventos detetados no browser e rótulos do utilizador (guardados no servidor para sincronizar entre dispositivos).
 - `readings_15m` — energia e potência máxima por 15 min, **alinhados com a E-Redes**; origem `shelly` ou `eredes`. Retenção indefinida.
@@ -105,7 +105,7 @@ wattometro/
 - `voltage_events`, `outages` — derivados dos minutos.
 - `tariffs` — tarifário da casa (opção horária, potência, preços, validade).
 
-Orçamento de armazenamento no plano gratuito: **500 MB por base D1**. `readings_1m` ≈ 50–80 MB por ano por dispositivo; `readings_1s` ≈ 100–300 KB por dia, ou seja, algumas dezenas de MB com 90 dias de retenção. Os dados ao segundo **não aumentam o número de pedidos nem de linhas escritas** (vão no mesmo pedido e na mesma linha por minuto). Se o tamanho se aproximar do limite, mover `readings_1s` (e depois `readings_1m`) para uma base separada (padrão já usado no Faturómetro com `FILES`).
+Orçamento de armazenamento no plano gratuito: **500 MB por base D1**. `readings_1m` ≈ 50–80 MB por ano por dispositivo; `readings_1s` ≈ 0,5 MB por dia (361 bytes por minuto), ou seja, ≈ 47 MB com 90 dias de retenção. Os dados ao segundo **não aumentam o número de pedidos nem de linhas escritas** (vão no mesmo pedido e na mesma linha por minuto). Se o tamanho se aproximar do limite, mover `readings_1s` (e depois `readings_1m`) para uma base separada (padrão já usado no Faturómetro com `FILES`).
 
 ## Regras de domínio
 

@@ -75,6 +75,7 @@ describe('GET /v1/health', () => {
       first: () => Promise.reject(new Error('down')),
       all: () => Promise.reject(new Error('down')),
       run: () => Promise.reject(new Error('down')),
+      batch: () => Promise.reject(new Error('down')),
     };
     const response = await createApp({
       sql: broken,
@@ -331,6 +332,7 @@ describe('allowedOrigins', () => {
           prepare: () => {
             throw new Error('unused');
           },
+          batch: () => Promise.reject(new Error('unused')),
         },
         SESSION_SECRET: SECRET,
         ALLOWED_ORIGINS: ' https://a , https://b,',

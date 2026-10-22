@@ -4,3 +4,5 @@ coverage
 pnpm-lock.yaml
 *.md
 public/data
+# Shelly script: conservative JavaScript for the device's interpreter (no trailing commas)
+shelly/*.js

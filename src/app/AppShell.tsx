@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { fetchHealth, fetchMe, logout, type Me } from './api';
@@ -43,9 +43,9 @@ export function AppShell() {
   const server = useServerState();
   const [me, setMe] = useMe();
 
-  const context: SessionContext | null = me
-    ? { me, update: setMe, signOut: () => void logout().then(() => setMe(null)) }
-    : null;
+  // Stable, so pages can depend on it in effects.
+  const signOut = useCallback(() => void logout().then(() => setMe(null)), [setMe]);
+  const context: SessionContext | null = me ? { me, update: setMe, signOut } : null;
 
   return (
     <div className="page">

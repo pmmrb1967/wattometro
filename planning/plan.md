@@ -60,28 +60,30 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 ## Fase 1 — Ingestão Shelly
 
 ### 1.1 Preparação
-- [ ] **Confirmar modelo do Shelly** (ex.: EM Gen3, Pro EM-50) e firmware; registar em `docs/shelly.md`
+- [ ] **Confirmar modelo do Shelly** (ex.: EM Gen3, Pro EM-50) e firmware; registar em `docs/shelly.md` — EM Gen3 encomendado; `docs/shelly.md` escrito a partir da documentação oficial, falta confirmar com o aparelho
 - [ ] Capturar respostas reais de `EM1.GetStatus`/`EM.GetStatus` e `EM1Data`/`EMData` → `fixtures/private/`; criar equivalentes sintéticas
 - [ ] Confirmar suporte de scripts, `Timer`, `HTTP.POST` com HTTPS e limites de memória do script
 - [ ] Confirmar **como o script obtém medições a cada segundo** (handler de estado vs `Timer` a 1 s com `EM1.GetStatus`) e **que grandezas existem ao segundo** (potência ativa, aparente, FP; potência reativa direta ou derivada)
 - [ ] Medir o tamanho real do pedido por minuto (agregado + arrays) e confirmar que o Shelly o envia sem problemas
 
 ### 1.2 Servidor
-- [ ] Migração `readings_1m` (ver `CLAUDE.md`), com índice `(device_id, ts)`
-- [ ] Migração `readings_1s` (uma linha por minuto, valores ao segundo num BLOB); formato binário versionado e documentado em `docs/readings-1s.md` (ex.: int16/int32 little-endian, segundos em falta marcados)
-- [ ] Funções de codificação/descodificação partilhadas entre servidor e browser, com testes de ida e volta
-- [ ] Registo de dispositivo: gera token, guarda só o hash, mostra o token uma vez
-- [ ] `POST /v1/ingest`: autenticação por token, validação zod, payload com versão do script, idempotente (reenvio do mesmo minuto não duplica), aceita lotes (minutos em atraso); grava o agregado em `readings_1m` e os arrays em `readings_1s` na mesma operação
-- [ ] Limites por dispositivo (tamanho do payload, pedidos por minuto)
-- [ ] Testes: duplicados, minutos fora de ordem, payload inválido, token errado
+- [x] Migração `readings_1m` (ver `CLAUDE.md`), com chave `(device_id, channel, ts)` — `0003_readings.sql`
+- [x] Migração `readings_1s` (uma linha por minuto, valores ao segundo num BLOB); formato binário versionado e documentado em `docs/readings-1s.md` (P, Q não ativa e V em int16 little-endian, segundos em falta marcados)
+- [x] Funções de codificação/descodificação partilhadas entre servidor e browser, com testes de ida e volta (`src/lib/readings-1s.ts`)
+- [x] Registo de dispositivo: gera token, guarda só o hash, mostra o token uma vez (Definições → Dispositivos)
+- [x] `POST /v1/ingest`: autenticação por token, validação zod, payload com versão do script, idempotente (reenvio do mesmo minuto não duplica), aceita lotes (minutos em atraso); grava o agregado em `readings_1m` e os arrays em `readings_1s` na mesma operação
+- [x] Limites por dispositivo (tamanho do payload, pedidos por minuto)
+- [x] Testes: duplicados, minutos fora de ordem, payload inválido, token errado
 
 ### 1.3 Script no Shelly (`shelly/wattometro.js`)
-- [ ] Ler medições a ~1 s; agregar por minuto: energia (Wh), potência méd./mín./máx., tensão mín./méd./máx., FP médio
-- [ ] Juntar ao pedido os 60 valores ao segundo (potência ativa; e reativa ou FP, se disponível), como inteiros
-- [ ] **Sem lógica de deteção no script** (só recolhe e envia), exceto o alerta/corte de potência da Fase 4
-- [ ] Enviar 1×/min; em falha, guardar os minutos em fila (limitada pela memória; se faltar memória, descartar primeiro os arrays ao segundo e manter os agregados) e reenviar em lote
-- [ ] Configuração por `KVS` do Shelly (URL, token, limiares) — nada fixo no código
-- [ ] `shelly/README.md` com instalação passo a passo
+- [x] Ler medições a ~1 s; agregar por minuto: energia (Wh), potência méd./mín./máx., tensão mín./méd./máx., FP médio
+- [x] Juntar ao pedido os 60 valores ao segundo (potência ativa, potência não ativa e tensão), como inteiros
+- [x] **Sem lógica de deteção no script** (só recolhe e envia), exceto o alerta/corte de potência da Fase 4
+- [x] Enviar 1×/min; em falha, guardar os minutos em fila (limitada pela memória; se faltar memória, descartar primeiro os arrays ao segundo e manter os agregados) e reenviar em lote
+- [x] Configuração por `KVS` do Shelly (URL, token, canal; limiares na Fase 4) — nada fixo no código
+- [x] `shelly/README.md` com instalação passo a passo
+- [x] Teste do script num Shelly simulado contra o servidor real (`shelly/wattometro.test.ts`), incluindo 30 min sem internet
+- [ ] Correr o script num Shelly real (quando chegar)
 
 ### 1.4 Agregações (Cron)
 - [ ] Migrações `readings_15m`, `daily`
@@ -269,3 +271,9 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-21 — **Cloudflare Zero Trust posto de parte** (o plano Free pede cartão de crédito, como no poderebeleza). Login próprio adaptado do poderebeleza: tabela `users` (com `household_id`), PBKDF2-SHA256 100 000 iterações (medido em produção: cabe no limite de CPU gratuito), sessão de 30 dias em cookie `__Host-wm_session` assinado (HMAC, secret `SESSION_SECRET`), `session_version` para terminar sessões, 5 falhas → 15 min de bloqueio, contas só por `pnpm user:create`.
 - 2026-10-21 — Sessão deslizante (renovada quando usada mais de 24 h depois de emitida; termina ao fim de 30 dias sem uso). Página Definições: conta, sair, nome da casa, mudar a password (termina as sessões noutros dispositivos). Testado em produção: duas verificações PBKDF2 no mesmo pedido cabem no limite de CPU gratuito.
 - 2026-10-21 — Logótipo: "Traço W" — um W (de Watt) sob o arco de um mostrador, ciano `#5fdde3` e branco `#f6f7f4` sobre violeta `#2e2250`; mesma construção do ícone do Faturómetro. Fonte: `public/icon.svg` (gera os ícones da PWA); versão com nome em `assets/logo-lockup.svg` (texto ainda por converter em contornos).
+- 2026-10-22 — Hardware: **Shelly EM Gen3** (monofásico, 2 canais, scripts). O Shelly EM Gen1 encomendado primeiro não serve (sem scripts). `docs/shelly.md` escrito a partir da documentação oficial; confirmações pendentes listadas lá.
+- 2026-10-22 — Valores ao segundo: **P (W), potência não ativa √(S² − P²) (VAr) e V (dV)**, int16 (formato 1 de `docs/readings-1s.md`, 361 bytes/min ≈ 47 MB em 90 dias). O FP a 1 % esconderia 70–145 VAr com 2 kW de base; a tensão permite normalizar a potência a 230 V na deteção. A não ativa não tem sinal (o Shelly não distingue indutiva de capacitiva).
+- 2026-10-22 — Energia por minuto = `floor(contador no fim) − floor(contador no início)`: inteiros em Wh cuja soma é exatamente a do contador do Shelly.
+- 2026-10-22 — Leituras com **canal** na chave (`device_id, channel, ts`), para uma segunda pinça sem migração. Tabelas com `household_id`.
+- 2026-10-22 — Ingestão: token por dispositivo (`Authorization: Bearer`, SHA-256 na base), payload JSON formato 1 com chaves curtas (o Shelly envia no máximo 8192 bytes por pedido → lotes de ~6 minutos), cada minuto validado à parte (um minuto inválido não bloqueia os outros), reenvios contam como duplicados, escrita num só `batch` D1 (transação), 20 pedidos/min por dispositivo (`INGEST_REQUESTS_PER_MINUTE`).
+- 2026-10-22 — Script do Shelly: fila em RAM até 240 minutos; com pouca memória descarta primeiro os valores ao segundo dos minutos mais antigos; espera de 10 s a 5 min entre tentativas falhadas. JavaScript conservador e fora do Prettier (sem vírgulas finais).
