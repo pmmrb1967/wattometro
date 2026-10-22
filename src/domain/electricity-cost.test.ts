@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { startOfLisbonDay } from '../lib/time';
 import { electricityCost, energyByPeriod, reducedVatWh } from './electricity-cost';
-import type { TariffInput } from './tariff';
+import { tariffInputSchema, type TariffInput } from './tariff';
 
 const simple: TariffInput = {
   validFrom: '2026-01-01',
@@ -17,6 +19,10 @@ const simple: TariffInput = {
   cavPerMonth: 2_850_000, // 2,85 €/month
   dgegPerMonth: 70_000, // 0,07 €/month
   largeFamily: false,
+  energyDiscountBp: 0,
+  socialEnergyPerKwh: 0,
+  socialPowerPerDay: 0,
+  socialFinancingPerKwh: 0,
 };
 
 const tri: TariffInput = {
@@ -101,5 +107,56 @@ describe('energyByPeriod', () => {
       empty: 300,
     });
     expect(energyByPeriod(quarters, simple)).toEqual({ simple: 1100 });
+  });
+});
+
+describe('electricityCost with discounts and the tarifa social', () => {
+  it('30 days of 300 kWh (calculated by hand)', () => {
+    const tariff: TariffInput = {
+      ...simple,
+      fixedPerDay: 500_000, // 0,50 €/day
+      energy: { simple: 200_000 }, // 0,20 €/kWh
+      iecPerKwh: 0,
+      cavPerMonth: 0,
+      dgegPerMonth: 0,
+      energyDiscountBp: 500, // 5 %
+      socialEnergyPerKwh: 50_000, // 0,05 €/kWh
+      socialPowerPerDay: 200_000, // 0,20 €/day
+      socialFinancingPerKwh: 2_000, // 0,002 €/kWh
+    };
+    // Energy: 300 × 0,20 = 60 €; − 5 % = 57 €; + 300 × (0,002 − 0,05) = −14,40 € → 42,60 €
+    //   VAT 6 % on 200 kWh, 23 % on 100 kWh: 42,60 × (1 + 3500 / 30000) = 47,57 €
+    // Power: (0,50 − 0,20) × 30 = 9 € × 1,23 = 11,07 €
+    expect(electricityCost({ simple: 300_000 }, 30, tariff)).toEqual({
+      energyCents: 4757,
+      powerCents: 1107,
+      taxesCents: 0,
+      totalCents: 5864,
+      reducedWh: 200_000,
+    });
+  });
+});
+
+// Real invoices (fixtures/private, local only): the estimate must match the invoice total.
+const REAL = join(__dirname, '..', '..', 'fixtures', 'private', 'repsol-electricity-invoices.json');
+const realInvoices = existsSync(REAL)
+  ? (
+      JSON.parse(readFileSync(REAL, 'utf8')) as {
+        invoices: {
+          file: string;
+          days: number;
+          energyWh: Record<string, number>;
+          tariff: unknown;
+          invoice: { totalCents: number };
+        }[];
+      }
+    ).invoices
+  : [];
+
+describe.skipIf(realInvoices.length === 0)('electricityCost against real invoices', () => {
+  it.each(realInvoices)('$file: within 2 cents of the invoice', (invoice) => {
+    const tariff = tariffInputSchema.parse(invoice.tariff);
+    const cost = electricityCost(invoice.energyWh, invoice.days, tariff);
+    expect(Math.abs(cost.totalCents - invoice.invoice.totalCents)).toBeLessThanOrEqual(2);
   });
 });

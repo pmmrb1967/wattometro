@@ -21,11 +21,16 @@ interface TariffRow {
   cav_per_month: number;
   dgeg_per_month: number;
   large_family: number;
+  energy_discount_bp: number;
+  social_energy_per_kwh: number;
+  social_power_per_day: number;
+  social_financing_per_kwh: number;
 }
 
 const COLUMNS = `id, valid_from, supplier, power_va, option, cycle, periods_map, fixed_per_day,
   price_simple, price_off_empty, price_empty, price_full, price_peak, iec_per_kwh,
-  cav_per_month, dgeg_per_month, large_family`;
+  cav_per_month, dgeg_per_month, large_family, energy_discount_bp, social_energy_per_kwh,
+  social_power_per_day, social_financing_per_kwh`;
 
 const optional = (value: number | null) => (value === null ? undefined : value);
 
@@ -55,6 +60,10 @@ const fromRow = (row: TariffRow): Tariff => {
     cavPerMonth: row.cav_per_month,
     dgegPerMonth: row.dgeg_per_month,
     largeFamily: row.large_family === 1,
+    energyDiscountBp: row.energy_discount_bp,
+    socialEnergyPerKwh: row.social_energy_per_kwh,
+    socialPowerPerDay: row.social_power_per_day,
+    socialFinancingPerKwh: row.social_financing_per_kwh,
   };
 };
 
@@ -78,8 +87,10 @@ export async function saveTariff(
   await sql.run(
     `INSERT INTO tariffs (id, household_id, valid_from, supplier, power_va, option, cycle,
        periods_map, fixed_per_day, price_simple, price_off_empty, price_empty, price_full,
-       price_peak, iec_per_kwh, cav_per_month, dgeg_per_month, large_family, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       price_peak, iec_per_kwh, cav_per_month, dgeg_per_month, large_family,
+       energy_discount_bp, social_energy_per_kwh, social_power_per_day,
+       social_financing_per_kwh, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (household_id, valid_from) DO UPDATE SET
        id = excluded.id, supplier = excluded.supplier, power_va = excluded.power_va,
        option = excluded.option, cycle = excluded.cycle, periods_map = excluded.periods_map,
@@ -88,6 +99,10 @@ export async function saveTariff(
        price_full = excluded.price_full, price_peak = excluded.price_peak,
        iec_per_kwh = excluded.iec_per_kwh, cav_per_month = excluded.cav_per_month,
        dgeg_per_month = excluded.dgeg_per_month, large_family = excluded.large_family,
+       energy_discount_bp = excluded.energy_discount_bp,
+       social_energy_per_kwh = excluded.social_energy_per_kwh,
+       social_power_per_day = excluded.social_power_per_day,
+       social_financing_per_kwh = excluded.social_financing_per_kwh,
        created_at = excluded.created_at`,
     id,
     householdId,
@@ -107,6 +122,10 @@ export async function saveTariff(
     tariff.cavPerMonth,
     tariff.dgegPerMonth,
     tariff.largeFamily ? 1 : 0,
+    tariff.energyDiscountBp,
+    tariff.socialEnergyPerKwh,
+    tariff.socialPowerPerDay,
+    tariff.socialFinancingPerKwh,
     now,
   );
   return { ...tariff, id };

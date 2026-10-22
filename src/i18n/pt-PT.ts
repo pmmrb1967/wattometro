@@ -142,6 +142,15 @@ export const t = {
         full: 'Cheias',
         peak: 'Ponta',
       },
+      energyDiscount: 'Desconto na energia (%)',
+      energyDiscountHint:
+        'Soma dos descontos do comercializador sobre a energia (débito direto, fatura eletrónica, dual…). Ex.: 1 % + 1 % + 2 % = 4.',
+      socialTitle: 'Tarifa social',
+      socialHint:
+        'Só se a fatura tiver "Desc. Social": copia os valores por kWh e por dia, sem o sinal menos. Sem tarifa social, deixa 0.',
+      socialEnergy: 'Desconto social na energia (€/kWh)',
+      socialPower: 'Desconto social na potência (€/dia)',
+      socialFinancing: 'Financiamento da tarifa social (€/kWh)',
       taxesTitle: 'Taxas da fatura',
       taxesHint: 'Opcionais: deixa 0 se não as encontrares na fatura.',
       iec: 'Imposto especial de consumo — IEC (€/kWh)',

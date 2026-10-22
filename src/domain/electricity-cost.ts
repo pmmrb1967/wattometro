@@ -3,6 +3,8 @@
 /**
  * Cost of electricity over whole days, with the household's own contract:
  *   fixed term × days + Σ Wh × price + IEC + CAV + DGEG fee + VAT
+ * with the supplier's discount on energy, the tarifa social discounts and the
+ * tarifa social financing, as on a Repsol invoice (docs/electricity-vat.md).
  * VAT rules: docs/electricity-vat.md (src/data/electricity-vat.json).
  *
  * Exact integer arithmetic: Wh × µ€/kWh gives nano-euros (BigInt), and each
@@ -11,7 +13,7 @@
  * year (× 12 / 365) and the ≤ 3,45 kVA access-tariff VAT detail is ignored.
  */
 import vat from '../data/electricity-vat.json';
-import { nanoToCents, type Cents } from '../lib/money';
+import { divideRounded, nanoToCents, type Cents } from '../lib/money';
 import type { EpochSeconds } from '../lib/time';
 import type { Wh } from '../lib/units';
 import type { BillingPeriod, TariffInput } from './tariff';
@@ -20,9 +22,9 @@ import { billingPeriod } from './time-cycles';
 export type EnergyByPeriod = Partial<Record<BillingPeriod, Wh>>;
 
 export interface Cost {
-  /** Energy with its VAT. */
+  /** Energy with its VAT (after discounts; with the social discount and financing). */
   energyCents: Cents;
-  /** Fixed (power) term with its VAT. */
+  /** Fixed (power) term with its VAT (after the social discount). */
   powerCents: Cents;
   /** IEC, CAV and DGEG fee, with their VAT. */
   taxesCents: Cents;
@@ -33,6 +35,10 @@ export interface Cost {
 
 const NANO_PER_MICRO = 1000n;
 const PCT = 100n;
+const BP = 10_000n;
+
+/** Discounts never take a component below zero. */
+const atLeastZero = (nano: bigint) => (nano < 0n ? 0n : nano);
 
 /** Energy (Wh) taxed at the reduced rate over `days` days: 200 kWh per 30 days, up to 6,9 kVA. */
 export function reducedVatWh(totalWh: Wh, days: number, tariff: TariffInput): Wh {
@@ -72,6 +78,12 @@ export function electricityCost(energy: EnergyByPeriod, days: number, tariff: Ta
     totalWh += wh;
     energyNano += BigInt(wh) * BigInt(price);
   }
+  // Supplier's discount on the energy term only; then the tarifa social lines (per kWh).
+  energyNano -= divideRounded(energyNano * BigInt(tariff.energyDiscountBp), BP);
+  energyNano = atLeastZero(
+    energyNano +
+      BigInt(totalWh) * (BigInt(tariff.socialFinancingPerKwh) - BigInt(tariff.socialEnergyPerKwh)),
+  );
   const iecNano = BigInt(totalWh) * BigInt(tariff.iecPerKwh);
 
   // Energy and IEC: reduced rate on the first kWh, normal rate on the rest (by energy share).
@@ -86,7 +98,9 @@ export function electricityCost(energy: EnergyByPeriod, days: number, tariff: Ta
           (BigInt(totalWh) * PCT);
 
   const day = BigInt(days);
-  const fixedNano = day * BigInt(tariff.fixedPerDay) * NANO_PER_MICRO;
+  const fixedNano = atLeastZero(
+    day * (BigInt(tariff.fixedPerDay) - BigInt(tariff.socialPowerPerDay)) * NANO_PER_MICRO,
+  );
   const perDay = (perMonth: number) => (day * BigInt(perMonth) * 12n * NANO_PER_MICRO) / 365n;
 
   const energyCents = nanoToCents(blended(energyNano));

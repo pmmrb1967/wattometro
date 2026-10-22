@@ -92,6 +92,28 @@ export function parsePtPrice(text: string): MicroEuros | null {
   return Number(integerPart) * 1_000_000 + Number(decimals.padEnd(6, '0'));
 }
 
+/** Hundredths of a percent (basis points): 400 = 4 %. */
+export type BasisPoints = number;
+
+const PT_PERCENT = /^(\d{1,3})(?:[,.](\d{1,2}))?$/;
+
+/** "4" or "4,5 %" → 400 / 450; null if not a percentage up to 100 % with 2 decimals. */
+export function parsePtPercent(text: string): BasisPoints | null {
+  const match = PT_PERCENT.exec(text.replace(/%/g, '').trim());
+  if (!match) return null;
+  const [, integerPart = '', decimals = ''] = match;
+  const bp = Number(integerPart) * 100 + Number(decimals.padEnd(2, '0'));
+  return bp <= 10_000 ? bp : null;
+}
+
+/** Basis points as text for an input field (450 → "4,5"). */
+export function bpToPtInput(bp: BasisPoints): string {
+  const decimals = String(bp % 100)
+    .padStart(2, '0')
+    .replace(/0+$/, '');
+  return decimals === '' ? String(Math.floor(bp / 100)) : `${Math.floor(bp / 100)},${decimals}`;
+}
+
 /** A decimal price as published (ERSE offers) → micro-euros. */
 export function eurosToMicro(euros: number): MicroEuros {
   const micro = Math.round(euros * 1_000_000);

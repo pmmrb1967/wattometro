@@ -169,6 +169,10 @@ describe('savings', () => {
     cavPerMonth: 2_850_000,
     dgegPerMonth: 70_000,
     largeFamily: false,
+    energyDiscountBp: 0,
+    socialEnergyPerKwh: 0,
+    socialPowerPerDay: 0,
+    socialFinancingPerKwh: 0,
   };
   const offer = (id: string, supplier: string, at69: number, at575: number): Offer => ({
     id,

@@ -32,6 +32,8 @@ export const MAX_PRICE_MICRO = 10_000_000;
 export const MAX_SUPPLIER = 60;
 
 const price = z.number().int().min(0).max(MAX_PRICE_MICRO);
+/** Hundredths of a percent: 400 = 4 %. */
+export const MAX_DISCOUNT_BP = 10_000;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const tariffInputSchema = z
@@ -54,6 +56,13 @@ export const tariffInputSchema = z
       full: price.optional(),
       peak: price.optional(),
     }),
+    /** Supplier's discount on the energy term (e.g. direct debit, e-invoice), ‱. */
+    energyDiscountBp: z.number().int().min(0).max(MAX_DISCOUNT_BP).default(0),
+    /** Tarifa social: discounts on the network access, µ€/kWh and µ€/day (subtracted). */
+    socialEnergyPerKwh: price.default(0),
+    socialPowerPerDay: price.default(0),
+    /** Financing of the tarifa social, µ€/kWh (on every invoice since 2026). */
+    socialFinancingPerKwh: price.default(0),
     /** Imposto especial de consumo, µ€/kWh. */
     iecPerKwh: price,
     /** Contribuição audiovisual and DGEG fee, µ€/month. */

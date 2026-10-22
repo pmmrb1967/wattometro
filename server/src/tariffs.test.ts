@@ -64,7 +64,24 @@ const TARIFF = {
   cavPerMonth: 2_850_000,
   dgegPerMonth: 70_000,
   largeFamily: true,
+  energyDiscountBp: 400,
+  socialEnergyPerKwh: 46_800,
+  socialPowerPerDay: 216_600,
+  socialFinancingPerKwh: 2_067,
 };
+
+/** Before migration 0008 (an app still cached in a browser): the new fields default to 0. */
+const OLD_TARIFF = Object.fromEntries(
+  Object.entries(TARIFF).filter(
+    ([key]) =>
+      ![
+        'energyDiscountBp',
+        'socialEnergyPerKwh',
+        'socialPowerPerDay',
+        'socialFinancingPerKwh',
+      ].includes(key),
+  ),
+);
 
 const list = async (cookie: string) =>
   ((await (await request(cookie, 'GET', '/v1/tariffs')).json()) as { tariffs: unknown[] }).tariffs;
@@ -98,6 +115,28 @@ describe('/v1/tariffs', () => {
     const tariffs = await list(cookie);
     expect(tariffs).toHaveLength(1);
     expect(tariffs[0]).toMatchObject({ fixedPerDay: 400_000 });
+  });
+
+  it('accepts a contract without the discounts (older app), as zero', async () => {
+    const cookie = await signIn();
+    expect((await request(cookie, 'POST', '/v1/tariffs', OLD_TARIFF)).status).toBe(201);
+    expect(await list(cookie)).toEqual([
+      expect.objectContaining({
+        energyDiscountBp: 0,
+        socialEnergyPerKwh: 0,
+        socialPowerPerDay: 0,
+        socialFinancingPerKwh: 0,
+      }),
+    ]);
+  });
+
+  it('rejects a discount above 100 %', async () => {
+    const cookie = await signIn();
+    const response = await request(cookie, 'POST', '/v1/tariffs', {
+      ...TARIFF,
+      energyDiscountBp: 10_001,
+    });
+    expect(response.status).toBe(400);
   });
 
   it('rejects a contract without the prices of its option', async () => {

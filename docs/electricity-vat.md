@@ -35,3 +35,9 @@ Numa fatura Repsol de 6,9 kVA com 31 dias e 226 kWh: 207 kWh a 6 % (31/30 × 200
 Valores usados: `src/data/electricity-vat.json`. O limiar aplica-se a um período de qualquer duração (num dia: 200/30 kWh).
 
 As taxas da fatura (IEC, CAV, taxa DGEG) não fazem parte dos dados de referência: o utilizador copia-as da sua fatura para o tarifário da casa. A CAV leva 6 % e a taxa DGEG 23 % (tabela acima e fatura Repsol). **Por confirmar com uma fatura real:** o IVA do IEC (imposto especial de consumo). A tabela da ERSE não o refere; a app segue o Faturómetro e aplica-lhe a divisão da energia (6 %/23 %).
+
+**Descontos e tarifa social no tarifário da casa** (fatura Repsol de junho de 2026, consultada em 2026-10-22):
+- Os descontos do comercializador ("Desc. FE", "Desc. DD", "Desc. Dual") são percentagens **só do termo de energia**, e seguem a divisão do IVA da energia. Ficam somados num único campo.
+- O desconto social na energia (€/kWh) e o financiamento da tarifa social (€/kWh, em todas as faturas desde 1 de janeiro de 2026) seguem a divisão do IVA da energia. O desconto social na potência (€/dia) leva 23 %, como o termo de potência.
+- Com tarifa social, o IEC aparece **isento** (0,00 €). Esta fatura não serve por isso para confirmar o IVA do IEC, que continua por confirmar.
+- Com estes campos, a estimativa da app fica a menos de 2 cêntimos do total da fatura (teste local com a fatura em `fixtures/private/`, que não vai para o repositório).

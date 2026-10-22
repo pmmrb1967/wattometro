@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  bpToPtInput,
+  parsePtPercent,
   centsToPtInput,
   divideRounded,
   eurosToMicro,
@@ -110,5 +112,23 @@ describe('unit prices in micro-euros', () => {
     expect(divideRounded(4n, 3n)).toBe(1n);
     // 2,5 kWh × 0,1665 €/kWh = 0,41625 € → 42 cents.
     expect(nanoToCents(2500n * 166_500n)).toBe(42);
+  });
+});
+
+describe('parsePtPercent / bpToPtInput', () => {
+  it('reads percentages with up to 2 decimals', () => {
+    expect(parsePtPercent('4')).toBe(400);
+    expect(parsePtPercent('4,5 %')).toBe(450);
+    expect(parsePtPercent('0.25')).toBe(25);
+    expect(parsePtPercent('100')).toBe(10_000);
+    expect(parsePtPercent('100,01')).toBeNull();
+    expect(parsePtPercent('-1')).toBeNull();
+    expect(parsePtPercent('4,555')).toBeNull();
+  });
+
+  it('writes them back without trailing zeros', () => {
+    expect(bpToPtInput(400)).toBe('4');
+    expect(bpToPtInput(450)).toBe('4,5');
+    expect(bpToPtInput(25)).toBe('0,25');
   });
 });

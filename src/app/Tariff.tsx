@@ -14,7 +14,7 @@ import {
   type TariffOption,
 } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
-import { microToPtInput, parsePtPrice } from '../lib/money';
+import { bpToPtInput, microToPtInput, parsePtPercent, parsePtPrice } from '../lib/money';
 import { formatLocalDate, lisbonToday } from '../lib/time';
 import { formatKva } from '../lib/units';
 import { deleteTariff, fetchTariffs, saveTariff } from './api';
@@ -59,6 +59,9 @@ function readForm(form: FormData, option: TariffOption): TariffInput | string {
       `energy-${period}`,
       texts.periods[period],
     ]),
+    ['socialEnergyPerKwh', texts.socialEnergy],
+    ['socialPowerPerDay', texts.socialPower],
+    ['socialFinancingPerKwh', texts.socialFinancing],
     ['iecPerKwh', texts.iec],
     ['cavPerMonth', texts.cav],
     ['dgegPerMonth', texts.dgeg],
@@ -69,6 +72,9 @@ function readForm(form: FormData, option: TariffOption): TariffInput | string {
     if (value === null) return label;
     prices[name] = value;
   }
+  const discountText = String(form.get('energyDiscount') ?? '').trim();
+  const energyDiscountBp = discountText === '' ? 0 : parsePtPercent(discountText);
+  if (energyDiscountBp === null) return texts.energyDiscount;
   const supplier = String(form.get('supplier') ?? '').trim();
   const parsed = tariffInputSchema.safeParse({
     validFrom: String(form.get('validFrom')),
@@ -85,6 +91,10 @@ function readForm(form: FormData, option: TariffOption): TariffInput | string {
     cavPerMonth: prices.cavPerMonth,
     dgegPerMonth: prices.dgegPerMonth,
     largeFamily: form.get('largeFamily') === 'on',
+    energyDiscountBp,
+    socialEnergyPerKwh: prices.socialEnergyPerKwh,
+    socialPowerPerDay: prices.socialPowerPerDay,
+    socialFinancingPerKwh: prices.socialFinancingPerKwh,
   });
   return parsed.success ? parsed.data : texts.invalid;
 }
@@ -206,11 +216,42 @@ function TariffForm({
             value={initial?.energy[period]}
           />
         ))}
+        <label>
+          {texts.energyDiscount}
+          <input
+            name="energyDiscount"
+            inputMode="decimal"
+            autoComplete="off"
+            defaultValue={bpToPtInput(initial?.energyDiscountBp ?? 0)}
+            placeholder="0"
+          />
+          <span className="hint">{texts.energyDiscountHint}</span>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>{texts.socialTitle}</legend>
+        <p className="hint">{texts.socialHint}</p>
+        <PriceField
+          name="socialEnergyPerKwh"
+          label={texts.socialEnergy}
+          value={initial?.socialEnergyPerKwh ?? 0}
+        />
+        <PriceField
+          name="socialPowerPerDay"
+          label={texts.socialPower}
+          value={initial?.socialPowerPerDay ?? 0}
+        />
       </fieldset>
 
       <fieldset>
         <legend>{texts.taxesTitle}</legend>
         <p className="hint">{texts.taxesHint}</p>
+        <PriceField
+          name="socialFinancingPerKwh"
+          label={texts.socialFinancing}
+          value={initial?.socialFinancingPerKwh ?? 0}
+        />
         <PriceField name="iecPerKwh" label={texts.iec} value={initial?.iecPerKwh ?? 0} />
         <PriceField name="cavPerMonth" label={texts.cav} value={initial?.cavPerMonth ?? 0} />
         <PriceField name="dgegPerMonth" label={texts.dgeg} value={initial?.dgegPerMonth ?? 0} />
