@@ -7,6 +7,10 @@ export const t = {
   tagline: 'O consumo elétrico da casa transformado em poupança concreta.',
   loading: 'A carregar…',
   signOut: 'Sair',
+  navToggle: {
+    collapse: 'Recolher menu',
+    expand: 'Expandir menu',
+  },
   signOutLabel: 'Sair: terminar a sessão neste dispositivo',
   nav: {
     home: 'Início',

@@ -14,6 +14,17 @@ import type { SessionContext } from './session';
 
 type ServerState = 'checking' | 'ok' | 'unavailable';
 
+/** Per-device choice: side menu reduced to its icons (wide screens only). As in Faturómetro. */
+const NAV_COLLAPSED_KEY = 'wattometro.nav.collapsed';
+
+function savedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(NAV_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** Checked again while the page is visible, so the status in the top bar stays true. */
 const HEALTH_EVERY_MS = 120_000;
 
@@ -63,6 +74,11 @@ function useMe(): [Me | null | undefined, (me: Me | null) => void] {
   return [me, setMe];
 }
 
+function pageClass(signedIn: boolean, collapsed: boolean): string {
+  if (!signedIn) return 'page';
+  return collapsed ? 'page has-nav is-nav-collapsed' : 'page has-nav';
+}
+
 /** Brand, navigation, the login gate and the footer around every page. */
 export function AppShell() {
   const server = useServerState();
@@ -82,26 +98,25 @@ export function AppShell() {
     enterDemo();
     setMe(DEMO_ME);
   };
+  const [collapsed, setCollapsed] = useState(savedCollapsed);
+  const toggleNav = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(NAV_COLLAPSED_KEY, next ? '1' : '0');
+    } catch {
+      // Not remembered on this device; the choice still applies now.
+    }
+  };
   const context: SessionContext | null = me ? { me, update: setMe, signOut } : null;
 
   return (
-    <div className={context ? 'page has-tabbar' : 'page'}>
+    <div className={pageClass(context !== null, collapsed)}>
       <header className="topbar">
         <NavLink to="/" className="brand">
           <img src="/icon.svg" alt="" width={36} height={36} />
           <span>{t.appName}</span>
         </NavLink>
-        {/* Phones: a tab bar fixed at the bottom; wider screens: links in this bar. */}
-        {context && (
-          <nav className="nav" aria-label={t.appName}>
-            {SECTIONS.map((section) => (
-              <NavLink key={section.id} to={section.path} end className="nav-item">
-                <NavIcon section={section.id} />
-                <span>{t.nav[section.id]}</span>
-              </NavLink>
-            ))}
-          </nav>
-        )}
         <p className={`server server-${server}`} role="status" title={t.server[server]}>
           <span className="dot" aria-hidden="true" />
           <span className="server-label">{t.server[server]}</span>
@@ -136,38 +151,82 @@ export function AppShell() {
         </div>
       )}
 
-      <main className="content">
-        {me === undefined && <p className="hint">{t.loading}</p>}
-        {me === null && (
-          <>
-            <p className="tagline">{t.tagline}</p>
-            <Login onSignedIn={setMe} />
-            <section className="card">
-              <h2>{t.demo.title}</h2>
-              <p className="hint">{t.demo.intro}</p>
-              <button type="button" className="secondary" onClick={startDemo}>
-                {t.demo.enter}
-              </button>
-            </section>
-            <InstallSection />
-          </>
+      <div className="body">
+        {/* Phones: a tab bar fixed at the bottom; wider screens: a menu at the side. */}
+        {context && (
+          <nav className="nav" aria-label={t.appName}>
+            <button
+              type="button"
+              className="nav-toggle"
+              onClick={toggleNav}
+              aria-expanded={!collapsed}
+              {...(collapsed ? { title: t.navToggle.expand } : {})}
+            >
+              <svg
+                className="nav-icon"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 6l-6 6 6 6" />
+              </svg>
+              <span>{collapsed ? t.navToggle.expand : t.navToggle.collapse}</span>
+            </button>
+            {SECTIONS.map((section) => (
+              <NavLink
+                key={section.id}
+                to={section.path}
+                end
+                className="nav-item"
+                {...(collapsed ? { title: t.nav[section.id] } : {})}
+              >
+                <NavIcon section={section.id} />
+                <span>{t.nav[section.id]}</span>
+              </NavLink>
+            ))}
+          </nav>
         )}
-        {context && <Outlet context={context} />}
-      </main>
+        <div className="main">
+          <main className="content">
+            {me === undefined && <p className="hint">{t.loading}</p>}
+            {me === null && (
+              <>
+                <p className="tagline">{t.tagline}</p>
+                <Login onSignedIn={setMe} />
+                <section className="card">
+                  <h2>{t.demo.title}</h2>
+                  <p className="hint">{t.demo.intro}</p>
+                  <button type="button" className="secondary" onClick={startDemo}>
+                    {t.demo.enter}
+                  </button>
+                </section>
+                <InstallSection />
+              </>
+            )}
+            {context && <Outlet context={context} />}
+          </main>
 
-      <footer className="footer">
-        <p>{t.legal.copyright}</p>
-        <p className="footer-links">
-          <a href={feedbackLink(pathname)}>{t.feedback.footer}</a>
-          <a href={LICENSE_URL} rel="noreferrer">
-            {t.legal.license}
-          </a>
-          <a href={SOURCE_URL} rel="noreferrer">
-            {t.legal.source}
-          </a>
-        </p>
-        <p>{t.legal.version(APP_COMMIT)}</p>
-      </footer>
+          <footer className="footer">
+            <p>{t.legal.copyright}</p>
+            <p className="footer-links">
+              <a href={feedbackLink(pathname)}>{t.feedback.footer}</a>
+              <a href={LICENSE_URL} rel="noreferrer">
+                {t.legal.license}
+              </a>
+              <a href={SOURCE_URL} rel="noreferrer">
+                {t.legal.source}
+              </a>
+            </p>
+            <p>{t.legal.version(APP_COMMIT)}</p>
+          </footer>
+        </div>
+      </div>
     </div>
   );
 }
