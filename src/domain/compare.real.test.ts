@@ -15,6 +15,7 @@ const exportName = existsSync(PRIVATE)
   ? readdirSync(PRIVATE).find((name) => /^Consumos_.*\.xlsx$/.test(name))
   : undefined;
 const invoicesPath = join(PRIVATE, 'repsol-electricity-invoices.json');
+const hasData = exportName !== undefined && existsSync(invoicesPath);
 
 interface RealInvoice {
   file: string;
@@ -24,11 +25,19 @@ interface RealInvoice {
   invoice: { totalCents: number };
 }
 
-describe.skipIf(!exportName || !existsSync(invoicesPath))('E-Redes export against invoices', () => {
+// The describe body runs even when skipped: read the private files only if they exist.
+function load() {
   const parsed = parseEredesXlsx(new Uint8Array(readFileSync(join(PRIVATE, exportName ?? ''))));
   if (!parsed.ok) throw new Error(parsed.error);
   const invoices = (JSON.parse(readFileSync(invoicesPath, 'utf8')) as { invoices: RealInvoice[] })
     .invoices;
+  return { parsed, invoices };
+}
+
+describe.skipIf(!hasData)('E-Redes export against invoices', () => {
+  const { parsed, invoices } = hasData
+    ? load()
+    : { parsed: { quarters: [] }, invoices: [] as RealInvoice[] };
 
   it.each(invoices)('$file: the quarter hours of its period give its total (±1 %)', (invoice) => {
     const [first = '', last = ''] = invoice.period.split('..');
