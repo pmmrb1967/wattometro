@@ -1,0 +1,11 @@
+{
+  "source": "docs/electricity-vat.md",
+  "consulted": "2026-10-13",
+  "region": "continente",
+  "validFrom": "2025-01-01",
+  "reducedPct": 6,
+  "normalPct": 23,
+  "reducedEnergyMaxPowerVa": 6900,
+  "reducedKwhPer30Days": 200,
+  "reducedKwhPer30DaysLargeFamily": 300
+}

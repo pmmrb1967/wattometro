@@ -80,6 +80,11 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'server/**/*.test.ts', 'shelly/**/*.test.ts'],
+    include: [
+      'src/**/*.test.ts',
+      'server/**/*.test.ts',
+      'shelly/**/*.test.ts',
+      'scripts/**/*.test.ts',
+    ],
   },
 }));
