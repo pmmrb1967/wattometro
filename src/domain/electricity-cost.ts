@@ -21,6 +21,29 @@ import { billingPeriod } from './time-cycles';
 
 export type EnergyByPeriod = Partial<Record<BillingPeriod, Wh>>;
 
+/**
+ * Commercial conditions of an ERSE offer beyond its prices (docs/erse-data.md),
+ * as the ERSE simulator applies them. The supplier's percentage on energy is
+ * TariffInput.energyDiscountBp.
+ */
+export interface OfferTerms {
+  /** Discount on the fixed (power) term, ‱. */
+  fixedDiscountBp: number;
+  /** Discount on energy, µ€/kWh. */
+  energyDiscountPerKwh: number;
+  /** Fixed discount per year, µ€ without VAT (taxed like the fixed term). */
+  discountPerYear: number;
+  /** Mandatory extra services, cents per year WITH VAT. */
+  servicesPerYearCents: Cents;
+}
+
+export const NO_OFFER_TERMS: OfferTerms = {
+  fixedDiscountBp: 0,
+  energyDiscountPerKwh: 0,
+  discountPerYear: 0,
+  servicesPerYearCents: 0,
+};
+
 export interface Cost {
   /** Energy with its VAT (after discounts; with the social discount and financing). */
   energyCents: Cents;
@@ -28,6 +51,8 @@ export interface Cost {
   powerCents: Cents;
   /** IEC, CAV and DGEG fee, with their VAT. */
   taxesCents: Cents;
+  /** Mandatory extra services of an offer (with VAT). */
+  servicesCents: Cents;
   totalCents: Cents;
   /** Energy taxed at the reduced VAT rate. */
   reducedWh: Wh;
@@ -64,7 +89,12 @@ export function energyByPeriod(
 
 const withVat = (net: bigint, pct: number) => (net * (PCT + BigInt(pct))) / PCT;
 
-export function electricityCost(energy: EnergyByPeriod, days: number, tariff: TariffInput): Cost {
+export function electricityCost(
+  energy: EnergyByPeriod,
+  days: number,
+  tariff: TariffInput,
+  terms: OfferTerms = NO_OFFER_TERMS,
+): Cost {
   if (!Number.isInteger(days) || days < 0) throw new RangeError(`Not whole days: ${days}`);
   let totalWh = 0;
   let energyNano = 0n;
@@ -80,6 +110,7 @@ export function electricityCost(energy: EnergyByPeriod, days: number, tariff: Ta
   }
   // Supplier's discount on the energy term only; then the tarifa social lines (per kWh).
   energyNano -= divideRounded(energyNano * BigInt(tariff.energyDiscountBp), BP);
+  energyNano -= BigInt(totalWh) * BigInt(terms.energyDiscountPerKwh);
   energyNano = atLeastZero(
     energyNano +
       BigInt(totalWh) * (BigInt(tariff.socialFinancingPerKwh) - BigInt(tariff.socialEnergyPerKwh)),
@@ -98,8 +129,12 @@ export function electricityCost(energy: EnergyByPeriod, days: number, tariff: Ta
           (BigInt(totalWh) * PCT);
 
   const day = BigInt(days);
+  const offerFixedNano = day * BigInt(tariff.fixedPerDay) * NANO_PER_MICRO;
   const fixedNano = atLeastZero(
-    day * (BigInt(tariff.fixedPerDay) - BigInt(tariff.socialPowerPerDay)) * NANO_PER_MICRO,
+    offerFixedNano -
+      divideRounded(offerFixedNano * BigInt(terms.fixedDiscountBp), BP) -
+      day * BigInt(tariff.socialPowerPerDay) * NANO_PER_MICRO -
+      (day * BigInt(terms.discountPerYear) * NANO_PER_MICRO) / 365n,
   );
   const perDay = (perMonth: number) => (day * BigInt(perMonth) * 12n * NANO_PER_MICRO) / 365n;
 
@@ -110,11 +145,13 @@ export function electricityCost(energy: EnergyByPeriod, days: number, tariff: Ta
       withVat(perDay(tariff.cavPerMonth), vat.reducedPct) +
       withVat(perDay(tariff.dgegPerMonth), vat.normalPct),
   );
+  const servicesCents = Number(divideRounded(BigInt(terms.servicesPerYearCents) * day, 365n));
   return {
     energyCents,
     powerCents,
     taxesCents,
-    totalCents: energyCents + powerCents + taxesCents,
+    servicesCents,
+    totalCents: energyCents + powerCents + taxesCents + servicesCents,
     reducedWh,
   };
 }

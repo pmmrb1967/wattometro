@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { describe, expect, it } from 'vitest';
+import { annualUsage, compareOffers, energyFor, type AnnualUsage } from './compare';
+import type { CyclePrices, Offer } from './erse';
+import type { TariffInput } from './tariff';
+
+const utc = (iso: string) => Date.parse(iso) / 1000;
+
+function offer(
+  id: string,
+  prices: Partial<Record<'1' | '2' | '3', CyclePrices>>,
+  extra: Partial<Offer> = {},
+): Offer {
+  return {
+    id,
+    supplier: `Comercializador ${id}`,
+    name: `Oferta ${id}`,
+    segment: 'Dom',
+    supply: 'ELE',
+    durationMonths: null,
+    validFrom: null,
+    validTo: null,
+    loyalty: false,
+    indexedPrices: false,
+    renewable: false,
+    restrictions: false,
+    requiredServices: false,
+    servicesPerYearWithVat: 0,
+    discounts: { fixedPerYear: 0, fixedTermPct: 0, energyPct: 0, energyPerKwh: 0 },
+    newClientDiscounts: { fixedPerYearWithVat: 0, fixedTermPct: 0, energyPct: 0, energyPerKwh: 0 },
+    payment: { directDebit: true, multibanco: true, cash: false },
+    billing: { electronic: true, paper: true },
+    links: {},
+    texts: {},
+    prices: { '6.9': prices },
+    ...extra,
+  };
+}
+
+const current: TariffInput = {
+  validFrom: '2026-01-01',
+  supplier: 'Atual',
+  powerVa: 6900,
+  option: 'simple',
+  cycle: 'daily',
+  periodsMap: 'pre-2027',
+  fixedPerDay: 0,
+  energy: { simple: 200_000 }, // 0,20 €/kWh
+  iecPerKwh: 0,
+  cavPerMonth: 0,
+  dgegPerMonth: 0,
+  largeFamily: false,
+  energyDiscountBp: 0,
+  socialEnergyPerKwh: 0,
+  socialPowerPerDay: 0,
+  socialFinancingPerKwh: 0,
+};
+
+describe('annualUsage', () => {
+  it('30 winter days of 100 Wh per quarter hour, scaled to a year (daily cycle by hand)', () => {
+    const quarters = [];
+    const start = utc('2026-01-05T00:00:00Z'); // a Monday, winter time (UTC = Lisbon)
+    for (let index = 0; index < 30 * 96; index++) {
+      quarters.push({ ts: start + index * 900, energyWh: 100 });
+    }
+    // Daily cycle in winter: empty 22–08 (10 h), peak 09–10:30 and 18–20:30 (4 h), full 10 h.
+    // A day: empty 40 × 100 = 4 000 Wh, peak 1 600, full 4 000; a year: × 365.
+    const usage = annualUsage(quarters, 'pre-2027');
+    expect(usage).toMatchObject({
+      totalWh: 3_504_000,
+      days: 30,
+      extrapolated: true,
+    });
+    expect(usage?.byCycle.daily).toEqual({ empty: 1_460_000, full: 1_460_000, peak: 584_000 });
+  });
+
+  it('needs a month of data', () => {
+    expect(
+      annualUsage([{ ts: utc('2026-01-05T00:00:00Z'), energyWh: 100 }], 'pre-2027'),
+    ).toBeNull();
+  });
+});
+
+describe('compareOffers', () => {
+  // 3 000 kWh a year; the weekly cycle puts more of it in empty than the daily one.
+  const usage: AnnualUsage = {
+    totalWh: 3_000_000,
+    byCycle: {
+      daily: { empty: 600_000, full: 1_800_000, peak: 600_000 },
+      weekly: { empty: 900_000, full: 1_500_000, peak: 600_000 },
+    },
+    days: 365,
+    extrapolated: false,
+  };
+  // Same total and power everywhere, so the same VAT multiplier: 6 % on
+  // 2 433 333 Wh (365 / 30 × 200 kWh), 23 % on the rest:
+  //   m = 1 + (2 433 333 × 6 + 566 667 × 23) / (3 000 000 × 100) = 1,09211113
+  const offers = [
+    offer('A', { '1': { fixedPerDay: 0, simple: 0.18 } }),
+    offer('B', { '2': { fixedPerDay: 0, offEmpty: 0.25, empty: 0.1 } }),
+    offer('C', { '1': { fixedPerDay: 0, simple: 0.01 } }, { validFrom: '2099-01-01' }),
+    offer('D', {}, { prices: { '10.35': { '1': { fixedPerDay: 0, simple: 0.01 } } } }),
+  ];
+  const comparison = compareOffers({ usage, current, offers, today: '2026-10-22' });
+
+  it('prices every valid offer at the same power against the current contract', () => {
+    // Current: 3 000 × 0,20 = 600 € × m = 655,27 €. A: 540 € × m = 589,74 €.
+    // B, weekly (cheaper): 2 100 × 0,25 + 900 × 0,10 = 615 € × m = 671,65 €
+    //   (daily would be 2 400 × 0,25 + 600 × 0,10 = 660 €).
+    expect(comparison.currentCents).toBe(65_527);
+    expect(
+      comparison.results.map((result) => [
+        result.offer.id,
+        result.option,
+        result.cycle,
+        result.annualCents,
+        result.savingCents,
+      ]),
+    ).toEqual([
+      ['A', 'simple', 'daily', 58_974, 6_553],
+      ['B', 'bi', 'weekly', 67_165, -1_638],
+    ]);
+  });
+
+  it('says how much to move to empty for the bi-hourly option to pay off', () => {
+    // Each kWh moved saves (0,25 − 0,10) × m = 0,1638 €; it must save 671,65 − 655,27 = 16,38 €:
+    // about 100 kWh a year, out of the 2 100 kWh outside empty.
+    const shift = comparison.shift.bi;
+    expect(shift?.best.offer.id).toBe('B');
+    expect(shift?.movableWh).toBe(2_100_000);
+    expect(Math.abs((shift?.neededWh ?? 0) - 100_000)).toBeLessThan(100);
+    expect(comparison.shift.tri).toBeNull();
+  });
+
+  it('splits the year the way each option bills it', () => {
+    expect(energyFor('simple', 'daily', usage)).toEqual({ simple: 3_000_000 });
+    expect(energyFor('bi', 'weekly', usage)).toEqual({ empty: 900_000, offEmpty: 2_100_000 });
+    expect(energyFor('tri', 'daily', usage)).toEqual({
+      empty: 600_000,
+      full: 1_800_000,
+      peak: 600_000,
+    });
+  });
+});

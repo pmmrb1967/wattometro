@@ -58,6 +58,7 @@ describe('electricityCost', () => {
       energyCents: 186,
       powerCents: 42,
       taxesCents: 11,
+      servicesCents: 0,
       totalCents: 239,
       reducedWh: 6_667,
     });
@@ -70,6 +71,7 @@ describe('electricityCost', () => {
       energyCents: 26,
       powerCents: 0,
       taxesCents: 0,
+      servicesCents: 0,
       totalCents: 26,
       reducedWh: 0,
     });
@@ -131,7 +133,38 @@ describe('electricityCost with discounts and the tarifa social', () => {
       energyCents: 4757,
       powerCents: 1107,
       taxesCents: 0,
+      servicesCents: 0,
       totalCents: 5864,
+      reducedWh: 200_000,
+    });
+  });
+});
+
+describe('electricityCost with the terms of an ERSE offer', () => {
+  it('30 days of 300 kWh (calculated by hand)', () => {
+    const tariff: TariffInput = {
+      ...simple,
+      fixedPerDay: 500_000, // 0,50 €/day
+      energy: { simple: 200_000 }, // 0,20 €/kWh
+      iecPerKwh: 0,
+      cavPerMonth: 0,
+      dgegPerMonth: 0,
+    };
+    const terms = {
+      fixedDiscountBp: 1_000, // 10 %
+      energyDiscountPerKwh: 10_000, // 0,01 €/kWh
+      discountPerYear: 36_500_000, // 36,50 €/year = 0,10 €/day
+      servicesPerYearCents: 1_200, // 12 €/year with VAT
+    };
+    // Energy: 300 × 0,20 − 300 × 0,01 = 57 € × (1 + 3500 / 30000) = 63,65 €
+    // Power: 0,50 × 30 = 15 € − 10 % − 30 × 0,10 = 10,50 € × 1,23 = 12,915 → 12,92 €
+    // Services: 12 × 30 / 365 = 0,986 → 0,99 €
+    expect(electricityCost({ simple: 300_000 }, 30, tariff, terms)).toEqual({
+      energyCents: 6365,
+      powerCents: 1292,
+      taxesCents: 0,
+      servicesCents: 99,
+      totalCents: 7756,
       reducedWh: 200_000,
     });
   });
