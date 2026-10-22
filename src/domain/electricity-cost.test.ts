@@ -48,11 +48,25 @@ describe('reducedVatWh (docs/electricity-vat.md)', () => {
 });
 
 describe('electricityCost', () => {
+  it('IEC at the normal VAT rate, even within the reduced-rate kWh (ERSE)', () => {
+    // 100 kWh in 30 days, all within 200 kWh; IEC 1 €/kWh (exaggerated to show the rate):
+    // 100 × 1 × 1,23 = 123 € (with the energy's 6 % it would be 106 €).
+    const iecOnly = {
+      ...simple,
+      fixedPerDay: 0,
+      energy: { simple: 0 },
+      iecPerKwh: 1_000_000,
+      cavPerMonth: 0,
+      dgegPerMonth: 0,
+    };
+    expect(electricityCost({ simple: 100_000 }, 30, iecOnly).taxesCents).toBe(12_300);
+  });
+
   it('one day of 10 kWh on a simple tariff (calculated by hand)', () => {
     // Energy: 10 × 0,1665 = 1,665 €; VAT 6 % on 6,667 kWh and 23 % on 3,333 kWh:
     //   1,665 × (1 + (6667 × 0,06 + 3333 × 0,23) / 10000) = 1,665 × 1,116661 = 1,8592 → 1,86 €
     // Power: 0,3436 × 1,23 = 0,4226 → 0,42 €
-    // Taxes: IEC 0,01 × 1,116661 = 0,0112; CAV 2,85 × 12/365 × 1,06 = 0,0993;
+    // Taxes: IEC 0,01 × 1,23 = 0,0123; CAV 2,85 × 12/365 × 1,06 = 0,0993;
     //        DGEG 0,07 × 12/365 × 1,23 = 0,0028; total 0,1133 → 0,11 €
     expect(electricityCost({ simple: 10_000 }, 1, simple)).toEqual({
       energyCents: 186,

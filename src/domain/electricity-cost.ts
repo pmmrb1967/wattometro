@@ -117,7 +117,8 @@ export function electricityCost(
   );
   const iecNano = BigInt(totalWh) * BigInt(tariff.iecPerKwh);
 
-  // Energy and IEC: reduced rate on the first kWh, normal rate on the rest (by energy share).
+  // Energy: reduced rate on the first kWh, normal rate on the rest (by energy share).
+  // The IEC is not in the reduced-rate list: normal rate (docs/electricity-vat.md).
   const reducedWh = reducedVatWh(totalWh, days, tariff);
   const blended = (net: bigint) =>
     totalWh === 0
@@ -141,7 +142,7 @@ export function electricityCost(
   const energyCents = nanoToCents(blended(energyNano));
   const powerCents = nanoToCents(withVat(fixedNano, vat.normalPct));
   const taxesCents = nanoToCents(
-    blended(iecNano) +
+    withVat(iecNano, vat.normalPct) +
       withVat(perDay(tariff.cavPerMonth), vat.reducedPct) +
       withVat(perDay(tariff.dgegPerMonth), vat.normalPct),
   );

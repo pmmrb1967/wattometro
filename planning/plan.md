@@ -125,7 +125,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] `classifyPeriod(ts, cycle)` com testes de fronteiras, fins de semana e mudança de hora (`meterPeriod`/`billingPeriod` em `src/domain/time-cycles.ts`)
 - [x] Custo por período: energia, potência, taxas, IVA (incluindo limiar proporcional aos dias), em cêntimos
 - [x] Tarifário da casa (migração `0005_tariffs.sql`, `/v1/tariffs`, secção em Definições), com histórico por data de início
-- [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável — 1 fatura Repsol: a menos de 2 cêntimos com os preços, e a menos de 1 % com a energia do ficheiro da E-Redes (testes `*.real`, só locais); faltam mais faturas e uma sem tarifa social (IVA do IEC)
+- [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável — 1 fatura Repsol: a menos de 2 cêntimos com os preços, e a menos de 1 % com a energia do ficheiro da E-Redes (testes `*.real`, só locais); faltam mais faturas (IVA do IEC: 23 %, pela ERSE)
 - [x] Descontos do comercializador na energia, tarifa social e o seu financiamento no tarifário da casa (migração 0008)
 
 ### 3.3 Simulador de tarifários
