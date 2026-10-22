@@ -93,6 +93,20 @@ export function AppShell() {
           <span className="dot" aria-hidden="true" />
           <span className="server-label">{t.server[server]}</span>
         </p>
+        {context && (
+          <div className="account">
+            <span className="account-email">{context.me.email}</span>
+            <button
+              type="button"
+              className="signout"
+              onClick={signOut}
+              aria-label={t.signOutLabel}
+              title={t.signOutLabel}
+            >
+              {t.signOut}
+            </button>
+          </div>
+        )}
       </header>
       {server === 'unavailable' && (
         <p className="server-banner" role="alert">

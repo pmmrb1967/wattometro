@@ -172,6 +172,32 @@ a {
   white-space: nowrap;
 }
 
+/* Account: "Sair" always in the top bar; the email too on wide screens. */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.account-email {
+  display: none;
+}
+
+.signout {
+  flex: none;
+  min-height: 36px;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .server-banner {
   margin: 0;
   padding: 8px 16px;
@@ -181,8 +207,8 @@ a {
   text-align: center;
 }
 
-/* Wider screens: the sections as links in the top bar, the status with its name. */
-@media (min-width: 768px) {
+/* Wider screens: the sections as links in the top bar. */
+@media (min-width: 900px) {
   .nav {
     position: static;
     display: flex;
@@ -220,6 +246,13 @@ a {
     margin-left: 8px;
   }
 
+  .has-tabbar .footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Room for the status and the email beside the links. */
+@media (min-width: 1100px) {
   .server-label {
     position: static;
     width: auto;
@@ -228,8 +261,14 @@ a {
     clip-path: none;
   }
 
-  .has-tabbar .footer {
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  .account-email {
+    display: block;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 0.875rem;
   }
 }
 

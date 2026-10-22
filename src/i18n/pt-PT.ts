@@ -6,6 +6,8 @@ export const t = {
   appName: 'Wattómetro',
   tagline: 'O consumo elétrico da casa transformado em poupança concreta.',
   loading: 'A carregar…',
+  signOut: 'Sair',
+  signOutLabel: 'Sair: terminar a sessão neste dispositivo',
   nav: {
     home: 'Início',
     power: 'Potência',
