@@ -317,6 +317,8 @@ export const t = {
     checking: 'A verificar o servidor…',
     ok: 'Servidor ligado',
     unavailable: 'Servidor indisponível',
+    banner:
+      'Sem ligação ao servidor: os valores podem estar desatualizados. A app tenta outra vez sozinha.',
   },
   install: {
     title: 'Aplicação',

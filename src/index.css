@@ -10,6 +10,9 @@
   --accent: #127f86;
   --ok: #1b7a43;
   --danger: #b3261e;
+  --accent-soft: #dcefef;
+  --danger-soft: #fbe4e2;
+  --nav-height: 64px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   color-scheme: light dark;
@@ -32,6 +35,8 @@
     --accent: #5fdde3;
     --ok: #6fd69a;
     --danger: #ff8a80;
+    --accent-soft: #1d3b3e;
+    --danger-soft: #3d1f22;
   }
 }
 
@@ -88,22 +93,144 @@ a {
   border-radius: 9px;
 }
 
+/* Phones: tab bar fixed at the bottom, icon over name (as in Faturómetro). Fixed, not
+   sticky: mobile browsers hiding their address bar left a sticky bar off screen. */
 .nav {
-  display: flex;
-  gap: 4px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  min-height: var(--nav-height);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }
 
-.nav a {
-  padding: 8px 12px;
-  border-radius: 999px;
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 2px;
   color: var(--muted);
+  font-size: 0.75rem;
   text-decoration: none;
 }
 
-.nav a.active {
-  background: var(--bg);
-  color: var(--text);
+.nav-item span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-icon {
+  flex: none;
+  box-sizing: content-box;
+  padding: 3px 16px;
+  border-radius: 999px;
+}
+
+.nav-item.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.nav-item.active .nav-icon {
+  background: var(--accent-soft);
+}
+
+.nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.has-tabbar .footer {
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 16px);
+}
+
+/* Server status: a dot in the top bar; a banner under it when the server is unreachable. */
+.server {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 auto;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.server-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.server-banner {
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--danger-soft);
+  color: var(--danger);
   font-weight: 600;
+  text-align: center;
+}
+
+/* Wider screens: the sections as links in the top bar, the status with its name. */
+@media (min-width: 768px) {
+  .nav {
+    position: static;
+    display: flex;
+    gap: 4px;
+    min-height: 0;
+    margin-left: auto;
+    padding: 0;
+    background: none;
+    border: none;
+  }
+
+  .nav-item {
+    flex-direction: row;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 1rem;
+  }
+
+  .nav-icon {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+  }
+
+  .nav-item.active {
+    background: var(--accent-soft);
+  }
+
+  .nav-item.active .nav-icon {
+    background: none;
+  }
+
+  .nav + .server {
+    margin-left: 8px;
+  }
+
+  .server-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .has-tabbar .footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
 }
 
 /* Content */
@@ -429,12 +556,6 @@ h2 {
   line-height: 1.6;
 }
 
-.server {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .dot {
   width: 10px;
   height: 10px;
@@ -519,6 +640,8 @@ h2 {
   }
 
   .topbar,
+  .nav,
+  .server-banner,
   .footer,
   .no-print {
     display: none !important;

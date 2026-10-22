@@ -7,23 +7,44 @@ import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
 import { InstallSection } from '../components/InstallSection';
 import { Login } from './Login';
+import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
 
 type ServerState = 'checking' | 'ok' | 'unavailable';
+
+/** Checked again while the page is visible, so the status in the top bar stays true. */
+const HEALTH_EVERY_MS = 120_000;
 
 function useServerState(): ServerState {
   const [state, setState] = useState<ServerState>('checking');
   useEffect(() => {
     const controller = new AbortController();
-    fetchHealth(controller.signal)
-      .then((health) => setState(health.status === 'ok' ? 'ok' : 'unavailable'))
-      .catch(() => {
-        if (!controller.signal.aborted) setState('unavailable');
-      });
-    return () => controller.abort();
+    const check = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchHealth(controller.signal)
+        .then((health) => setState(health.status === 'ok' ? 'ok' : 'unavailable'))
+        .catch(() => {
+          if (!controller.signal.aborted) setState('unavailable');
+        });
+    };
+    check();
+    const timer = window.setInterval(check, HEALTH_EVERY_MS);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
   }, []);
   return state;
 }
+
+const SECTIONS: { id: SectionId; path: string }[] = [
+  { id: 'home', path: '/' },
+  { id: 'power', path: '/potencia' },
+  { id: 'quality', path: '/qualidade' },
+  { id: 'settings', path: '/definicoes' },
+];
 
 /** undefined while the session is being checked; checking also renews it (sliding expiry). */
 function useMe(): [Me | null | undefined, (me: Me | null) => void] {
@@ -51,23 +72,33 @@ export function AppShell() {
   const context: SessionContext | null = me ? { me, update: setMe, signOut } : null;
 
   return (
-    <div className="page">
+    <div className={context ? 'page has-tabbar' : 'page'}>
       <header className="topbar">
         <NavLink to="/" className="brand">
           <img src="/icon.svg" alt="" width={36} height={36} />
           <span>{t.appName}</span>
         </NavLink>
+        {/* Phones: a tab bar fixed at the bottom; wider screens: links in this bar. */}
         {context && (
-          <nav className="nav">
-            <NavLink to="/" end>
-              {t.nav.home}
-            </NavLink>
-            <NavLink to="/potencia">{t.nav.power}</NavLink>
-            <NavLink to="/qualidade">{t.nav.quality}</NavLink>
-            <NavLink to="/definicoes">{t.nav.settings}</NavLink>
+          <nav className="nav" aria-label={t.appName}>
+            {SECTIONS.map((section) => (
+              <NavLink key={section.id} to={section.path} end className="nav-item">
+                <NavIcon section={section.id} />
+                <span>{t.nav[section.id]}</span>
+              </NavLink>
+            ))}
           </nav>
         )}
+        <p className={`server server-${server}`} role="status" title={t.server[server]}>
+          <span className="dot" aria-hidden="true" />
+          <span className="server-label">{t.server[server]}</span>
+        </p>
       </header>
+      {server === 'unavailable' && (
+        <p className="server-banner" role="alert">
+          {t.server.banner}
+        </p>
+      )}
 
       <main className="content">
         {me === undefined && <p className="hint">{t.loading}</p>}
@@ -82,10 +113,6 @@ export function AppShell() {
       </main>
 
       <footer className="footer">
-        <p className={`server server-${server}`} role="status">
-          <span className="dot" aria-hidden="true" />
-          {t.server[server]}
-        </p>
         <p>{t.legal.copyright}</p>
         <p className="footer-links">
           <a href={feedbackLink(pathname)}>{t.feedback.footer}</a>
