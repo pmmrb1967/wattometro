@@ -102,10 +102,10 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 
 ## Fase 2 — Importação E-Redes
 
-- [ ] **Obter um CSV real** do Balcão Digital → `fixtures/private/`; documentar formato em `docs/eredes-csv.md`; criar fixture sintética
-- [ ] Parser no browser (`src/import/eredes.ts`): separador, decimal com vírgula, codificação, cabeçalhos e linhas de resumo
-- [ ] Convenção início/fim do intervalo confirmada e aplicada em `src/lib/time.ts`
-- [ ] `POST /v1/import/eredes` (lotes de 15 min, idempotente, origem `eredes`)
+- [x] **Obter um ficheiro real** do Balcão Digital → `fixtures/private/` (é `.xlsx`, não CSV); formato em `docs/eredes-csv.md`; fixture sintética (`src/import/eredes-fixture.ts`)
+- [x] Parser no browser (`src/import/eredes.ts`): `.xlsx` com `fflate`, kW por quarto de hora → Wh, vírgula decimal, estado real/estimado
+- [x] Convenção início/fim do intervalo confirmada (a hora marca o **fim**) e aplicada em `src/lib/time.ts` (`eredesQuarterStart`)
+- [x] `POST /v1/import/eredes` (lotes de 15 min, idempotente, origem `eredes`, marca de estimado; migração 0009) e secção em Definições
 - [ ] Reconciliação Shelly vs E-Redes nos períodos sobrepostos (diferença em %; mostrar ao utilizador)
 - [ ] Regra de prioridade por período (por defeito: E-Redes é a referência de faturação; Shelly para detalhe)
 
@@ -125,12 +125,13 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] `classifyPeriod(ts, cycle)` com testes de fronteiras, fins de semana e mudança de hora (`meterPeriod`/`billingPeriod` em `src/domain/time-cycles.ts`)
 - [x] Custo por período: energia, potência, taxas, IVA (incluindo limiar proporcional aos dias), em cêntimos
 - [x] Tarifário da casa (migração `0005_tariffs.sql`, `/v1/tariffs`, secção em Definições), com histórico por data de início
-- [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável
+- [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável — 1 fatura Repsol: a menos de 2 cêntimos com os preços, e a menos de 1 % com a energia do ficheiro da E-Redes (testes `*.real`, só locais); faltam mais faturas e uma sem tarifa social (IVA do IEC)
+- [x] Descontos do comercializador na energia, tarifa social e o seu financiamento no tarifário da casa (migração 0008)
 
 ### 3.3 Simulador de tarifários
-- [ ] Aplicar o consumo real de 12 meses a **todas as ofertas ERSE** (`erse-offers.json`) e opções horárias
-- [ ] Ranking anual com poupança face ao atual
-- [ ] "Quanto teria de deslocar para o vazio para o bi-horário compensar"
+- [x] Aplicar o consumo real de 12 meses a **todas as ofertas ERSE** (`erse-offers.json`) e opções horárias (`src/domain/compare.ts`, página `/tarifarios`)
+- [x] Ranking anual com poupança face ao atual
+- [x] "Quanto teria de deslocar para o vazio para o bi-horário compensar"
 
 ### 3.4 Potência contratada
 - [x] Potência máxima por 15 min e por minuto (`power_max_w`; aparente `apparent_max_va` a partir dos valores ao segundo)
@@ -296,3 +297,5 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-22 — Poupança da potência: só o termo de potência com IVA × 365 dias; o preço do escalão recomendado vem da oferta ERSE com o mesmo termo de potência atual (o utilizador pode escrever outro).
 - 2026-10-22 — Navegação: no telemóvel, barra fixa em baixo (ícone + nome); a partir de 768 px, menu lateral que se recolhe aos ícones (escolha guardada no browser), como no Faturómetro. Estado do servidor e "Sair" no cabeçalho, em todas as páginas.
 - 2026-10-22 — Demonstração sem conta: casa fictícia gerada no browser (`src/demo/`), que responde às mesmas rotas `/v1/*` sem contactar o servidor; alterações só em memória, conta e dispositivos fixos. Em vez de um utilizador de teste no servidor (password pública, dados de teste na base real).
+- 2026-10-22 — Exportação da E-Redes: `.xlsx` com kW médios por quarto de hora e a hora a marcar o fim do intervalo (`docs/eredes-csv.md`). Lida no browser; ao servidor só vão os quartos de hora (sem CPE nem número de contador). Cada lote é gravado com duas instruções SQL (`json_each`), qualquer que seja o tamanho. O dia de 25 h vem com 4 quartos de hora em falta (a hora repetida aparece uma vez): a app aceita a falha e mostra-a.
+- 2026-10-22 — Simulador de tarifários: consumo dos últimos 12 meses (E-Redes ou Shelly, o contador com mais dados), extrapolado se houver menos de 360 dias. A tarifa social, o seu financiamento, o IEC, a CAV e a taxa DGEG vêm do tarifário da casa e são iguais em todas as ofertas. Preços, descontos e serviços obrigatórios vêm de cada oferta (o desconto social é aplicado igual em todas as opções horárias, como no Faturómetro). Bi e tri-horário: o ciclo mais barato. "Mudar para o vazio" compara com a opção simples mais barata (atual ou oferta).

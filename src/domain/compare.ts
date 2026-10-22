@@ -129,12 +129,18 @@ export interface OfferResult {
   savingCents: Cents;
 }
 
-/** Energy to move to the empty period for an option to cost as much as the current contract. */
+/**
+ * Energy to move to the empty period for an option to cost as much as the
+ * cheapest simple choice (the current contract if it is simple, or the best
+ * simple offer, whichever is cheaper).
+ */
 export interface Shift {
   /** The cheapest offer of the option, as it is today. */
   best: OfferResult;
   /** Wh per year to move from the other periods to empty; 0 if it is already cheaper. */
   neededWh: Wh;
+  /** What it has to beat: the cheapest simple choice, cents per year. */
+  targetCents: Cents;
   /** Wh per year outside the empty period (the most that could move). */
   movableWh: Wh;
 }
@@ -162,13 +168,13 @@ function shiftFor(
   option: 'bi' | 'tri',
   usage: AnnualUsage,
   household: TariffInput,
-  currentCents: Cents,
+  targetCents: Cents,
 ): Shift | null {
   const best = results.find((result) => result.option === option);
   if (!best) return null;
   const energy = energyFor(option, best.cycle, usage);
   const movableWh = usage.totalWh - (energy.empty ?? 0);
-  if (best.annualCents <= currentCents) return { best, neededWh: 0, movableWh };
+  if (best.annualCents <= targetCents) return { best, neededWh: 0, targetCents, movableWh };
   const prices = best.offer.prices[powerKey(household.powerVa)]?.[option === 'bi' ? '2' : '3'];
   if (!prices || movableWh <= 0) return null;
   const { tariff, terms } = offerContract(best.offer, prices, option, best.cycle, household);
@@ -176,8 +182,8 @@ function shiftFor(
   const allMoved = electricityCost(allToEmpty(energy, usage.totalWh), YEAR_DAYS, tariff, terms);
   const gainPerWh = (best.annualCents - allMoved.totalCents) / movableWh;
   if (gainPerWh <= 0) return null;
-  const neededWh = Math.ceil((best.annualCents - currentCents) / gainPerWh);
-  return neededWh > movableWh ? null : { best, neededWh, movableWh };
+  const neededWh = Math.ceil((best.annualCents - targetCents) / gainPerWh);
+  return neededWh > movableWh ? null : { best, neededWh, targetCents, movableWh };
 }
 
 export function compareOffers(input: {
@@ -232,12 +238,18 @@ export function compareOffers(input: {
     }
   }
   results.sort((a, b) => a.annualCents - b.annualCents || a.offer.id.localeCompare(b.offer.id));
+  const bestSimple = results.find((result) => result.option === 'simple')?.annualCents;
+  const simpleTarget = Math.min(
+    current.option === 'simple' ? currentCents : Infinity,
+    bestSimple ?? Infinity,
+  );
+  const target = Number.isFinite(simpleTarget) ? simpleTarget : currentCents;
   return {
     currentCents,
     results,
     shift: {
-      bi: shiftFor(results, 'bi', usage, current, currentCents),
-      tri: shiftFor(results, 'tri', usage, current, currentCents),
+      bi: shiftFor(results, 'bi', usage, current, target),
+      tri: shiftFor(results, 'tri', usage, current, target),
     },
   };
 }

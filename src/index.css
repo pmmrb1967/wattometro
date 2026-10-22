@@ -115,7 +115,7 @@ a {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   min-height: var(--nav-height);
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--surface);
@@ -750,6 +750,18 @@ h2 {
 .table td.success,
 .table td.error {
   margin: 0;
+}
+
+.table .number {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 20px;
 }
 
 .inline-fields {

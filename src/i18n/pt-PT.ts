@@ -15,6 +15,7 @@ export const t = {
   nav: {
     home: 'Início',
     power: 'Potência',
+    tariffs: 'Tarifários',
     quality: 'Qualidade',
     settings: 'Definições',
   },
@@ -326,6 +327,60 @@ export const t = {
       'ERSE, Regulamento da Qualidade de Serviço (Regulamento n.º 826/2023, versão consolidada de 2026): art. 2.º, 12.º, 14.º, 24.º, 25.º, 66.º e Anexo I.',
       'NP EN 50160, características da tensão de alimentação em baixa tensão, conforme reproduzida pela ERSE (Formação ACE, 2021).',
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
+    ],
+  },
+  tariffs: {
+    title: 'Tarifários',
+    intro:
+      'O teu consumo real dos últimos 12 meses com os preços de todas as ofertas da ERSE para a tua potência, comparado com o que pagas hoje.',
+    noTariff: 'Para comparar, indica primeiro o teu tarifário atual.',
+    noData: 'Ainda não há consumos: importa o ficheiro da E-Redes ou instala o Shelly.',
+    toSettings: 'Ir para Definições',
+    usageTitle: 'O teu consumo',
+    meter: 'Consumos de',
+    eredesMeter: 'E-Redes (contador da rede)',
+    tooLittle: 'Há menos de 30 dias de consumos: pouco para estimar um ano.',
+    perYear: (kwh: string) => `${kwh} por ano`,
+    fullYear: (meter: string) => `Os últimos 12 meses medidos (${meter}).`,
+    extrapolated: (days: number) =>
+      `Estimado a partir de ${days} dias: o inverno e o verão podem pesar de outra forma num ano inteiro.`,
+    split: (empty: number, full: number, peak: number) =>
+      `No ciclo diário: ${empty} % em vazio, ${full} % em cheias, ${peak} % em ponta.`,
+    noOffers: 'Não consegui obter as ofertas da ERSE. Tenta mais tarde.',
+    currentTitle: 'O que pagas hoje',
+    perYearCost: (euros: string) => `${euros} por ano`,
+    yourContract: 'O teu contrato',
+    currentHint: (supplier: string, option: string, power: string) =>
+      `${supplier}, ${option.toLowerCase()}, ${power}, com IVA e taxas, para o consumo acima.`,
+    offersTitle: 'Ofertas mais baratas para ti',
+    option: 'Opção horária',
+    allOptions: 'Todas',
+    noLoyalty: 'Sem fidelização',
+    noServices: 'Sem serviços obrigatórios',
+    count: (count: number) =>
+      `${count.toLocaleString('pt-PT')} ofertas comparáveis; as ${15} mais baratas:`,
+    colOffer: 'Oferta',
+    colOption: 'Opção',
+    colYear: 'Por ano',
+    colSaving: 'Poupança',
+    tagDual: 'com gás',
+    tagLoyalty: 'fidelização',
+    tagServices: 'serviços incluídos',
+    tagIndexed: 'preço indexado',
+    shiftTitle: 'Mudar consumo para o vazio',
+    shiftIntro:
+      'Máquinas e termoacumulador à noite ou ao fim de semana: quanto teria de passar para o vazio para a opção ficar mais barata do que a simples mais barata para ti.',
+    shiftAlready: (option: string, supplier: string) =>
+      `${option}: já é mais barata do que a simples com o teu consumo atual (${supplier}).`,
+    shiftNeeded: (option: string, year: string, month: string, pct: number, supplier: string) =>
+      `${option}: compensa se passares ${year} por ano para o vazio (cerca de ${month} por mês, ${pct} % do que gastas fora do vazio), com a melhor oferta dessa opção (${supplier}).`,
+    shiftNever: (option: string) => `${option}: não compensa, mesmo com todo o consumo no vazio.`,
+    caveats: [
+      'Estimativa para um ano igual ao medido; os preços são os da ERSE de hoje, sem IVA, e a app soma o IVA, as taxas, os serviços obrigatórios e os descontos de cada oferta.',
+      'A tarifa social, o seu financiamento, o IEC, a contribuição audiovisual e a taxa DGEG são os do teu tarifário e iguais em todas as ofertas.',
+      'Descontos só para novos clientes e campanhas não estão incluídos. Muitas ofertas exigem débito direto ou fatura eletrónica (vem no nome).',
+      'Ofertas "com gás" pedem o gás no mesmo comercializador; mudar só a eletricidade pode fazer perder o desconto dual que tens hoje.',
+      'Bi e tri-horário: a app escolhe o ciclo (diário ou semanal) mais barato para ti; confirma com o comercializador qual oferece.',
     ],
   },
   eredes: {

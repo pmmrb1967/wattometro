@@ -122,13 +122,15 @@ describe('compareOffers', () => {
     ]);
   });
 
-  it('says how much to move to empty for the bi-hourly option to pay off', () => {
-    // Each kWh moved saves (0,25 − 0,10) × m = 0,1638 €; it must save 671,65 − 655,27 = 16,38 €:
-    // about 100 kWh a year, out of the 2 100 kWh outside empty.
+  it('says how much to move to empty for bi-hourly to beat the cheapest simple choice', () => {
+    // The cheapest simple choice is offer A (589,74 €). Each kWh moved saves
+    // (0,25 − 0,10) × m = 0,1638 €; it must save 671,65 − 589,74 = 81,91 €:
+    // about 500 kWh a year, out of the 2 100 kWh outside empty.
     const shift = comparison.shift.bi;
     expect(shift?.best.offer.id).toBe('B');
+    expect(shift?.targetCents).toBe(58_974);
     expect(shift?.movableWh).toBe(2_100_000);
-    expect(Math.abs((shift?.neededWh ?? 0) - 100_000)).toBeLessThan(100);
+    expect(Math.abs((shift?.neededWh ?? 0) - 500_000)).toBeLessThan(100);
     expect(comparison.shift.tri).toBeNull();
   });
 

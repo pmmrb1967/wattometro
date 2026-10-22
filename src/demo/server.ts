@@ -245,6 +245,30 @@ function power(data: DemoData, from: number, to: number) {
   };
 }
 
+/** Energy per quarter hour in [from, to): [start, Wh] (as readings_15m). */
+function quarterEnergy(data: DemoData, from: number, to: number): [number, number][] {
+  const [first, last] = minuteRange(data, from, to);
+  const quarters = new Map<number, number>();
+  for (let index = first; index < last; index++) {
+    if (!data.present[index]) continue;
+    const ts = data.start + index * MINUTE;
+    const quarter = ts - (ts % 900);
+    quarters.set(quarter, (quarters.get(quarter) ?? 0) + (data.energyWh[index] as number));
+  }
+  return [...quarters];
+}
+
+/** Records of GET /v1/energy/quarters (server/src/repo/eredes.ts): uint32 ts · uint32 Wh. */
+function energyRecords(quarters: [number, number][]): Response {
+  const records = new Uint8Array(quarters.length * 8);
+  const view = new DataView(records.buffer);
+  quarters.forEach(([ts, wh], index) => {
+    view.setUint32(index * 8, ts, true);
+    view.setUint32(index * 8 + 4, wh, true);
+  });
+  return new Response(records, { headers: { 'Content-Type': 'application/octet-stream' } });
+}
+
 /** Records of GET /v1/power/peaks (server/src/repo/power.ts). */
 function peaks(data: DemoData, from: number, to: number, threshold: number): Response {
   const [first, last] = minuteRange(data, from, to);
@@ -297,6 +321,27 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       return json({ devices: devices(data) });
     case 'GET /v1/now':
       return json(now(data));
+    case 'GET /v1/energy': {
+      if (from === null || to === null || from >= to) return invalid();
+      const quarters = quarterEnergy(data, from, to);
+      return json({
+        meters:
+          quarters.length === 0
+            ? []
+            : [
+                {
+                  meter: METER,
+                  quarters: quarters.length,
+                  energyWh: quarters.reduce((sum, [, wh]) => sum + wh, 0),
+                },
+              ],
+      });
+    }
+    case 'GET /v1/energy/quarters':
+      if (from === null || to === null || url.searchParams.get('meter') !== METER) {
+        return invalid();
+      }
+      return energyRecords(quarterEnergy(data, from, to));
     case 'GET /v1/import/eredes':
       return json({ quarters: 0, estimated: 0, energyWh: 0, from: null, to: null });
     case 'GET /v1/tariffs':

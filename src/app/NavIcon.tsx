@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Adapted from Faturómetro (src/app/NavIcon.tsx).
-export type SectionId = 'home' | 'power' | 'quality' | 'settings';
+export type SectionId = 'home' | 'power' | 'tariffs' | 'quality' | 'settings';
 
 /** Outline icons for the main sections (24×24, stroke follows the text colour). */
 const PATHS: Record<SectionId, string[]> = {
@@ -8,6 +8,12 @@ const PATHS: Record<SectionId, string[]> = {
   home: ['M3 10.5 12 3l9 7.5', 'M5 9.5V21h5v-6h4v6h5V9.5'],
   // Lightning bolt
   power: ['M13 2 4 14h7l-1 8 9-12h-7z'],
+  // Euro sign in a tag
+  tariffs: [
+    'M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z',
+    'M14 9.2a3 3 0 1 0 0 3.6',
+    'M8.5 10h4M8.5 12h4',
+  ],
   // Sine wave over a baseline
   quality: ['M2 12c2.5-7 5.5-7 8 0s5.5 7 8 0', 'M18 12c1-2.8 2-4 4-4', 'M2 21h20'],
   // Gear
