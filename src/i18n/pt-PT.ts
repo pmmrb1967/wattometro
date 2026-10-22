@@ -6,6 +6,7 @@ export const t = {
   appName: 'Wattómetro',
   tagline: 'O consumo elétrico da casa transformado em poupança concreta.',
   loading: 'A carregar…',
+  infoLabel: 'Onde encontrar este valor',
   signOut: 'Sair',
   navToggle: {
     collapse: 'Recolher menu',
@@ -144,8 +145,6 @@ export const t = {
         peak: 'Ponta',
       },
       energyDiscount: 'Desconto na energia (%)',
-      energyDiscountHint:
-        'Soma dos descontos do comercializador sobre a energia (débito direto, fatura eletrónica, dual…). Ex.: 1 % + 1 % + 2 % = 4.',
       socialTitle: 'Tarifa social',
       socialHint:
         'Só se a fatura tiver "Desc. Social": copia os valores por kWh e por dia, sem o sinal menos. Sem tarifa social, deixa 0.',
@@ -157,6 +156,26 @@ export const t = {
       iec: 'Imposto especial de consumo — IEC (€/kWh)',
       cav: 'Contribuição audiovisual (€/mês)',
       dgeg: 'Taxa de exploração DGEG (€/mês)',
+      info: {
+        validFrom:
+          'O dia a partir do qual pagas estes preços: o início do contrato ou a data da última mudança de preços, que o comercializador te comunica por carta ou email.',
+        power: 'Na fatura, nos dados do contrato: "Potência contratada", em kVA.',
+        fixedPerDay:
+          'No detalhe da fatura, linha "Potência" ou "Termo de potência": o preço por dia, sem IVA. Se vier em duas linhas (comercializador e tarifa de acesso às redes), soma os dois preços. Ex.: 0,12 + 0,3436 = 0,4636.',
+        energy:
+          'No detalhe da fatura, linha "Energia" ou "Consumo": o preço por kWh, sem IVA e antes dos descontos. Se vier em duas linhas (energia e tarifa de acesso às redes), soma os dois preços.',
+        energyDiscount:
+          'Linhas de desconto no detalhe da fatura, como "Desc. FE" (fatura eletrónica), "Desc. DD" (débito direto) ou "Desc. Dual" (eletricidade e gás no mesmo comercializador): soma as percentagens. Ex.: 1 % + 1 % + 2 % = 4. O desconto social vai abaixo, na tarifa social.',
+        socialEnergy:
+          'Linha "Desc. Social" da energia: o valor por kWh, sem o sinal menos. Ex.: 0,0468.',
+        socialPower:
+          'Linha "Desc. Social" da potência: o valor por dia, sem o sinal menos. Ex.: 0,2166.',
+        socialFinancing:
+          'Linha "Financiamento da tarifa social": o valor por kWh. Aparece em todas as faturas desde janeiro de 2026, mesmo sem tarifa social. Ex.: 0,002067.',
+        iec: 'Linha "IEC" ou "Imposto Especial de Consumo": o valor por kWh (0,001 no continente). Com tarifa social aparece isento: deixa 0.',
+        cav: 'Linha "Contribuição Audiovisual" (CAV): o valor por mês, sem IVA. Ex.: 2,85.',
+        dgeg: 'Linha "Taxa de exploração DGEG": o valor por mês, sem IVA. Ex.: 0,07.',
+      },
       largeFamily: 'Família numerosa (IVA a 6 % até 300 kWh por 30 dias, em vez de 200 kWh)',
       lowPowerNote:
         'Até 3,45 kVA, parte do termo de potência tem IVA a 6 %, mas a fatura não a separa: a estimativa fica ligeiramente acima.',

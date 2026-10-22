@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Settings → Tariff: the household's contract, copied from an invoice, and its history. */
 import { useEffect, useState, type FormEvent } from 'react';
+import { Field } from '../components/InfoTip';
 import powerTiers from '../data/power-tiers.json';
 import {
   CYCLES,
@@ -22,31 +23,37 @@ import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.settings.tariff;
+const info = texts.info;
 const LOW_POWER_VA = 3450;
 
 function PriceField({
   name,
   label,
+  info,
   value,
   required = true,
 }: {
   name: string;
   label: string;
+  /** Where to find the value on an invoice. */
+  info: string;
   value: number | undefined;
   required?: boolean;
 }) {
   return (
-    <label>
-      {label}
-      <input
-        name={name}
-        inputMode="decimal"
-        autoComplete="off"
-        defaultValue={value === undefined ? '' : microToPtInput(value)}
-        placeholder="0,0000"
-        required={required}
-      />
-    </label>
+    <Field label={label} info={info}>
+      {(id) => (
+        <input
+          id={id}
+          name={name}
+          inputMode="decimal"
+          autoComplete="off"
+          defaultValue={value === undefined ? '' : microToPtInput(value)}
+          placeholder="0,0000"
+          required={required}
+        />
+      )}
+    </Field>
   );
 }
 
@@ -137,33 +144,37 @@ function TariffForm({
     <form className="form tariff-form" onSubmit={submit}>
       <h3>{texts.newTitle}</h3>
       <p className="hint">{texts.editHint}</p>
-      <label>
-        {texts.validFrom}
-        <input
-          name="validFrom"
-          type="date"
-          defaultValue={initial?.validFrom ?? lisbonToday()}
-          required
-        />
-      </label>
+      <Field label={texts.validFrom} info={info.validFrom}>
+        {(id) => (
+          <input
+            id={id}
+            name="validFrom"
+            type="date"
+            defaultValue={initial?.validFrom ?? lisbonToday()}
+            required
+          />
+        )}
+      </Field>
       <label>
         {texts.supplier}
         <input name="supplier" defaultValue={initial?.supplier ?? ''} maxLength={60} />
       </label>
-      <label>
-        {texts.power}
-        <select
-          name="powerVa"
-          value={powerVa}
-          onChange={(event) => setPowerVa(Number(event.target.value))}
-        >
-          {powerTiers.tiersVa.map((va) => (
-            <option key={va} value={va}>
-              {formatKva(va)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Field label={texts.power} info={info.power}>
+        {(id) => (
+          <select
+            id={id}
+            name="powerVa"
+            value={powerVa}
+            onChange={(event) => setPowerVa(Number(event.target.value))}
+          >
+            {powerTiers.tiersVa.map((va) => (
+              <option key={va} value={va}>
+                {formatKva(va)}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
       <label>
         {texts.option}
         <select
@@ -205,7 +216,12 @@ function TariffForm({
         </>
       )}
 
-      <PriceField name="fixedPerDay" label={texts.fixedPerDay} value={initial?.fixedPerDay} />
+      <PriceField
+        name="fixedPerDay"
+        label={texts.fixedPerDay}
+        info={info.fixedPerDay}
+        value={initial?.fixedPerDay}
+      />
       <fieldset>
         <legend>{texts.energy}</legend>
         {OPTION_PERIODS[option].map((period) => (
@@ -213,20 +229,22 @@ function TariffForm({
             key={period}
             name={`energy-${period}`}
             label={texts.periods[period]}
+            info={info.energy}
             value={initial?.energy[period]}
           />
         ))}
-        <label>
-          {texts.energyDiscount}
-          <input
-            name="energyDiscount"
-            inputMode="decimal"
-            autoComplete="off"
-            defaultValue={bpToPtInput(initial?.energyDiscountBp ?? 0)}
-            placeholder="0"
-          />
-          <span className="hint">{texts.energyDiscountHint}</span>
-        </label>
+        <Field label={texts.energyDiscount} info={info.energyDiscount}>
+          {(id) => (
+            <input
+              id={id}
+              name="energyDiscount"
+              inputMode="decimal"
+              autoComplete="off"
+              defaultValue={bpToPtInput(initial?.energyDiscountBp ?? 0)}
+              placeholder="0"
+            />
+          )}
+        </Field>
       </fieldset>
 
       <fieldset>
@@ -235,11 +253,13 @@ function TariffForm({
         <PriceField
           name="socialEnergyPerKwh"
           label={texts.socialEnergy}
+          info={info.socialEnergy}
           value={initial?.socialEnergyPerKwh ?? 0}
         />
         <PriceField
           name="socialPowerPerDay"
           label={texts.socialPower}
+          info={info.socialPower}
           value={initial?.socialPowerPerDay ?? 0}
         />
       </fieldset>
@@ -250,11 +270,27 @@ function TariffForm({
         <PriceField
           name="socialFinancingPerKwh"
           label={texts.socialFinancing}
+          info={info.socialFinancing}
           value={initial?.socialFinancingPerKwh ?? 0}
         />
-        <PriceField name="iecPerKwh" label={texts.iec} value={initial?.iecPerKwh ?? 0} />
-        <PriceField name="cavPerMonth" label={texts.cav} value={initial?.cavPerMonth ?? 0} />
-        <PriceField name="dgegPerMonth" label={texts.dgeg} value={initial?.dgegPerMonth ?? 0} />
+        <PriceField
+          name="iecPerKwh"
+          label={texts.iec}
+          info={info.iec}
+          value={initial?.iecPerKwh ?? 0}
+        />
+        <PriceField
+          name="cavPerMonth"
+          label={texts.cav}
+          info={info.cav}
+          value={initial?.cavPerMonth ?? 0}
+        />
+        <PriceField
+          name="dgegPerMonth"
+          label={texts.dgeg}
+          info={info.dgeg}
+          value={initial?.dgegPerMonth ?? 0}
+        />
       </fieldset>
 
       <label className="checkbox">
