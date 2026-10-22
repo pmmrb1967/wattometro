@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Calls to the project's API, same-origin under /v1. Every response is validated with zod. */
 import { z } from 'zod';
+import { isDemo } from '../demo/mode';
+import { demoResponse } from '../demo/server';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
 
@@ -58,11 +60,15 @@ export type Me = z.infer<typeof Me>;
 /** Reasons a request can fail that the user can act on. */
 export type Failure =
   | { ok: false; reason: 'invalid' | 'unavailable' | 'unauthenticated' }
+  /** Not possible in the demonstration (the account and devices stay as they are). */
+  | { ok: false; reason: 'demo' }
   | { ok: false; reason: 'locked'; retryAfter: number };
 
 const Locked = z.object({ retryAfter: z.number().int() });
 
 async function send(method: string, path: string, body?: unknown): Promise<Response | null> {
+  // The demonstration answers in the browser; nothing goes to the server.
+  if (isDemo()) return demoResponse(method, path, body);
   try {
     return await fetch(path, {
       method,
@@ -78,6 +84,7 @@ async function send(method: string, path: string, body?: unknown): Promise<Respo
 /** Maps an unsuccessful response; `invalidStatuses` are the user's mistakes for this call. */
 async function failure(response: Response | null, invalidStatuses: number[]): Promise<Failure> {
   if (!response) return { ok: false, reason: 'unavailable' };
+  if (response.status === 409 && isDemo()) return { ok: false, reason: 'demo' };
   if (invalidStatuses.includes(response.status)) return { ok: false, reason: 'invalid' };
   if (response.status === 401) return { ok: false, reason: 'unauthenticated' };
   if (response.status === 429) {
@@ -98,7 +105,9 @@ export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
 
 /** The signed-in user, or null without a valid session. */
 export async function fetchMe(signal?: AbortSignal): Promise<Me | null> {
-  const response = await fetch('/v1/auth/me', { signal });
+  const response = isDemo()
+    ? demoResponse('GET', '/v1/auth/me')
+    : await fetch('/v1/auth/me', { signal });
   if (response.status === 401) return null;
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return Me.parse(await response.json());

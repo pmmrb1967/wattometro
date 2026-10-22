@@ -198,6 +198,19 @@ a {
   cursor: pointer;
 }
 
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  padding: 8px 16px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
 .server-banner {
   margin: 0;
   padding: 8px 16px;
@@ -681,6 +694,7 @@ h2 {
   .topbar,
   .nav,
   .server-banner,
+  .demo-banner,
   .footer,
   .no-print {
     display: none !important;

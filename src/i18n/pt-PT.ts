@@ -315,6 +315,15 @@ export const t = {
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
   },
+  demo: {
+    title: 'Experimentar sem conta',
+    intro:
+      'Vê o que o Wattómetro faz com uma casa fictícia: consumo, custo, potência contratada e qualidade da energia. Os dados são gerados no teu browser; nada é enviado.',
+    enter: 'Experimentar com dados de exemplo',
+    banner: 'Demonstração: casa fictícia com dados de exemplo. As alterações perdem-se ao sair.',
+    exit: 'Sair da demonstração',
+    readOnly: 'Na demonstração isto não se pode mudar.',
+  },
   server: {
     checking: 'A verificar o servidor…',
     ok: 'Servidor ligado',

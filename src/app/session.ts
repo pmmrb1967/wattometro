@@ -25,5 +25,7 @@ export function failureText(failure: Failure, invalid: string): string | null {
       return t.errors.unavailable;
     case 'unauthenticated':
       return null;
+    case 'demo':
+      return t.demo.readOnly;
   }
 }

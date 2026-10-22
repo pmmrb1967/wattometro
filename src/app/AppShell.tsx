@@ -6,6 +6,8 @@ import { fetchHealth, fetchMe, logout, type Me } from './api';
 import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
 import { InstallSection } from '../components/InstallSection';
+import { enterDemo, exitDemo, isDemo } from '../demo/mode';
+import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
@@ -68,7 +70,18 @@ export function AppShell() {
   const [me, setMe] = useMe();
 
   // Stable, so pages can depend on it in effects.
-  const signOut = useCallback(() => void logout().then(() => setMe(null)), [setMe]);
+  const signOut = useCallback(() => {
+    if (isDemo()) {
+      exitDemo();
+      setMe(null);
+      return;
+    }
+    void logout().then(() => setMe(null));
+  }, [setMe]);
+  const startDemo = () => {
+    enterDemo();
+    setMe(DEMO_ME);
+  };
   const context: SessionContext | null = me ? { me, update: setMe, signOut } : null;
 
   return (
@@ -100,8 +113,8 @@ export function AppShell() {
               type="button"
               className="signout"
               onClick={signOut}
-              aria-label={t.signOutLabel}
-              title={t.signOutLabel}
+              aria-label={isDemo() ? t.demo.exit : t.signOutLabel}
+              title={isDemo() ? t.demo.exit : t.signOutLabel}
             >
               {t.signOut}
             </button>
@@ -114,12 +127,28 @@ export function AppShell() {
         </p>
       )}
 
+      {context && isDemo() && (
+        <div className="demo-banner" role="status">
+          <span>{t.demo.banner}</span>
+          <button type="button" className="signout" onClick={signOut}>
+            {t.demo.exit}
+          </button>
+        </div>
+      )}
+
       <main className="content">
         {me === undefined && <p className="hint">{t.loading}</p>}
         {me === null && (
           <>
             <p className="tagline">{t.tagline}</p>
             <Login onSignedIn={setMe} />
+            <section className="card">
+              <h2>{t.demo.title}</h2>
+              <p className="hint">{t.demo.intro}</p>
+              <button type="button" className="secondary" onClick={startDemo}>
+                {t.demo.enter}
+              </button>
+            </section>
             <InstallSection />
           </>
         )}
