@@ -39,15 +39,17 @@ export async function importEredes(
       params: [householdId, JSON.stringify(rows)],
     },
     {
+      // One primary-key range per day (~96 rows read). A join here let SQLite scan every
+      // E-Redes quarter of the household once per day of the batch (~500 000 rows read).
       query: `INSERT INTO daily (household_id, meter, day, source, energy_wh)
-        SELECT ?, '${EREDES_METER}', json_extract(d.value, '$[0]'), 'eredes', SUM(q.energy_wh)
-        FROM json_each(?) AS d
-        JOIN readings_15m AS q ON q.household_id = ? AND q.meter = '${EREDES_METER}'
-          AND q.ts >= json_extract(d.value, '$[1]') AND q.ts < json_extract(d.value, '$[2]')
-        GROUP BY d.value
+        SELECT ?, '${EREDES_METER}', json_extract(d.value, '$[0]'), 'eredes',
+          (SELECT SUM(q.energy_wh) FROM readings_15m AS q
+            WHERE q.household_id = ? AND q.meter = '${EREDES_METER}'
+              AND q.ts >= json_extract(d.value, '$[1]') AND q.ts < json_extract(d.value, '$[2]'))
+        FROM json_each(?) AS d WHERE true
         ON CONFLICT (household_id, meter, day) DO UPDATE SET energy_wh = excluded.energy_wh
         WHERE energy_wh IS NOT excluded.energy_wh`,
-      params: [householdId, JSON.stringify(days), householdId],
+      params: [householdId, householdId, JSON.stringify(days)],
     },
   ]);
   return written;
