@@ -75,3 +75,46 @@ const EUR_FORMAT = new Intl.NumberFormat('pt-PT', { style: 'currency', currency:
 export function formatCents(cents: Cents): string {
   return EUR_FORMAT.format(cents / 100);
 }
+
+/**
+ * Unit prices (€/kWh, €/day) need more precision than cents: integer
+ * micro-euros, 1 € = 1 000 000 µ€ (e.g. 0,1665 €/kWh → 166 500).
+ */
+export type MicroEuros = number;
+
+const PT_PRICE = /^(\d{1,4})(?:[,.](\d{1,6}))?$/;
+
+/** "0,1665" (or "0.1665", with an optional euro sign) → 166500; null if not a price. */
+export function parsePtPrice(text: string): MicroEuros | null {
+  const match = PT_PRICE.exec(text.replace(/€/g, '').trim());
+  if (!match) return null;
+  const [, integerPart = '', decimals = ''] = match;
+  return Number(integerPart) * 1_000_000 + Number(decimals.padEnd(6, '0'));
+}
+
+/** A decimal price as published (ERSE offers) → micro-euros. */
+export function eurosToMicro(euros: number): MicroEuros {
+  const micro = Math.round(euros * 1_000_000);
+  if (!Number.isSafeInteger(micro)) throw new RangeError(`Price out of range: ${euros}`);
+  return micro;
+}
+
+/** Micro-euros as text for an input field, without trailing zeros (e.g. 166500 → "0,1665"). */
+export function microToPtInput(micro: MicroEuros): string {
+  if (!Number.isSafeInteger(micro) || micro < 0) throw new TypeError(`Not a price: ${micro}`);
+  const decimals = String(micro % 1_000_000)
+    .padStart(6, '0')
+    .replace(/0+$/, '');
+  return `${Math.floor(micro / 1_000_000)},${decimals.padEnd(2, '0')}`;
+}
+
+/** Round half up of numerator / denominator, for non-negative integers (exact, with BigInt). */
+export function divideRounded(numerator: bigint, denominator: bigint): bigint {
+  if (numerator < 0n || denominator <= 0n) throw new RangeError('divideRounded: negative');
+  return (numerator * 2n + denominator) / (denominator * 2n);
+}
+
+/** Nano-euros (Wh × µ€/kWh) → cents, rounded half up. */
+export function nanoToCents(nano: bigint): Cents {
+  return Number(divideRounded(nano, 10_000_000n));
+}

@@ -120,3 +120,14 @@ export function formatLisbonTime(ts: EpochSeconds): string {
   const { hour, minute } = lisbonParts(ts);
   return `${pad(hour)}:${pad(minute)}`;
 }
+
+/** A Lisbon calendar day as shown to the user: 'DD/MM/YYYY'. */
+export function formatLocalDate(date: LocalDate): string {
+  const [year, month, day] = parseDate(date);
+  return `${pad(day)}/${pad(month)}/${year}`;
+}
+
+/** Today in Lisbon. */
+export function lisbonToday(): LocalDate {
+  return lisbonDate(Math.floor(Date.now() / 1000));
+}

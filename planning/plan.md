@@ -93,7 +93,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 
 ### 1.5 App
 - [x] Página "Agora": último minuto (potência, tensão), energia de hoje, pico de hoje, estado do Shelly (último envio)
-- [ ] Custo provisório de hoje — depende do tarifário (Fase 3)
+- [x] Custo provisório de hoje (tarifário em Definições; motor de custos da Fase 3.2)
 - [ ] Gráficos dia/semana/mês e mapa de calor hora × dia da semana
 
 **Aceitação:** 7 dias de dados sem perdas relevantes; um corte de internet de 30 min é recuperado sem buracos.
@@ -116,14 +116,15 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 ## Fase 3 — Poupança PT
 
 ### 3.1 Dados de referência
-- [ ] Copiar e adaptar do Faturómetro: `docs/electricity-vat.md`, `docs/erse-data.md`, `scripts/erse-sync.ts`
-- [ ] `docs/time-cycles.md` + `public/data/time-cycles.json`: ciclos simples, bi-horário e tri-horário (diário e semanal), verão/inverno — **com fonte ERSE e data**
-- [ ] Escalões de potência em vigor — **com fonte e data**
+- [x] Copiar e adaptar do Faturómetro: `docs/electricity-vat.md`, `docs/erse-data.md`, `scripts/erse-sync.ts` (só eletricidade; `pnpm erse:sync` → `public/data/erse-offers.json`)
+- [x] `docs/time-cycles.md` + `src/data/time-cycles.json`: ciclos simples, bi-horário e tri-horário (diário e semanal), verão/inverno — **com fonte ERSE e data** (mapa vigente e o novo da Diretiva 3/2026)
+- [x] Escalões de potência em vigor — **com fonte e data** (`docs/contracted-power.md`, `src/data/power-tiers.json`)
 
 ### 3.2 Motor de custos (`src/domain/`)
-- [ ] Reaproveitar `electricity-cost.ts` do Faturómetro; adaptar a consumo por intervalo
-- [ ] `classifyPeriod(ts, cycle)` com testes de fronteiras, fins de semana e mudança de hora
-- [ ] Custo por período: energia, potência, taxas, IVA (incluindo limiar proporcional aos dias), em cêntimos
+- [x] Reaproveitar `electricity-cost.ts` do Faturómetro; adaptar a consumo por intervalo
+- [x] `classifyPeriod(ts, cycle)` com testes de fronteiras, fins de semana e mudança de hora (`meterPeriod`/`billingPeriod` em `src/domain/time-cycles.ts`)
+- [x] Custo por período: energia, potência, taxas, IVA (incluindo limiar proporcional aos dias), em cêntimos
+- [x] Tarifário da casa (migração `0005_tariffs.sql`, `/v1/tariffs`, secção em Definições), com histórico por data de início
 - [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável
 
 ### 3.3 Simulador de tarifários
@@ -282,3 +283,9 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-22 — Cron a cada 5 min: recalcula os quartos de hora das últimas 6 h (a fila do Shelly guarda 4 h) e os dias que tocam nesse intervalo; atualização só quando os valores mudam (poupa escritas D1); recuperação de histórico às semanas. `readings_15m` guarda também o pico ao segundo e a tensão mín./máx.; `daily` é calculado a partir dos quartos de hora. Purga uma vez por dia; tamanho da base lido do `meta.size_after` do D1. Retenções e limite por variáveis no `wrangler.toml`.
 - 2026-10-22 — "Agora" lê os minutos de hoje diretamente (até 1440 linhas por contador): simples e sempre fresco para uso familiar; em grande escala passa a ler `readings_15m` + o último quarto de hora.
 - 2026-10-22 — Instalação da app (copiada do Faturómetro, `src/app/install.ts`): botão "Instalar app" no Chrome/Edge, passos por browser nos outros (iPhone/Safari, Samsung, Firefox); no ecrã de entrada e em Definições. Rodapé ao estilo do Faturómetro: © 2026 Paulo Barbosa, "Sugestões e problemas" por email (`wattometro@outlook.com`, abre o programa de email do utilizador com versão e página), licença AGPL-3.0, código no GitHub, versão.
+- 2026-10-22 — **Fase 3.1–3.2 antes da Fase 2**: enquanto não há CSV da E-Redes nem Shelly, avança-se com os dados de referência e o motor de custos (dão já o custo de hoje na página Agora). A Fase 2 retoma quando chegar o CSV.
+- 2026-10-22 — Períodos horários tirados da **calculadora oficial da ERSE (CP 137, 31/07/2026)**, convertidos para hora legal por script e conferidos com o PDF de 2020, a Diretiva 3/2026 e as perguntas e respostas da ERSE; um só mapa ponta/cheias/vazio por ciclo, bi-horário derivado. Feriados em BTN seguem o dia da semana. O mapa novo (2027) é uma escolha do tarifário, porque a data de mudança é por contador (julho–dezembro de 2027). Ponta da manhã de inverno no ciclo diário às 9:00 (fontes de 2026), não às 8:30 do gráfico de 2020.
+- 2026-10-22 — Dados de referência pequenos (ciclos, escalões, IVA) em **`src/data/*.json`**, importados e validados com zod (funcionam offline, sem pedido); `public/data/` fica para ficheiros grandes servidos à parte (ofertas ERSE, 1,7 MB, fora do precache).
+- 2026-10-22 — Preços unitários em **micro-euros inteiros** (`MicroEuros`, `src/lib/money.ts`): os preços têm até 6 casas decimais. Custo = Wh × µ€/kWh em nano-euros (BigInt), arredondado a cêntimos uma vez por componente (energia, potência, taxas).
+- 2026-10-22 — Taxas da fatura (IEC €/kWh, CAV e DGEG €/mês) copiadas da fatura pelo utilizador para o tarifário (não há fonte regulatória no repositório); CAV/DGEG repartidas por dia × 12/365. IVA do IEC por confirmar com uma fatura real (`docs/electricity-vat.md`).
+- 2026-10-22 — O custo de hoje vem dos quartos de hora agregados em SQL a partir dos minutos (`/v1/now`), classificados no browser. Com vários contadores, cada cartão mostra o seu custo completo (inclui o termo de potência) até se escolher o contador geral da casa (Fase 2).

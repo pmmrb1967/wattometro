@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   floorTo,
   formatLisbonDateTime,
+  formatLocalDate,
   formatLisbonTime,
   HOUR,
   lisbonDate,
@@ -112,5 +113,12 @@ describe('formatLisbonTime', () => {
   it('shows the Lisbon hour and minute', () => {
     expect(formatLisbonTime(at('2026-01-15T08:05:00Z'))).toBe('08:05');
     expect(formatLisbonTime(at('2026-07-15T23:30:00Z'))).toBe('00:30');
+  });
+});
+
+describe('formatLocalDate', () => {
+  it('shows a day as DD/MM/YYYY', () => {
+    expect(formatLocalDate('2026-03-09')).toBe('09/03/2026');
+    expect(() => formatLocalDate('9/3/2026')).toThrow(RangeError);
   });
 });

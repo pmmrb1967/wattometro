@@ -17,7 +17,7 @@ Projeto irmão: **Faturómetro** (`github.com/pmmrb1967/faturometro`). Mesmo sta
 1. **Dados só na conta Cloudflare do dono, na UE.** Bases D1 criadas com `--jurisdiction eu`. Sem analytics nem logs remotos com dados de consumo. Ligações externas permitidas: o Worker do projeto, `https://api.anthropic.com` (só por ação ou definição explícita do utilizador) e Open-Meteo (clima, sem dados pessoais).
 2. **A app tem de funcionar sem IA.** Qualquer funcionalidade nova precisa de um caminho sem chave de API.
 3. **O código calcula, a IA explica.** Nenhum número mostrado ao utilizador vem de um LLM. A IA recebe resultados já calculados (agregados pequenos) e interpreta-os. Nunca enviar séries temporais em bruto à IA.
-4. **Unidades inteiras.** Dinheiro em **cêntimos inteiros**; energia em **Wh inteiros**; potência em **W**. Nunca somar euros ou kWh em vírgula flutuante. Conversões só em `src/lib/money.ts` e `src/lib/units.ts`.
+4. **Unidades inteiras.** Dinheiro em **cêntimos inteiros** (preços unitários em micro-euros inteiros); energia em **Wh inteiros**; potência em **W**. Nunca somar euros ou kWh em vírgula flutuante. Conversões só em `src/lib/money.ts` e `src/lib/units.ts`.
 5. **Multi-casa desde o primeiro dia.** Todas as tabelas com dados levam `household_id`; todo o acesso a dados passa pela camada de repositório (`server/src/repo/`). Nenhuma rota escreve SQL diretamente.
 6. **Não inventar dados de referência** (ciclos horários ERSE, escalões de potência, IVA, taxas, limites de tensão, formato do CSV E-Redes, API do Shelly). Usar o que está em `docs/` e nas fixtures; se faltar, parar e perguntar. Cada valor regulatório tem fonte e data de consulta em `docs/`.
 7. **Nunca commitar dados reais.** O repositório é público. CSVs da E-Redes, faturas e capturas do Shelly reais ficam em `fixtures/private/` (ignorada pelo Git). No repositório só entram fixtures sintéticas.
@@ -69,6 +69,7 @@ wattometro/
 │   ├── ai/                    # abstração AiProvider, ferramentas, prompts
 │   ├── app/                   # páginas e rotas
 │   ├── components/
+│   ├── data/                  # dados de referência pequenos (ciclos ERSE, escalões, IVA), com fonte em docs/
 │   ├── db/                    # Dexie (cache)
 │   ├── domain/                # lógica pura: tarifas, custos, potência, consumo base
 │   ├── ml/                    # previsão, anomalias, saúde de aparelhos
@@ -88,7 +89,7 @@ wattometro/
 │   │   └── gateway.ts         # Worker `app`: /v1/* → Worker `api`
 │   ├── migrations/
 │   └── wrangler.toml
-├── public/data/               # dados de referência servidos (ofertas ERSE, ciclos horários)
+├── public/data/               # ficheiros grandes servidos à parte (ofertas ERSE: pnpm erse:sync)
 ├── scripts/
 └── wrangler.app.toml          # a PWA (Workers Assets)
 ```
@@ -104,7 +105,7 @@ wattometro/
 - `daily` — por contador e dia de Lisboa: energia, potência máxima, tensão mín./máx.; energia por período horário e consumo base na Fase 3.
 - `maintenance_state` — progresso do Cron (até onde agregou, última purga, tamanho da base).
 - `voltage_events`, `outages` — derivados dos minutos.
-- `tariffs` — tarifário da casa (opção horária, potência, preços, validade).
+- `tariffs` — tarifário da casa (opção horária, ciclo, mapa de períodos, potência em VA, preços sem IVA em **micro-euros inteiros**, taxas da fatura, data de início).
 
 Orçamento de armazenamento no plano gratuito: **500 MB por base D1**. `readings_1m` ≈ 50–80 MB por ano por dispositivo; `readings_1s` ≈ 0,5 MB por dia (361 bytes por minuto), ou seja, ≈ 47 MB com 90 dias de retenção. Os dados ao segundo **não aumentam o número de pedidos nem de linhas escritas** (vão no mesmo pedido e na mesma linha por minuto). Se o tamanho se aproximar do limite, mover `readings_1s` (e depois `readings_1m`) para uma base separada (padrão já usado no Faturómetro com `FILES`).
 
@@ -112,7 +113,7 @@ Orçamento de armazenamento no plano gratuito: **500 MB por base D1**. `readings
 
 - **Tempo:** guardar em UTC (epoch em segundos); apresentar em `Europe/Lisbon`. Testes obrigatórios para os dias de 23 h e 25 h.
 - **Intervalos de 15 min:** confirmar no CSV real se o timestamp da E-Redes marca o início ou o fim do intervalo; a convenção vive só em `src/lib/time.ts`.
-- **Ciclos horários, escalões de potência, IVA e taxas** vivem como dados (`public/data/`, `docs/`), versionados por data de validade — nunca em `if`s espalhados.
+- **Ciclos horários, escalões de potência, IVA e taxas** vivem como dados (`src/data/`, com fonte e data em `docs/`), versionados por data de validade — nunca em `if`s espalhados.
 - **Potência contratada:** dados de 15 min escondem picos curtos; usar `power_max_w` dos minutos quando houver Shelly e dizê-lo ao utilizador quando só houver E-Redes.
 - **Tensão:** confirmar limites e regulamento aplicáveis antes de implementar (registar em `docs/voltage.md`).
 
@@ -153,7 +154,7 @@ pnpm deploy:server       # Worker `api` (sem endereço público; publicar antes 
 pnpm deploy:app          # build + Worker `app` → https://app.wattometro.workers.dev (/v1/* → api)
 ```
 
-`pnpm erse:sync` chega na Fase 3. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas.
+`pnpm erse:sync` atualiza `public/data/erse-offers.json` com as ofertas da ERSE. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas.
 
 Antes de dar uma tarefa por concluída: `pnpm typecheck && pnpm lint && pnpm test` sem erros.
 

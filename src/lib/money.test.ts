@@ -2,6 +2,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   centsToPtInput,
+  divideRounded,
+  eurosToMicro,
+  microToPtInput,
+  nanoToCents,
+  parsePtPrice,
   formatCents,
   parseDotDecimalAmount,
   parsePtAmount,
@@ -79,5 +84,31 @@ describe('centsToPtInput', () => {
     expect(centsToPtInput(5)).toBe('0,05');
     expect(centsToPtInput(-1200)).toBe('-12,00');
     expect(parsePtAmount(centsToPtInput(123456))).toBe(123456);
+  });
+});
+
+describe('unit prices in micro-euros', () => {
+  it('parses prices as printed on invoices and offers', () => {
+    expect(parsePtPrice('0,1665')).toBe(166_500);
+    expect(parsePtPrice('0.166543')).toBe(166_543);
+    expect(parsePtPrice('0,5636 €')).toBe(563_600);
+    expect(parsePtPrice('1')).toBe(1_000_000);
+    expect(parsePtPrice('0,1234567')).toBeNull();
+    expect(parsePtPrice('-0,1')).toBeNull();
+    expect(parsePtPrice('abc')).toBeNull();
+  });
+
+  it('converts and formats without losing digits', () => {
+    expect(eurosToMicro(0.261579822840437)).toBe(261_580);
+    expect(microToPtInput(166_500)).toBe('0,1665');
+    expect(microToPtInput(1_000_000)).toBe('1,00');
+    expect(microToPtInput(166_543)).toBe('0,166543');
+  });
+
+  it('rounds exactly, half up', () => {
+    expect(divideRounded(5n, 2n)).toBe(3n);
+    expect(divideRounded(4n, 3n)).toBe(1n);
+    // 2,5 kWh × 0,1665 €/kWh = 0,41625 € → 42 cents.
+    expect(nanoToCents(2500n * 166_500n)).toBe(42);
   });
 });

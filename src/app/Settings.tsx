@@ -6,6 +6,7 @@ import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
+import { TariffSection } from './Tariff';
 
 /** Same minimum as the server (server/src/password.ts), checked here for a quicker message. */
 const MIN_PASSWORD_LENGTH = 12;
@@ -128,6 +129,7 @@ export function Settings() {
       </section>
 
       <HouseholdForm />
+      <TariffSection />
       <DevicesSection />
       <InstallSection />
       <PasswordForm />

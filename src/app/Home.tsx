@@ -2,10 +2,13 @@
 /** "Agora": the latest minute and today so far, per Shelly channel. Refreshes every minute. */
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { electricityCost, energyByPeriod } from '../domain/electricity-cost';
+import { OPTION_PERIODS, tariffOn, type Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
-import { formatLisbonTime } from '../lib/time';
+import { formatCents } from '../lib/money';
+import { formatLisbonTime, lisbonDate } from '../lib/time';
 import { formatKwh, formatPower, formatVolts } from '../lib/units';
-import { fetchNow, type Meter, type Now } from './api';
+import { fetchNow, fetchTariffs, type Meter, type Now } from './api';
 import { useSession } from './session';
 
 const REFRESH_MS = 60_000;
@@ -13,7 +16,52 @@ const REFRESH_MS = 60_000;
 const STALE_SECONDS = 180;
 const WARN_DATABASE_SHARE = 0.8;
 
-function MeterCard({ meter, now }: { meter: Meter; now: number }) {
+/** Today's cost so far: energy by period, the day's fixed term and taxes, with VAT. */
+function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
+  if (!tariff) {
+    return (
+      <dd className="hint">
+        <Link to="/definicoes">{t.now.noTariff}</Link>
+      </dd>
+    );
+  }
+  const energy = energyByPeriod(meter.today.quarters, tariff);
+  const cost = electricityCost(energy, 1, tariff);
+  const periods = OPTION_PERIODS[tariff.option];
+  return (
+    <>
+      <dd>{formatCents(cost.totalCents)}</dd>
+      <dd className="hint">
+        {t.now.costParts(
+          formatCents(cost.energyCents),
+          formatCents(cost.powerCents),
+          formatCents(cost.taxesCents),
+        )}
+      </dd>
+      {periods.length > 1 && (
+        <dd className="hint">
+          {periods
+            .map(
+              (period) => `${t.settings.tariff.periods[period]} ${formatKwh(energy[period] ?? 0)}`,
+            )
+            .join(' · ')}
+        </dd>
+      )}
+      <dd className="hint">{t.now.costNote}</dd>
+    </>
+  );
+}
+
+function MeterCard({
+  meter,
+  now,
+  tariff,
+}: {
+  meter: Meter;
+  now: number;
+  /** undefined while loading. */
+  tariff: Tariff | null | undefined;
+}) {
   const { latest, today } = meter;
   const silentFor = meter.lastSeenAt === null ? null : now - meter.lastSeenAt;
   return (
@@ -48,6 +96,12 @@ function MeterCard({ meter, now }: { meter: Meter; now: number }) {
           <dd>{formatKwh(today.energyWh, 2)}</dd>
           <dd className="hint">{t.now.todayMinutes(today.minutes)}</dd>
         </div>
+        {tariff !== undefined && (
+          <div>
+            <dt>{t.now.cost}</dt>
+            <TodayCost meter={meter} tariff={tariff} />
+          </div>
+        )}
         <div>
           <dt>{t.now.peak}</dt>
           <dd>{today.powerMaxW === null ? t.now.nothing : formatPower(today.powerMaxW)}</dd>
@@ -113,9 +167,29 @@ function useNow(): Now | null | 'unavailable' {
   return now;
 }
 
+/** The household's contracts; null when they cannot be read (the cost is then hidden). */
+function useTariffs(): Tariff[] | null | undefined {
+  const { signOut } = useSession();
+  const [tariffs, setTariffs] = useState<Tariff[] | null | undefined>(undefined);
+  useEffect(() => {
+    let active = true;
+    void fetchTariffs().then((outcome) => {
+      if (!active) return;
+      if (outcome.ok) setTariffs(outcome.tariffs);
+      else if (outcome.reason === 'unauthenticated') signOut();
+      else setTariffs(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [signOut]);
+  return tariffs;
+}
+
 export function Home() {
   const { me } = useSession();
   const now = useNow();
+  const tariffs = useTariffs();
 
   return (
     <>
@@ -133,7 +207,17 @@ export function Home() {
             </section>
           ) : (
             now.meters.map((meter) => (
-              <MeterCard key={`${meter.deviceId}:${meter.channel}`} meter={meter} now={now.now} />
+              <MeterCard
+                key={`${meter.deviceId}:${meter.channel}`}
+                meter={meter}
+                now={now.now}
+                tariff={
+                  // Not shown when the tariffs could not be read; "set one up" when there is none.
+                  tariffs === undefined || tariffs === null
+                    ? undefined
+                    : tariffOn(tariffs, lisbonDate(now.now))
+                }
+              />
             ))
           )}
         </>

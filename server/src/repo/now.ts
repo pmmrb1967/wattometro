@@ -88,3 +88,36 @@ export async function latestMinute(
       }
     : null;
 }
+
+export interface MeterQuarter {
+  deviceId: string;
+  channel: number;
+  /** Start of the quarter hour (epoch seconds). */
+  ts: number;
+  energyWh: number;
+}
+
+/**
+ * Today's energy per quarter hour, straight from the minutes (fresher than
+ * readings_15m, which the Cron updates every 5 minutes). Lisbon's offset is
+ * whole hours, so UTC quarter hours are local quarter hours (src/lib/time.ts).
+ */
+export async function todayQuarters(
+  sql: Sql,
+  householdId: string,
+  since: number,
+): Promise<MeterQuarter[]> {
+  const rows = await sql.all<{ device_id: string; channel: number; ts: number; energy_wh: number }>(
+    `SELECT device_id, channel, ts - ts % 900 AS ts, SUM(energy_wh) AS energy_wh
+     FROM readings_1m WHERE household_id = ? AND ts >= ?
+     GROUP BY device_id, channel, ts - ts % 900 ORDER BY device_id, channel, 3`,
+    householdId,
+    since,
+  );
+  return rows.map((row) => ({
+    deviceId: row.device_id,
+    channel: row.channel,
+    ts: row.ts,
+    energyWh: row.energy_wh,
+  }));
+}

@@ -118,19 +118,33 @@ describe('GET /v1/now', () => {
             voltageMaxDv: 2320,
             pfAvgPct: 95,
           },
-          today: { minutes: 2, energyWh: 7, powerMaxW: 2500 },
+          today: {
+            minutes: 2,
+            energyWh: 7,
+            powerMaxW: 2500,
+            // Per quarter hour, by its start: 00:00 and 10:15 in Lisbon.
+            quarters: [
+              { ts: DAY_START, energyWh: 3 },
+              { ts: at('2026-07-15T09:15:00Z'), energyWh: 4 },
+            ],
+          },
         },
         expect.objectContaining({
           deviceId: quadro,
           channel: 1,
-          today: { minutes: 1, energyWh: 2, powerMaxW: 800 },
+          today: {
+            minutes: 1,
+            energyWh: 2,
+            powerMaxW: 800,
+            quarters: [{ ts: DAY_START, energyWh: 2 }],
+          },
         }),
         expect.objectContaining({
           deviceName: 'Garagem',
           channel: 0,
           lastSeenAt: null,
           latest: null,
-          today: { minutes: 0, energyWh: 0, powerMaxW: null },
+          today: { minutes: 0, energyWh: 0, powerMaxW: null, quarters: [] },
         }),
       ]),
     );

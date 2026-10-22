@@ -16,8 +16,12 @@
  *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
  *   DELETE /v1/devices/:id     → 204, the device's token stops working
  *   GET  /v1/now               → {now, dayStart, meters: [{deviceId, deviceName, channel, lastSeenAt,
- *                              latest: minute | null, today: {minutes, energyWh, powerMaxW}}],
- *                              database: {sizeBytes, limitBytes}} (today = since Lisbon midnight)
+ *                              latest: minute | null, today: {minutes, energyWh, powerMaxW,
+ *                              quarters: [{ts, energyWh}]}}], database: {sizeBytes, limitBytes}}
+ *                              (today = since Lisbon midnight)
+ *   GET  /v1/tariffs           → {tariffs: Tariff[]} (oldest first; src/domain/tariff.ts)
+ *   POST /v1/tariffs           TariffInput → 201 {tariff}; same validFrom replaces that contract
+ *   DELETE /v1/tariffs/:id     → 204
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
@@ -51,7 +55,9 @@ import {
   type Device,
 } from './repo/devices';
 import { databaseReachable } from './repo/health';
-import { latestMinute, todayByMeter } from './repo/now';
+import { tariffInputSchema } from '../../src/domain/tariff';
+import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
 import { STATE } from './rollups';
 import { getHousehold, renameHousehold } from './repo/households';
@@ -251,6 +257,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       (d) => d.revokedAt === null,
     );
     const today = await todayByMeter(config.sql, householdId, dayStart);
+    const quarters = await todayQuarters(config.sql, householdId, dayStart);
     const meters = [];
     for (const device of devices) {
       const measured = today.filter((meter) => meter.deviceId === device.id);
@@ -268,6 +275,9 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
             minutes: sums?.minutes ?? 0,
             energyWh: sums?.energyWh ?? 0,
             powerMaxW: sums?.powerMaxW ?? null,
+            quarters: quarters
+              .filter((q) => q.deviceId === device.id && q.channel === channel)
+              .map((q) => ({ ts: q.ts, energyWh: q.energyWh })),
           },
         });
       }
@@ -281,6 +291,22 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
         limitBytes: config.databaseLimitBytes ?? DEFAULT_DATABASE_LIMIT_BYTES,
       },
     });
+  });
+
+  app.get('/v1/tariffs', requireUser, async (c) =>
+    c.json({ tariffs: await listTariffs(config.sql, c.get('user').householdId) }),
+  );
+
+  app.post('/v1/tariffs', requireUser, async (c) => {
+    const parsed = await body(c, tariffInputSchema);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const tariff = await saveTariff(config.sql, c.get('user').householdId, parsed.data, now());
+    return c.json({ tariff }, 201);
+  });
+
+  app.delete('/v1/tariffs/:id', requireUser, async (c) => {
+    await deleteTariff(config.sql, c.get('user').householdId, c.req.param('id'));
+    return c.body(null, 204);
   });
 
   app.post('/v1/ingest', async (c) => {

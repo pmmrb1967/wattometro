@@ -49,3 +49,9 @@ export function formatVolts(decivolts: Decivolts): string {
   assertInteger(decivolts, 'dV');
   return `${decimal(1).format(decivolts / 10)} V`;
 }
+
+/** Contracted power for display only (e.g. 6900 VA → "6,9 kVA", 10350 → "10,35 kVA"). */
+export function formatKva(va: number): string {
+  assertInteger(va, 'VA');
+  return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 }).format(va / 1000)} kVA`;
+}

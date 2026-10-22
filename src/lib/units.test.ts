@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { formatKwh, formatPower, formatVolts, roundedKwh, sumWh } from './units';
+import { formatKva, formatKwh, formatPower, formatVolts, roundedKwh, sumWh } from './units';
 
 // Intl in pt-PT uses a no-break space as thousands separator.
 const plain = (text: string) => text.replace(/\s/g, ' ');
@@ -51,5 +51,13 @@ describe('formatting', () => {
     expect(() => formatKwh(1.5)).toThrow(TypeError);
     expect(() => formatPower(0.1)).toThrow(TypeError);
     expect(() => formatVolts(230.5)).toThrow(TypeError);
+  });
+});
+
+describe('formatKva', () => {
+  it('shows the ERSE tiers as on invoices', () => {
+    expect(formatKva(6900)).toBe('6,9 kVA');
+    expect(formatKva(10350)).toBe('10,35 kVA');
+    expect(formatKva(41400)).toBe('41,4 kVA');
   });
 });

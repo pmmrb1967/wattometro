@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Calls to the project's API, same-origin under /v1. Every response is validated with zod. */
 import { z } from 'zod';
+import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
 
 const Health = z.object({ status: z.enum(['ok', 'degraded']), database: z.boolean() });
 export type Health = z.infer<typeof Health>;
@@ -41,6 +42,7 @@ const Now = z.object({
         minutes: z.number().int(),
         energyWh: z.number().int(),
         powerMaxW: z.number().int().nullable(),
+        quarters: z.array(z.object({ ts: z.number().int(), energyWh: z.number().int() })),
       }),
     }),
   ),
@@ -163,5 +165,37 @@ export async function revokeDevice(id: string): Promise<{ ok: true } | Failure> 
 export async function fetchNow(): Promise<{ ok: true; now: Now } | Failure> {
   const response = await send('GET', '/v1/now');
   if (response?.ok) return { ok: true, now: Now.parse(await response.json()) };
+  return failure(response, []);
+}
+
+const TariffResponse = tariffInputSchema.and(z.object({ id: z.string() }));
+
+/** The household's contracts, oldest first. */
+export async function fetchTariffs(): Promise<{ ok: true; tariffs: Tariff[] } | Failure> {
+  const response = await send('GET', '/v1/tariffs');
+  if (response?.ok) {
+    const { tariffs } = z.object({ tariffs: z.array(TariffResponse) }).parse(await response.json());
+    return { ok: true, tariffs };
+  }
+  return failure(response, []);
+}
+
+/** A contract starting on the same day as an existing one replaces it. */
+export async function saveTariff(
+  input: TariffInput,
+): Promise<{ ok: true; tariff: Tariff } | Failure> {
+  const response = await send('POST', '/v1/tariffs', input);
+  if (response?.ok) {
+    return {
+      ok: true,
+      tariff: z.object({ tariff: TariffResponse }).parse(await response.json()).tariff,
+    };
+  }
+  return failure(response, [400]);
+}
+
+export async function deleteTariff(id: string): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', `/v1/tariffs/${encodeURIComponent(id)}`);
+  if (response?.ok) return { ok: true };
   return failure(response, []);
 }
