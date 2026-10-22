@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Cron jobs (server/wrangler.toml, every 5 minutes), always incremental:
- * - minutes → quarter hours → Lisbon days. Each run recomputes from a little
+ * - minutes → quarter hours → Lisbon days, and minutes → 10-minute voltage. Each run recomputes from a little
  *   before where the last one stopped (LATE_SECONDS), so minutes the Shelly
  *   sends late (its queue holds 4 h) still count. A first run, or one after a
  *   long stop, catches up at most MAX_SPAN_SECONDS at a time;
@@ -24,6 +24,7 @@ import {
   purgeReadings,
   rollUpDay,
   rollUpQuarterHours,
+  rollUpVoltage10m,
   setState,
 } from './repo/rollups';
 
@@ -33,6 +34,8 @@ export const PURGE_EVERY_SECONDS = 24 * HOUR;
 export const DEFAULT_RETENTION_1M_DAYS = 730;
 export const DEFAULT_RETENTION_1S_DAYS = 90;
 const DAY = 24 * HOUR;
+const TEN_MINUTES = 600;
+const ceilTo = (ts: number, size: number) => floorTo(ts + size - 1, size);
 
 export const STATE = {
   rolledUpUntil: (householdId: string) => `rollup_until:${householdId}`,
@@ -55,6 +58,8 @@ async function rollUpHousehold(sql: Sql, householdId: string, now: number): Prom
   // The quarter hour in progress is included, so today's figures stay fresh.
   const to = Math.min(floorTo(now, QUARTER_HOUR) + QUARTER_HOUR, from + MAX_SPAN_SECONDS);
   await rollUpQuarterHours(sql, householdId, from, to);
+  // 10-minute intervals that touch [from, to): whole intervals, recomputed from all their minutes.
+  await rollUpVoltage10m(sql, householdId, floorTo(from, TEN_MINUTES), ceilTo(to, TEN_MINUTES));
   for (let day = lisbonDate(from); startOfLisbonDay(day) < to; day = nextDate(day)) {
     await rollUpDay(sql, householdId, day, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
   }

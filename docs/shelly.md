@@ -45,6 +45,7 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM1Data>
 Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Sys/>
 
 - `unixtime`: segundos UTC, **`null` até sincronizar por NTP**. O script não regista nada sem hora.
+- `uptime`: "Time in seconds since last reboot". A partir da versão 0.2.0 o script envia `b = unixtime − uptime` (hora do arranque), calculada uma vez; o servidor usa-a para detetar falhas de energia (`docs/voltage.md`).
 - `ram_size`, `ram_free`: memória do aparelho.
 
 ## Scripts

@@ -37,6 +37,35 @@ export async function rollUpQuarterHours(
   );
 }
 
+/**
+ * Recomputes the 10-minute voltage values that start in [from, to) (multiples of
+ * 600) from the minutes: the mean of the minutes' averages and their extremes.
+ */
+export async function rollUpVoltage10m(
+  sql: Sql,
+  householdId: string,
+  from: number,
+  to: number,
+): Promise<void> {
+  await sql.run(
+    `INSERT INTO voltage_10m (household_id, meter, ts, minutes, voltage_avg_dv, voltage_min_dv,
+       voltage_max_dv)
+     SELECT household_id, device_id || ':' || channel, ts - ts % 600, COUNT(*),
+       CAST(ROUND(AVG(voltage_avg_dv)) AS INTEGER), MIN(voltage_min_dv), MAX(voltage_max_dv)
+     FROM readings_1m
+     WHERE household_id = ? AND ts >= ? AND ts < ?
+     GROUP BY device_id, channel, ts - ts % 600
+     ON CONFLICT (household_id, meter, ts) DO UPDATE SET minutes = excluded.minutes,
+       voltage_avg_dv = excluded.voltage_avg_dv, voltage_min_dv = excluded.voltage_min_dv,
+       voltage_max_dv = excluded.voltage_max_dv
+     WHERE minutes IS NOT excluded.minutes OR voltage_avg_dv IS NOT excluded.voltage_avg_dv
+       OR voltage_min_dv IS NOT excluded.voltage_min_dv OR voltage_max_dv IS NOT excluded.voltage_max_dv`,
+    householdId,
+    from,
+    to,
+  );
+}
+
 /** Recomputes one Lisbon day ([start, end) in epoch seconds) from its quarter hours. */
 export async function rollUpDay(
   sql: Sql,

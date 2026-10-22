@@ -21,6 +21,7 @@ const SOURCE = readFileSync(join(__dirname, 'wattometro.js'), 'utf8');
 const URL = 'https://app.example/v1/ingest';
 const TOKEN = 'wm1_test-token';
 const START = 1_792_000_000 - (1_792_000_000 % 60) + 50; // 10 s before a minute starts
+const BOOT = START - 3600;
 
 type Callback = (result: unknown, errorCode: number, errorMessage: string) => void;
 
@@ -58,7 +59,10 @@ class FakeShelly {
       getComponentStatus: (type: string) => {
         switch (type) {
           case 'sys':
-            return { unixtime: this.timeSynced ? this.clock : null };
+            return {
+              unixtime: this.timeSynced ? this.clock : null,
+              uptime: this.clock - BOOT + 0.4,
+            };
           case 'em1': {
             const p = this.power(this.clock);
             return { id: 0, voltage: 231.24, act_power: p + 0.4, aprt_power: (p + 0.4) / 0.9 };
@@ -173,8 +177,15 @@ describe('shelly/wattometro.js', () => {
     expect(seconds.voltage.every((v) => v === 2312)).toBe(true);
 
     const device = db.prepare('SELECT model, firmware, script_version FROM devices').get();
-    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.1.0' });
+    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.2.0' });
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
+    // The boot time goes in every request; with no earlier minute it is not an outage.
+    expect(shelly.requests.every((r) => (JSON.parse(r.body) as { b: number }).b === BOOT)).toBe(
+      true,
+    );
+    expect(db.prepare('SELECT boot_at, start_at FROM outages').all()).toEqual([
+      { boot_at: BOOT, start_at: null },
+    ]);
   });
 
   it('adds whole Wh per minute that sum exactly to the counter', async () => {

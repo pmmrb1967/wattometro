@@ -7,7 +7,8 @@
  * never a second row, so the script can always resend after a failure.
  *
  * Payload, format 1 (short keys: the Shelly sends at most 8192 bytes per request):
- *   {v: 1, sv: script version, m?: model, fw?: firmware, min: [Minute, …]}
+ *   {v: 1, sv: script version, m?: model, fw?: firmware, b?: boot time (epoch s, script
+ *    0.2.0+, for outages: docs/voltage.md), min: [Minute, …]}
  *   Minute = {t: start (epoch s, multiple of 60), c: channel, n: seconds with a reading,
  *             e: Wh, pa/pn/px: W avg/min/max, va/vn/vx: dV avg/min/max, pf: ΣP/ΣS %,
  *             p?, q?, u?: 60 × (int | null), active W, non-active var, dV}
@@ -16,6 +17,7 @@ import { z } from 'zod';
 import { encodeSeconds, MAX_INT16, SECONDS_PER_MINUTE } from '../../src/lib/readings-1s';
 import type { Sql } from './db';
 import { deviceSeenStatement, type IngestDevice } from './repo/devices';
+import { bootStatement } from './repo/quality';
 import { minuteStatements, type MinuteReading } from './repo/readings';
 
 export const INGEST_FORMAT = 1;
@@ -66,6 +68,7 @@ const Envelope = z.object({
   sv: z.string().min(1).max(20),
   m: z.string().min(1).max(40).optional(),
   fw: z.string().min(1).max(80).optional(),
+  b: z.number().int().min(0).optional(),
   min: z.array(z.unknown()).min(1).max(MAX_MINUTES_PER_REQUEST),
 });
 
@@ -137,6 +140,11 @@ export async function ingest(
 
   // Remember where each minute's readings_1m insert lands in the batch.
   const statements = [];
+  // Before the minutes: the minute in progress at boot must not count as "before the outage".
+  const bootAt = envelope.data.b;
+  if (bootAt !== undefined && bootAt <= now + FUTURE_TOLERANCE_SECONDS) {
+    statements.push(bootStatement(device, bootAt));
+  }
   const minuteIndexes: number[] = [];
   for (const reading of readings) {
     minuteIndexes.push(statements.length);

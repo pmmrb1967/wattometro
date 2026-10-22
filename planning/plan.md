@@ -160,10 +160,10 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 
 ## Fase 5 — Qualidade de energia
 
-- [ ] **Confirmar limites de tensão e regulamento aplicáveis** → `docs/voltage.md`
-- [ ] Eventos de sobretensão/subtensão a partir de `voltage_min/max` por minuto (duração mínima configurável)
-- [ ] Falhas de energia: buracos nos minutos + tempo de arranque (uptime) do Shelly
-- [ ] Histórico na app e PDF factual para anexar a reclamação (sem afirmações legais)
+- [x] **Confirmar limites de tensão e regulamento aplicáveis** → `docs/voltage.md`
+- [x] Eventos de sobretensão/subtensão a partir de `voltage_min/max` por minuto (duração mínima configurável); conformidade semanal NP EN 50160 com valores de 10 min (`voltage_10m`)
+- [x] Falhas de energia: buracos nos minutos + tempo de arranque (uptime) do Shelly (script 0.2.0, tabela `outages`); comparação com o padrão individual da zona A/B/C
+- [x] Histórico na app (`/qualidade`) e PDF factual para anexar a reclamação (sem afirmações legais) — impressão do browser
 
 **Aceitação:** eventos sintéticos detetados com início, fim, duração e extremos.
 
@@ -289,3 +289,6 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-22 — Preços unitários em **micro-euros inteiros** (`MicroEuros`, `src/lib/money.ts`): os preços têm até 6 casas decimais. Custo = Wh × µ€/kWh em nano-euros (BigInt), arredondado a cêntimos uma vez por componente (energia, potência, taxas).
 - 2026-10-22 — Taxas da fatura (IEC €/kWh, CAV e DGEG €/mês) copiadas da fatura pelo utilizador para o tarifário (não há fonte regulatória no repositório); CAV/DGEG repartidas por dia × 12/365. IVA do IEC por confirmar com uma fatura real (`docs/electricity-vat.md`).
 - 2026-10-22 — O custo de hoje vem dos quartos de hora agregados em SQL a partir dos minutos (`/v1/now`), classificados no browser. Com vários contadores, cada cartão mostra o seu custo completo (inclui o termo de potência) até se escolher o contador geral da casa (Fase 2).
+- 2026-10-22 — Limites de tensão da NP EN 50160 (paga) tirados da reprodução da ERSE (Formação ACE, 2021), coerente com a E-Redes (DIT-C14-100) e o RQS (art. 25.º): ± 10 % em 95 % dos valores de 10 min de cada semana, + 10 % / − 15 % sempre. Semana = segunda a domingo em Lisboa; os valores de 10 min que tocam uma falha ficam de fora.
+- 2026-10-22 — Falhas de energia detetadas pelo **arranque do Shelly** (o script 0.2.0 envia `b` = unixtime − uptime; campo opcional, scripts antigos continuam a funcionar). Uma falha de internet não reinicia o Shelly, por isso não conta. Início = fim do último minuto antes do arranque (precisão ~1 min). O utilizador pode marcar falhas que não contam; a app não distingue acidentais de previstas.
+- 2026-10-22 — Valores de 10 min (`voltage_10m`) agregados pelo Cron em SQL; episódios por minuto pedidos ao servidor só para os minutos fora da banda. O "PDF" é a impressão da página (estilos de impressão), sem biblioteca.

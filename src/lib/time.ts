@@ -131,3 +131,16 @@ export function formatLocalDate(date: LocalDate): string {
 export function lisbonToday(): LocalDate {
   return lisbonDate(Math.floor(Date.now() / 1000));
 }
+
+/** A duration as shown to the user (e.g. 45 → "45 s", 200 → "3 min 20 s", 7500 → "2 h 05 min"). */
+export function formatDuration(seconds: number): string {
+  assertEpoch(seconds);
+  if (seconds < MINUTE) return `${seconds} s`;
+  if (seconds < HOUR) {
+    const rest = seconds % MINUTE;
+    return rest === 0
+      ? `${seconds / MINUTE} min`
+      : `${Math.floor(seconds / MINUTE)} min ${pad(rest)} s`;
+  }
+  return `${Math.floor(seconds / HOUR)} h ${pad(Math.floor((seconds % HOUR) / MINUTE))} min`;
+}

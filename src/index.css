@@ -449,3 +449,102 @@ h2 {
 .server-unavailable .dot {
   background: var(--danger);
 }
+
+.facts,
+.caveats {
+  margin: 8px 0;
+  padding-left: 1.2em;
+}
+
+.caveats li + li {
+  margin-top: 4px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 8px 0 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.table th,
+.table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.table tr.muted td {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.table td.success,
+.table td.error {
+  margin: 0;
+}
+
+.inline-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.inline-fields label {
+  flex: 1 1 160px;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --text: #000000;
+    --muted: #444444;
+    --border: #bbbbbb;
+  }
+
+  .topbar,
+  .footer,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  span.print-only {
+    display: inline;
+  }
+
+  .content {
+    max-width: none;
+    padding: 0;
+  }
+
+  .card {
+    break-inside: avoid;
+    border: none;
+    padding: 0;
+    margin: 0 0 16px;
+  }
+
+  .table tr {
+    break-inside: avoid;
+  }
+}

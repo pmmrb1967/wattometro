@@ -1,0 +1,15 @@
+{
+  "source": "docs/voltage.md",
+  "consulted": "2026-10-22",
+  "nominalDv": 2300,
+  "bandPct": 10,
+  "lowerLimitPct": 15,
+  "weeklySharePct": 95,
+  "intervalSeconds": 600,
+  "shortInterruptionMaxSeconds": 180,
+  "zones": {
+    "A": { "interruptions": 10, "hours": 6 },
+    "B": { "interruptions": 11, "hours": 9 },
+    "C": { "interruptions": 15, "hours": 14 }
+  }
+}

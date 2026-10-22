@@ -8,6 +8,7 @@ export const t = {
   loading: 'A carregar…',
   nav: {
     home: 'Início',
+    quality: 'Qualidade',
     settings: 'Definições',
   },
   errors: {
@@ -57,7 +58,6 @@ export const t = {
       'O tarifário mais barato para o teu consumo real',
       'Quanto te custa o consumo fantasma',
       'A fatura prevista do mês',
-      'Registo de problemas de tensão para reclamar',
     ],
   },
   settings: {
@@ -162,6 +162,102 @@ export const t = {
       tooShort: (min: number) => `A nova password tem de ter pelo menos ${min} caracteres.`,
       mismatch: 'As novas passwords não coincidem.',
     },
+  },
+  quality: {
+    title: 'Qualidade da energia',
+    intro:
+      'Falhas de energia e tensão medidas pelo teu Shelly, comparadas com os limites do Regulamento da Qualidade de Serviço da ERSE e da norma NP EN 50160.',
+    reportTitle: 'Registo de qualidade da energia elétrica',
+    reportHousehold: (name: string) => `Instalação: ${name}`,
+    reportPeriod: (from: string, to: string) => `Tensão: de ${from} a ${to}`,
+    reportGenerated: (when: string) => `Gerado pelo Wattómetro em ${when}`,
+    print: 'Imprimir ou guardar em PDF',
+    printHint:
+      'O relatório tem só factos medidos (datas, horas, valores) e as fontes dos limites. Podes anexá-lo a uma reclamação à E-Redes.',
+    zone: {
+      title: 'Zona de qualidade de serviço',
+      label: 'Zona',
+      none: 'Escolhe a zona',
+      options: {
+        A: 'A — capital de distrito ou localidade com mais de 25 000 clientes',
+        B: 'B — localidade com 2 500 a 25 000 clientes',
+        C: 'C — outras localidades',
+      },
+      hint: 'Define o número e a duração de falhas longas que a E-Redes tem de cumprir por ano. A zona depende da localidade (RQS, art. 14.º); em caso de dúvida, pergunta à E-Redes.',
+      saved: 'Zona guardada.',
+      chosen: (zone: string) => `Zona ${zone}`,
+    },
+    outages: {
+      title: (year: number) => `Falhas de energia em ${year}`,
+      long: (count: number, duration: string) =>
+        `Longas (mais de 3 min): ${count} ${count === 1 ? 'falha' : 'falhas'}, ${duration} no total`,
+      short: (count: number) => `Breves (até 3 min): ${count}`,
+      excluded: (count: number) => `Não contadas por ti: ${count}`,
+      standard: (zone: string, count: number, hours: number) =>
+        `Padrão individual da zona ${zone}: até ${count} falhas longas e ${hours} h por ano.`,
+      overCount: 'O número de falhas longas está acima do padrão.',
+      overHours: 'A duração total das falhas longas está acima do padrão.',
+      within: 'Dentro do padrão até agora.',
+      noZone: 'Escolhe a zona para comparar com o padrão.',
+      compensation:
+        'Quando o padrão não é cumprido, a compensação é automática (RQS, art. 24.º): não precisas de a pedir.',
+      none: 'Nenhuma falha registada este ano.',
+      columns: { start: 'Início', end: 'Fim', duration: 'Duração', kind: 'Tipo', count: 'Contar' },
+      kindLong: 'longa',
+      kindShort: 'breve',
+      notCounted: 'não contada',
+      exclude: 'Contar esta falha',
+      caveats: [
+        'O Shelly desliga-se durante a falha: a app vê-a quando ele volta a arrancar. Precisa do script 0.2.0 ou mais recente.',
+        'O início é o fim do último minuto recebido antes da falha (precisão de cerca de 1 minuto; pode ficar mais cedo se o Shelly estava sem internet antes).',
+        'A app não distingue falhas acidentais, previstas ou de eventos excecionais, nem um reinício do Shelly por atualização ou por o quadro da casa ter disparado. Desmarca as que sabes que não contam.',
+        'Falhas de poucos segundos podem passar despercebidas.',
+      ],
+    },
+    voltage: {
+      title: 'Tensão',
+      period: 'Período',
+      weeks: (count: number) => (count === 1 ? 'Esta semana' : `Últimas ${count} semanas`),
+      limits: (low: string, high: string, floor: string) =>
+        `Limites em baixa tensão (230 V): ${low} a ${high} em 95 % dos valores de 10 minutos de cada semana, e nunca abaixo de ${floor} nem acima de ${high}.`,
+      noData: 'Sem medições de tensão neste período.',
+      weekColumns: {
+        week: 'Semana de',
+        evaluated: 'Valores de 10 min',
+        outside: 'Fora de ± 10 %',
+        result: 'Resultado',
+      },
+      evaluated: (count: number, expected: number) => `${count} de ${expected}`,
+      excluded: (count: number) =>
+        `${count} ${count === 1 ? 'excluído' : 'excluídos'} por falha de energia`,
+      meets: 'cumpre',
+      failsBand: 'mais de 5 % fora de ± 10 %',
+      failsLimits: 'valores fora de − 15 % / + 10 %',
+      episodesTitle: 'Episódios fora de ± 10 % (valores de cada minuto)',
+      minMinutes: 'Duração mínima (minutos)',
+      episodeColumns: {
+        start: 'Início',
+        duration: 'Duração',
+        kind: 'Tipo',
+        value: 'Valor extremo',
+      },
+      low: 'subtensão',
+      high: 'sobretensão',
+      noEpisodes: 'Nenhum episódio com esta duração mínima.',
+      truncated:
+        'Há demasiados minutos fora dos limites: só aparecem os primeiros. Escolhe um período mais curto.',
+      caveats: [
+        'O Shelly não é um analisador certificado (IEC 61000-4-30, classe A): os valores são indicativos.',
+        'O valor de 10 minutos é a média dos valores médios de cada minuto. Cavas e picos com menos de cerca de 1 segundo podem não aparecer.',
+        'A norma aplica-se em exploração normal; ficam de fora a exploração perturbada e os eventos excecionais.',
+      ],
+    },
+    sourcesTitle: 'Fontes',
+    sources: [
+      'ERSE, Regulamento da Qualidade de Serviço (Regulamento n.º 826/2023, versão consolidada de 2026): art. 2.º, 12.º, 14.º, 24.º, 25.º, 66.º e Anexo I.',
+      'NP EN 50160, características da tensão de alimentação em baixa tensão, conforme reproduzida pela ERSE (Formação ACE, 2021).',
+      'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
+    ],
   },
   server: {
     checking: 'A verificar o servidor…',

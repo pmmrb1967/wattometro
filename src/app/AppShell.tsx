@@ -62,6 +62,7 @@ export function AppShell() {
             <NavLink to="/" end>
               {t.nav.home}
             </NavLink>
+            <NavLink to="/qualidade">{t.nav.quality}</NavLink>
             <NavLink to="/definicoes">{t.nav.settings}</NavLink>
           </nav>
         )}

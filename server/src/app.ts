@@ -22,6 +22,13 @@
  *   GET  /v1/tariffs           → {tariffs: Tariff[]} (oldest first; src/domain/tariff.ts)
  *   POST /v1/tariffs           TariffInput → 201 {tariff}; same validFrom replaces that contract
  *   DELETE /v1/tariffs/:id     → 204
+ *   GET  /v1/quality?from&to&low&high → {zone, devices: [{id, name}], intervals: [{meter,
+ *                              intervals: [ts, minutes, avgDv, minDv, maxDv][]}], outside: [{meter,
+ *                              minutes: [ts, minDv, maxDv][]}], outsideTruncated} (docs/voltage.md;
+ *                              [from, to) at most 93 days; outside = minutes beyond [low, high] dV)
+ *   PUT  /v1/quality/zone      {zone: 'A' | 'B' | 'C' | null} → 204
+ *   GET  /v1/outages?from&to   → {outages: [{deviceId, bootAt, startAt, excluded}]} (≤ 400 days)
+ *   PUT  /v1/outages/:deviceId/:bootAt {excluded} → 204
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
@@ -61,6 +68,15 @@ import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
 import { STATE } from './rollups';
 import { getHousehold, renameHousehold } from './repo/households';
+import {
+  getQualityZone,
+  listOutages,
+  listVoltage10m,
+  minutesOutside,
+  QUALITY_ZONES,
+  setOutageExcluded,
+  setQualityZone,
+} from './repo/quality';
 import type { User } from './repo/users';
 
 export interface AppConfig {
@@ -96,6 +112,22 @@ const HouseholdBody = z.object({ name: z.string().trim().min(1).max(MAX_HOUSEHOL
 
 export const MAX_DEVICE_NAME = 60;
 const DeviceBody = z.object({ name: z.string().trim().min(1).max(MAX_DEVICE_NAME) });
+
+const DAY_SECONDS = 86_400;
+export const MAX_QUALITY_DAYS = 93;
+export const MAX_OUTAGE_DAYS = 400;
+export const MAX_MINUTES_OUTSIDE = 5000;
+const epoch = z.coerce.number().int().min(0);
+const decivolts = z.coerce.number().int().min(0).max(10_000);
+const rangeQuery = (maxDays: number) =>
+  z
+    .object({ from: epoch, to: epoch })
+    .refine(({ from, to }) => from < to && to - from <= maxDays * DAY_SECONDS);
+const QualityQuery = rangeQuery(MAX_QUALITY_DAYS).and(
+  z.object({ low: decivolts, high: decivolts }),
+);
+const ZoneBody = z.object({ zone: z.enum(QUALITY_ZONES).nullable() });
+const ExcludedBody = z.object({ excluded: z.boolean() });
 
 const deviceView = (device: Device) => ({
   id: device.id,
@@ -306,6 +338,70 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
 
   app.delete('/v1/tariffs/:id', requireUser, async (c) => {
     await deleteTariff(config.sql, c.get('user').householdId, c.req.param('id'));
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/quality', requireUser, async (c) => {
+    const parsed = QualityQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { from, to, low, high } = parsed.data;
+    const { householdId } = c.get('user');
+    // One more than the limit, to know whether the list was cut.
+    const outside = await minutesOutside(
+      config.sql,
+      householdId,
+      from,
+      to,
+      low,
+      high,
+      MAX_MINUTES_OUTSIDE + 1,
+    );
+    const found = outside.reduce((sum, meter) => sum + meter.minutes.length, 0);
+    let room = MAX_MINUTES_OUTSIDE;
+    const kept = outside
+      .map(({ meter, minutes }) => {
+        const slice = minutes.slice(0, room);
+        room -= slice.length;
+        return { meter, minutes: slice };
+      })
+      .filter((meter) => meter.minutes.length > 0);
+    return c.json({
+      zone: await getQualityZone(config.sql, householdId),
+      devices: (await listDevices(config.sql, householdId)).map((d) => ({
+        id: d.id,
+        name: d.name,
+      })),
+      intervals: await listVoltage10m(config.sql, householdId, from, to),
+      outside: kept,
+      outsideTruncated: found > MAX_MINUTES_OUTSIDE,
+    });
+  });
+
+  app.put('/v1/quality/zone', requireUser, async (c) => {
+    const parsed = await body(c, ZoneBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    await setQualityZone(config.sql, c.get('user').householdId, parsed.data.zone);
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/outages', requireUser, async (c) => {
+    const parsed = rangeQuery(MAX_OUTAGE_DAYS).safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { from, to } = parsed.data;
+    return c.json({ outages: await listOutages(config.sql, c.get('user').householdId, from, to) });
+  });
+
+  app.put('/v1/outages/:deviceId/:bootAt', requireUser, async (c) => {
+    const parsed = await body(c, ExcludedBody);
+    const bootAt = epoch.safeParse(c.req.param('bootAt'));
+    if (!parsed.success || !bootAt.success) return c.json({ error: 'invalid_request' }, 400);
+    await setOutageExcluded(
+      config.sql,
+      c.get('user').householdId,
+      c.req.param('deviceId'),
+      bootAt.data,
+      parsed.data.excluded,
+    );
     return c.body(null, 204);
   });
 

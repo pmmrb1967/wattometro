@@ -16,7 +16,7 @@
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
 // STATUS: not yet run on a device (see docs/shelly.md, "Por confirmar").
 
-let SCRIPT_VERSION = '0.1.0';
+let SCRIPT_VERSION = '0.2.0';
 let FORMAT = 1;
 let MAX_BODY = 7000; // HTTP.Request allows 8192 bytes with URL and headers
 let MAX_MINUTES_PER_REQUEST = 20;
@@ -36,6 +36,7 @@ let sendSeq = 0;
 let nextSend = 0;
 let failures = 0;
 let lastNow = 0;
+let bootAt = null; // epoch s of the last boot (unixtime − uptime), for outages
 
 function clamp(value) {
   if (value > INT16) return INT16;
@@ -191,6 +192,7 @@ function maybeSend(now) {
     JSON.stringify(info.model) +
     ',"fw":' +
     JSON.stringify(info.ver) +
+    (bootAt === null ? '' : ',"b":' + bootAt) +
     ',"min":[';
   let size = head.length + 2;
   let parts = [];
@@ -221,6 +223,8 @@ function tick() {
   if (!sys || typeof sys.unixtime !== 'number') return; // no time before NTP sync
   let now = Math.floor(sys.unixtime);
   lastNow = now;
+  // Once, after the clock is set: the same value in every request until the next boot.
+  if (bootAt === null && typeof sys.uptime === 'number') bootAt = Math.round(sys.unixtime - sys.uptime);
   let start = now - (now % 60);
   if (cur === null) {
     openMinute(start, energyFloor());

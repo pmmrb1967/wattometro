@@ -70,6 +70,40 @@ const days = () =>
 const count = (table: string) =>
   (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
 
+describe('10-minute voltage', () => {
+  it('averages the minutes per 10 minutes, with their extremes', async () => {
+    const start = at('2026-01-15T10:00:00Z');
+    for (let i = 0; i < 12; i++) {
+      await minute(start + 60 * i, { voltageMinDv: 2300 - i, voltageMaxDv: 2400 + i });
+    }
+    await runMaintenance(sql, start + 3600);
+    expect(
+      db
+        .prepare(
+          'SELECT meter, ts, minutes, voltage_avg_dv, voltage_min_dv, voltage_max_dv FROM voltage_10m ORDER BY ts',
+        )
+        .all(),
+    ).toEqual([
+      {
+        meter: `${deviceId}:0`,
+        ts: start,
+        minutes: 10,
+        voltage_avg_dv: 2310,
+        voltage_min_dv: 2291,
+        voltage_max_dv: 2409,
+      },
+      {
+        meter: `${deviceId}:0`,
+        ts: start + 600,
+        minutes: 2,
+        voltage_avg_dv: 2310,
+        voltage_min_dv: 2289,
+        voltage_max_dv: 2411,
+      },
+    ]);
+  });
+});
+
 describe('quarter hours', () => {
   it('adds up minutes per meter and quarter hour, with the peaks and voltage extremes', async () => {
     const start = at('2026-01-15T10:00:00Z');

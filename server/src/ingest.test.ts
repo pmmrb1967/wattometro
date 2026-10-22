@@ -211,6 +211,27 @@ describe('POST /v1/ingest', () => {
     expect(decoded.voltage[0]).toBe(2300);
   });
 
+  it('records a boot once: the outage starts after the last minute before it', async () => {
+    clock = MINUTE + 3 * 3600;
+    await send(token, payload([minute(MINUTE)]));
+    // Booted 10:30 after the minute; its first minute starts before the boot.
+    const boot = MINUTE + 3600 + 30;
+    const first = { ...payload([minute(MINUTE + 3600)]), sv: '0.2.0', b: boot };
+    expect((await send(token, first)).status).toBe(200);
+    // Later requests repeat the boot time, a second off: still the same boot.
+    await send(token, { ...payload([minute(MINUTE + 3660)]), sv: '0.2.0', b: boot + 1 });
+    expect(db.prepare('SELECT device_id, boot_at, start_at, excluded FROM outages').all()).toEqual([
+      { device_id: deviceId, boot_at: boot, start_at: MINUTE + 60, excluded: 0 },
+    ]);
+  });
+
+  it('records a first boot without a start, and ignores a boot in the future', async () => {
+    await send(token, { ...payload([minute(MINUTE)]), b: clock + 3600 });
+    expect(count('outages')).toBe(0);
+    await send(token, { ...payload([minute(MINUTE)]), b: MINUTE - 500 });
+    expect(db.prepare('SELECT start_at FROM outages').all()).toEqual([{ start_at: null }]);
+  });
+
   it('records what the device reported', async () => {
     await send(token, payload([minute(MINUTE)]));
     const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId) as Record<
