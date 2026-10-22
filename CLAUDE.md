@@ -100,8 +100,9 @@ wattometro/
 - `readings_1s` — uma linha por dispositivo, canal e minuto com os valores ao segundo **compactados num BLOB** (inteiros; formato documentado em `docs/readings-1s.md`, com versão). Retenção curta (por defeito **90 dias**). Base da deteção de eventos e do NILM no browser.
 - `signatures` — minutos marcados no modo de calibração ("liguei a máquina de lavar"), copiados de `readings_1s` e **sem expiração**.
 - `events`, `appliances`, `event_labels` — eventos detetados no browser e rótulos do utilizador (guardados no servidor para sincronizar entre dispositivos).
-- `readings_15m` — energia e potência máxima por 15 min, **alinhados com a E-Redes**; origem `shelly` ou `eredes`. Retenção indefinida.
-- `daily` — energia por período horário, potência máxima, consumo base, tensão mín./máx.
+- `readings_15m` — energia, pico ao segundo e tensão mín./máx. por 15 min e por contador (`meter`: `device_id:channel` ou `eredes`), **alinhados com a E-Redes**; origem `shelly` ou `eredes`. Retenção indefinida.
+- `daily` — por contador e dia de Lisboa: energia, potência máxima, tensão mín./máx.; energia por período horário e consumo base na Fase 3.
+- `maintenance_state` — progresso do Cron (até onde agregou, última purga, tamanho da base).
 - `voltage_events`, `outages` — derivados dos minutos.
 - `tariffs` — tarifário da casa (opção horária, potência, preços, validade).
 

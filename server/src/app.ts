@@ -15,6 +15,9 @@
  *   GET  /v1/devices           → {devices: DeviceView[]} (not revoked)
  *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
  *   DELETE /v1/devices/:id     → 204, the device's token stops working
+ *   GET  /v1/now               → {now, dayStart, meters: [{deviceId, deviceName, channel, lastSeenAt,
+ *                              latest: minute | null, today: {minutes, energyWh, powerMaxW}}],
+ *                              database: {sizeBytes, limitBytes}} (today = since Lisbon midnight)
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
@@ -37,6 +40,7 @@ import {
   signSession,
 } from './auth';
 import type { Sql } from './db';
+import { lisbonDate, startOfLisbonDay } from '../../src/lib/time';
 import { DEFAULT_REQUESTS_PER_MINUTE, ingest, MAX_INGEST_BYTES } from './ingest';
 import { MIN_PASSWORD_LENGTH } from './password';
 import {
@@ -47,6 +51,9 @@ import {
   type Device,
 } from './repo/devices';
 import { databaseReachable } from './repo/health';
+import { latestMinute, todayByMeter } from './repo/now';
+import { getState } from './repo/rollups';
+import { STATE } from './rollups';
 import { getHousehold, renameHousehold } from './repo/households';
 import type { User } from './repo/users';
 
@@ -60,7 +67,11 @@ export interface AppConfig {
   now?: () => number;
   /** Ingest requests a device may send per minute (catching up sends several). */
   ingestRequestsPerMinute?: number;
+  /** Size limit of the D1 database (500 MB on the free plan). */
+  databaseLimitBytes?: number;
 }
+
+export const DEFAULT_DATABASE_LIMIT_BYTES = 500 * 1000 * 1000;
 
 type AppEnv = { Variables: { user: User } };
 
@@ -230,6 +241,46 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   app.delete('/v1/devices/:id', requireUser, async (c) => {
     await revokeDevice(config.sql, c.get('user').householdId, c.req.param('id'), now());
     return c.body(null, 204);
+  });
+
+  app.get('/v1/now', requireUser, async (c) => {
+    const { householdId } = c.get('user');
+    const at = now();
+    const dayStart = startOfLisbonDay(lisbonDate(at));
+    const devices = (await listDevices(config.sql, householdId)).filter(
+      (d) => d.revokedAt === null,
+    );
+    const today = await todayByMeter(config.sql, householdId, dayStart);
+    const meters = [];
+    for (const device of devices) {
+      const measured = today.filter((meter) => meter.deviceId === device.id);
+      // A device without data today still shows, on its main channel.
+      const channels = measured.length > 0 ? measured.map((meter) => meter.channel) : [0];
+      for (const channel of channels) {
+        const sums = measured.find((meter) => meter.channel === channel);
+        meters.push({
+          deviceId: device.id,
+          deviceName: device.name,
+          channel,
+          lastSeenAt: device.lastSeenAt,
+          latest: await latestMinute(config.sql, householdId, device.id, channel),
+          today: {
+            minutes: sums?.minutes ?? 0,
+            energyWh: sums?.energyWh ?? 0,
+            powerMaxW: sums?.powerMaxW ?? null,
+          },
+        });
+      }
+    }
+    return c.json({
+      now: at,
+      dayStart,
+      meters,
+      database: {
+        sizeBytes: await getState(config.sql, STATE.databaseBytes),
+        limitBytes: config.databaseLimitBytes ?? DEFAULT_DATABASE_LIMIT_BYTES,
+      },
+    });
   });
 
   app.post('/v1/ingest', async (c) => {

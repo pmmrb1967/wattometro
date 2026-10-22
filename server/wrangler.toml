@@ -24,3 +24,12 @@ migrations_dir = "migrations"
 ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173"
 # Requests per minute a Shelly may send to /v1/ingest (it sends several while catching up).
 INGEST_REQUESTS_PER_MINUTE = "20"
+# Retention in days: minutes (readings_1m) and per-second values (readings_1s).
+RETENTION_1M_DAYS = "730"
+RETENTION_1S_DAYS = "90"
+# D1 size limit on the free plan; the app warns near it.
+DATABASE_LIMIT_MB = "500"
+
+# Rollups (minutes → 15 min → day), retention and database size: server/src/rollups.ts.
+[triggers]
+crons = ["*/5 * * * *"]

@@ -23,6 +23,25 @@ export const t = {
     invalid: 'Email ou password errados.',
     noAccount: 'As contas são criadas pelo responsável da instalação.',
   },
+  now: {
+    noDevices: 'Ainda não tens nenhum Shelly ligado.',
+    addDevice: 'Adicionar em Definições → Dispositivos',
+    channel: (channel: number) => `canal ${channel + 1}`,
+    power: 'Potência',
+    minuteAt: (time: string) => `média do minuto das ${time}`,
+    noReadings: 'Ainda sem medições.',
+    neverSeen: 'Este Shelly ainda não enviou dados.',
+    stale: (count: number) => `Sem dados há ${minutes(count)}.`,
+    voltage: 'Tensão',
+    voltageRange: (min: string, max: string) => `${min} a ${max}`,
+    today: 'Hoje',
+    todayMinutes: (count: number) => `${minutes(count)} com dados`,
+    peak: 'Pico de hoje',
+    peakHint: 'maior valor de um segundo',
+    nothing: '—',
+    databaseNear: (used: number, limit: number) =>
+      `A base de dados está a ${used} MB de ${limit} MB. É preciso libertar espaço em breve.`,
+  },
   home: {
     status: 'Em construção',
     intro:

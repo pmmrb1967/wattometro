@@ -15,6 +15,8 @@ export interface Sql {
   run(query: string, ...params: SqlValue[]): Promise<void>;
   /** Runs every statement in one transaction; the rows each one changed, in order. */
   batch(statements: Statement[]): Promise<number[]>;
+  /** Size of the database in bytes, if the engine reports it. */
+  sizeBytes?(): Promise<number | null>;
 }
 
 /** The subset of Cloudflare's D1Database used here (no dependency on its types). */
@@ -22,7 +24,7 @@ type D1Value = string | number | null | ArrayBuffer;
 interface D1Statement {
   bind(...values: D1Value[]): D1Statement;
   first<T>(): Promise<T | null>;
-  all<T>(): Promise<{ results: T[] }>;
+  all<T>(): Promise<{ results: T[]; meta?: { size_after?: number } }>;
   run(): Promise<unknown>;
 }
 export interface D1Like {
@@ -54,5 +56,7 @@ export function d1(db: D1Like): Sql {
         : (await db.batch(statements.map((s) => statement(s.query, s.params)))).map(
             (result) => result.meta.changes,
           ),
+    // D1 reports the database size with every result.
+    sizeBytes: async () => (await db.prepare('SELECT 1').all<unknown>()).meta?.size_after ?? null,
   };
 }

@@ -10,6 +10,11 @@ export interface Env {
   ALLOWED_ORIGINS: string;
   /** Ingest requests a device may send per minute; ingest.ts has the default. */
   INGEST_REQUESTS_PER_MINUTE?: string;
+  /** Days of retention (rollups.ts has the defaults): minutes, and per-second values. */
+  RETENTION_1M_DAYS?: string;
+  RETENTION_1S_DAYS?: string;
+  /** D1 size limit in MB, for the app's warning (500 on the free plan). */
+  DATABASE_LIMIT_MB?: string;
 }
 
 export function allowedOrigins(env: Env): string[] {

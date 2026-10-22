@@ -41,3 +41,9 @@ export async function getHousehold(sql: Sql, id: string): Promise<Household | nu
 export async function renameHousehold(sql: Sql, id: string, name: string): Promise<void> {
   await sql.run('UPDATE households SET name = ? WHERE id = ?', name, id);
 }
+
+/** Every household's id, for the Cron jobs. */
+export async function listHouseholdIds(sql: Sql): Promise<string[]> {
+  const rows = await sql.all<{ id: string }>('SELECT id FROM households ORDER BY id');
+  return rows.map((row) => row.id);
+}

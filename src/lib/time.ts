@@ -114,3 +114,9 @@ export function formatLisbonDateTime(ts: EpochSeconds): string {
   const { year, month, day, hour, minute } = lisbonParts(ts);
   return `${pad(day)}/${pad(month)}/${year} ${pad(hour)}:${pad(minute)}`;
 }
+
+/** Time of day as shown to the user: 'HH:MM' in Lisbon. */
+export function formatLisbonTime(ts: EpochSeconds): string {
+  const { hour, minute } = lisbonParts(ts);
+  return `${pad(hour)}:${pad(minute)}`;
+}

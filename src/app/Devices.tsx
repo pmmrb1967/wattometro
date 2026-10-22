@@ -126,7 +126,7 @@ export function DevicesSection() {
         </div>
       )}
 
-      <form className="form" onSubmit={add}>
+      <form className="form device-add" onSubmit={add}>
         <label>
           {texts.name}
           <input name="name" placeholder={texts.namePlaceholder} maxLength={60} required />

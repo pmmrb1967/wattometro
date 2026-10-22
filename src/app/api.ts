@@ -16,6 +16,39 @@ const Device = z.object({
 });
 export type Device = z.infer<typeof Device>;
 
+const Minute = z.object({
+  ts: z.number().int(),
+  powerAvgW: z.number().int(),
+  powerMinW: z.number().int(),
+  powerMaxW: z.number().int(),
+  voltageAvgDv: z.number().int(),
+  voltageMinDv: z.number().int(),
+  voltageMaxDv: z.number().int(),
+  pfAvgPct: z.number().int(),
+});
+
+const Now = z.object({
+  now: z.number().int(),
+  dayStart: z.number().int(),
+  meters: z.array(
+    z.object({
+      deviceId: z.string(),
+      deviceName: z.string(),
+      channel: z.number().int(),
+      lastSeenAt: z.number().int().nullable(),
+      latest: Minute.nullable(),
+      today: z.object({
+        minutes: z.number().int(),
+        energyWh: z.number().int(),
+        powerMaxW: z.number().int().nullable(),
+      }),
+    }),
+  ),
+  database: z.object({ sizeBytes: z.number().int().nullable(), limitBytes: z.number().int() }),
+});
+export type Now = z.infer<typeof Now>;
+export type Meter = Now['meters'][number];
+
 const Me = z.object({ email: z.string(), householdId: z.string(), householdName: z.string() });
 export type Me = z.infer<typeof Me>;
 
@@ -123,5 +156,12 @@ export async function createDevice(
 export async function revokeDevice(id: string): Promise<{ ok: true } | Failure> {
   const response = await send('DELETE', `/v1/devices/${encodeURIComponent(id)}`);
   if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
+/** The latest minute and today so far, per meter (GET /v1/now). */
+export async function fetchNow(): Promise<{ ok: true; now: Now } | Failure> {
+  const response = await send('GET', '/v1/now');
+  if (response?.ok) return { ok: true, now: Now.parse(await response.json()) };
   return failure(response, []);
 }

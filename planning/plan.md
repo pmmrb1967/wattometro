@@ -86,13 +86,14 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [ ] Correr o script num Shelly real (quando chegar)
 
 ### 1.4 Agregações (Cron)
-- [ ] Migrações `readings_15m`, `daily`
-- [ ] `rollups.ts`: `INSERT … SELECT` incremental 1 min → 15 min → dia; marca de "último processado"
-- [ ] Purga de `readings_1m` e `readings_1s` conforme retenção (por defeito 24 meses e 90 dias); nunca purgar minutos referenciados em `signatures`
-- [ ] Monitorização do tamanho da base (alerta perto dos 500 MB)
+- [x] Migrações `readings_15m`, `daily` (`0004_rollups.sql`; por contador `meter`; períodos horários e consumo base no `daily` ficam para a Fase 3)
+- [x] `rollups.ts`: `INSERT … SELECT` incremental 1 min → 15 min → dia; marca de "último processado" (Cron a cada 5 min; recalcula as últimas 6 h para os minutos atrasados)
+- [x] Purga de `readings_1m` e `readings_1s` conforme retenção (por defeito 24 meses e 90 dias); nunca purgar minutos referenciados em `signatures` (as assinaturas da Fase 8 são cópias, por isso a purga não lhes toca)
+- [x] Monitorização do tamanho da base (alerta na app a partir de 80 % dos 500 MB)
 
 ### 1.5 App
-- [ ] Página "Agora": último minuto (potência, tensão), energia e custo provisório de hoje, estado do Shelly (último envio)
+- [x] Página "Agora": último minuto (potência, tensão), energia de hoje, pico de hoje, estado do Shelly (último envio)
+- [ ] Custo provisório de hoje — depende do tarifário (Fase 3)
 - [ ] Gráficos dia/semana/mês e mapa de calor hora × dia da semana
 
 **Aceitação:** 7 dias de dados sem perdas relevantes; um corte de internet de 30 min é recuperado sem buracos.
@@ -277,3 +278,6 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-22 — Leituras com **canal** na chave (`device_id, channel, ts`), para uma segunda pinça sem migração. Tabelas com `household_id`.
 - 2026-10-22 — Ingestão: token por dispositivo (`Authorization: Bearer`, SHA-256 na base), payload JSON formato 1 com chaves curtas (o Shelly envia no máximo 8192 bytes por pedido → lotes de ~6 minutos), cada minuto validado à parte (um minuto inválido não bloqueia os outros), reenvios contam como duplicados, escrita num só `batch` D1 (transação), 20 pedidos/min por dispositivo (`INGEST_REQUESTS_PER_MINUTE`).
 - 2026-10-22 — Script do Shelly: fila em RAM até 240 minutos; com pouca memória descarta primeiro os valores ao segundo dos minutos mais antigos; espera de 10 s a 5 min entre tentativas falhadas. JavaScript conservador e fora do Prettier (sem vírgulas finais).
+- 2026-10-22 — Agregações por **contador** (`meter` = `device_id:channel` do Shelly, ou `eredes`), não pela casa: com uma segunda pinça num circuito, somar canais contaria a mesma energia duas vezes. Que contador é o "geral" da casa decide-se na Fase 2, ao comparar com a E-Redes.
+- 2026-10-22 — Cron a cada 5 min: recalcula os quartos de hora das últimas 6 h (a fila do Shelly guarda 4 h) e os dias que tocam nesse intervalo; atualização só quando os valores mudam (poupa escritas D1); recuperação de histórico às semanas. `readings_15m` guarda também o pico ao segundo e a tensão mín./máx.; `daily` é calculado a partir dos quartos de hora. Purga uma vez por dia; tamanho da base lido do `meta.size_after` do D1. Retenções e limite por variáveis no `wrangler.toml`.
+- 2026-10-22 — "Agora" lê os minutos de hoje diretamente (até 1440 linhas por contador): simples e sempre fresco para uso familiar; em grande escala passa a ler `readings_15m` + o último quarto de hora.

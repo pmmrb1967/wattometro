@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   floorTo,
   formatLisbonDateTime,
+  formatLisbonTime,
   HOUR,
   lisbonDate,
   lisbonDayLength,
@@ -104,5 +105,12 @@ describe('formatLisbonDateTime', () => {
     expect(formatLisbonDateTime(at('2026-07-05T08:07:00Z'))).toBe('05/07/2026 09:07');
     expect(formatLisbonDateTime(at('2026-10-25T00:30:00Z'))).toBe('25/10/2026 01:30');
     expect(formatLisbonDateTime(at('2026-10-25T01:30:00Z'))).toBe('25/10/2026 01:30');
+  });
+});
+
+describe('formatLisbonTime', () => {
+  it('shows the Lisbon hour and minute', () => {
+    expect(formatLisbonTime(at('2026-01-15T08:05:00Z'))).toBe('08:05');
+    expect(formatLisbonTime(at('2026-07-15T23:30:00Z'))).toBe('00:30');
   });
 });

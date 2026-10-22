@@ -169,6 +169,48 @@ h2 {
   margin: 0;
 }
 
+/* Now */
+.reading {
+  display: grid;
+  gap: 2px;
+}
+
+.reading-label,
+.stats dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.reading-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.stats dd {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats dd.hint {
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
 /* Devices */
 .devices {
   display: grid;
@@ -191,6 +233,13 @@ h2 {
 .device:first-child {
   padding-top: 0;
   border-top: 0;
+}
+
+.device-add {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .created {
