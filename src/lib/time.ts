@@ -88,6 +88,43 @@ export function startOfLisbonDay(date: LocalDate): EpochSeconds {
   return utcMidnight - lisbonOffset(utcMidnight - HOUR);
 }
 
+/**
+ * The instant a Lisbon wall-clock time happens on a day, or null if the clocks
+ * skip it (01:00–01:59 on the last Sunday of March). A time that happens twice
+ * (01:00–01:59 on the last Sunday of October) gives the first, summer one.
+ */
+export function lisbonLocalTime(
+  date: LocalDate,
+  hour: number,
+  minute: number,
+): EpochSeconds | null {
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute)) return null;
+  if (minute < 0 || minute > 59) return null;
+  // With the offset of midnight, then an hour either way if the clocks changed before it.
+  const guess = startOfLisbonDay(date) + hour * HOUR + minute * MINUTE;
+  for (const ts of [guess, guess - HOUR, guess + HOUR]) {
+    const parts = lisbonParts(ts);
+    if (lisbonDate(ts) === date && parts.hour === hour && parts.minute === minute) return ts;
+  }
+  return null;
+}
+
+/**
+ * Start of the quarter hour an E-Redes export labels with a Lisbon date and
+ * time: the label is the END of the interval (docs/eredes-csv.md), so
+ * '2025-10-26' '00:00' is 25/10 23:45–24:00. Null for a label that is not a
+ * quarter-hour boundary or does not exist.
+ */
+export function eredesQuarterStart(
+  date: LocalDate,
+  hour: number,
+  minute: number,
+): EpochSeconds | null {
+  if (minute % 15 !== 0) return null;
+  const end = lisbonLocalTime(date, hour, minute);
+  return end === null ? null : end - QUARTER_HOUR;
+}
+
 /** The following calendar day. */
 export function nextDate(date: LocalDate): LocalDate {
   const [year, month, day] = parseDate(date);

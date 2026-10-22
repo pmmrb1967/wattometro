@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  eredesQuarterStart,
+  lisbonLocalTime,
   floorTo,
   formatDuration,
   formatLisbonDateTime,
@@ -131,5 +133,36 @@ describe('formatDuration', () => {
     expect(formatDuration(200)).toBe('3 min 20 s');
     expect(formatDuration(7500)).toBe('2 h 05 min');
     expect(formatDuration(7199)).toBe('1 h 59 min');
+  });
+});
+
+describe('lisbonLocalTime and eredesQuarterStart (docs/eredes-csv.md)', () => {
+  const utc = (iso: string) => Date.parse(iso) / 1000;
+
+  it('an ordinary winter and summer time', () => {
+    expect(lisbonLocalTime('2026-01-15', 13, 30)).toBe(utc('2026-01-15T13:30:00Z'));
+    expect(lisbonLocalTime('2026-07-15', 13, 30)).toBe(utc('2026-07-15T12:30:00Z'));
+  });
+
+  it('the day of 23 h: 01:xx does not exist; 02:00 is the instant of the change', () => {
+    expect(lisbonLocalTime('2026-03-29', 1, 15)).toBeNull();
+    expect(lisbonLocalTime('2026-03-29', 2, 0)).toBe(utc('2026-03-29T01:00:00Z'));
+    expect(lisbonLocalTime('2026-03-29', 2, 15)).toBe(utc('2026-03-29T01:15:00Z'));
+  });
+
+  it('the day of 25 h: the repeated hour gives its first (summer) occurrence', () => {
+    expect(lisbonLocalTime('2025-10-26', 1, 15)).toBe(utc('2025-10-26T00:15:00Z'));
+    expect(lisbonLocalTime('2025-10-26', 2, 0)).toBe(utc('2025-10-26T02:00:00Z'));
+  });
+
+  it('E-Redes labels mark the end of the quarter hour', () => {
+    // '00:00' of a day closes the last quarter of the day before.
+    expect(eredesQuarterStart('2025-10-26', 0, 0)).toBe(utc('2025-10-25T22:45:00Z'));
+    expect(eredesQuarterStart('2025-10-23', 0, 15)).toBe(utc('2025-10-22T23:00:00Z'));
+    // Day of 23 h: '00:45' then '02:00' are consecutive quarters.
+    expect(eredesQuarterStart('2026-03-29', 2, 0)).toBe(utc('2026-03-29T00:45:00Z'));
+    expect(eredesQuarterStart('2026-03-29', 0, 45)).toBe(utc('2026-03-29T00:30:00Z'));
+    expect(eredesQuarterStart('2026-03-29', 1, 0)).toBeNull();
+    expect(eredesQuarterStart('2026-01-15', 10, 7)).toBeNull();
   });
 });
