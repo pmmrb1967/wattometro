@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { fetchHealth, fetchMe, logout, type Me } from './api';
-import { APP_COMMIT, SOURCE_URL } from './build-info';
+import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
+import { feedbackLink } from './feedback';
+import { InstallSection } from '../components/InstallSection';
 import { Login } from './Login';
 import type { SessionContext } from './session';
 
@@ -41,6 +43,7 @@ function useMe(): [Me | null | undefined, (me: Me | null) => void] {
 /** Brand, navigation, the login gate and the footer around every page. */
 export function AppShell() {
   const server = useServerState();
+  const { pathname } = useLocation();
   const [me, setMe] = useMe();
 
   // Stable, so pages can depend on it in effects.
@@ -70,6 +73,7 @@ export function AppShell() {
           <>
             <p className="tagline">{t.tagline}</p>
             <Login onSignedIn={setMe} />
+            <InstallSection />
           </>
         )}
         {context && <Outlet context={context} />}
@@ -80,10 +84,17 @@ export function AppShell() {
           <span className="dot" aria-hidden="true" />
           {t.server[server]}
         </p>
-        <p>
-          {t.footer.license} <a href={SOURCE_URL}>{t.footer.source}</a> ·{' '}
-          {t.footer.version(APP_COMMIT)}
+        <p>{t.legal.copyright}</p>
+        <p className="footer-links">
+          <a href={feedbackLink(pathname)}>{t.feedback.footer}</a>
+          <a href={LICENSE_URL} rel="noreferrer">
+            {t.legal.license}
+          </a>
+          <a href={SOURCE_URL} rel="noreferrer">
+            {t.legal.source}
+          </a>
         </p>
+        <p>{t.legal.version(APP_COMMIT)}</p>
       </footer>
     </div>
   );

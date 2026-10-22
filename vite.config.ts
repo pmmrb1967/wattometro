@@ -47,6 +47,8 @@ export default defineConfig(({ mode }) => ({
         orientation: 'any',
         background_color: '#f6f7f4',
         theme_color: '#2e2250',
+        // Lets Chrome/Edge tell the app it is installed (install.ts, getInstalledRelatedApps).
+        related_applications: [{ platform: 'webapp', url: '/manifest.webmanifest' }],
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

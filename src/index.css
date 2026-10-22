@@ -356,6 +356,34 @@ h2 {
   margin: 0;
 }
 
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+
+.footer a {
+  color: var(--muted);
+}
+
+/* Install */
+.install-help {
+  display: grid;
+  gap: 12px;
+}
+
+.install-help .secondary,
+.install-help .primary {
+  justify-self: start;
+}
+
+.install-steps {
+  margin: 0;
+  padding-left: 1.4em;
+  line-height: 1.6;
+}
+
 .server {
   display: flex;
   align-items: center;

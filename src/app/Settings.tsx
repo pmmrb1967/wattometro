@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useState, type FormEvent } from 'react';
+import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
 import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
@@ -128,6 +129,7 @@ export function Settings() {
 
       <HouseholdForm />
       <DevicesSection />
+      <InstallSection />
       <PasswordForm />
     </>
   );
