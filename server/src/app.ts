@@ -34,6 +34,13 @@
  *   GET  /v1/power/peaks?meter&from&to&threshold → application/octet-stream, the minutes of
  *                              meter 'device:channel' above threshold (VA, else W) as records
  *                              (repo/power.ts); X-Truncated: 1 when there were more
+ *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
+ *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
+ *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
+ *   DELETE /v1/import/eredes   → 204, removes the imported E-Redes data
+ *   GET  /v1/energy?from&to    → {meters: [{meter, quarters, energyWh}]} (≤ 400 days)
+ *   GET  /v1/energy/quarters?meter&from&to → application/octet-stream, the quarter hours of a
+ *                              meter ('eredes' or 'device:channel') as uint32 ts · uint32 Wh (≤ 400 days)
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
@@ -56,7 +63,7 @@ import {
   signSession,
 } from './auth';
 import type { Sql } from './db';
-import { lisbonDate, startOfLisbonDay } from '../../src/lib/time';
+import { lisbonDate, nextDate, startOfLisbonDay } from '../../src/lib/time';
 import { DEFAULT_REQUESTS_PER_MINUTE, ingest, MAX_INGEST_BYTES } from './ingest';
 import { MIN_PASSWORD_LENGTH } from './password';
 import {
@@ -74,6 +81,14 @@ import { getState } from './repo/rollups';
 import { STATE } from './rollups';
 import { getHousehold, renameHousehold } from './repo/households';
 import { eredesQuarters, peakMinutes, powerByMeter, topQuarters } from './repo/power';
+import {
+  deleteEredes,
+  energyMeters,
+  eredesSummary,
+  importEredes,
+  quarterEnergy,
+  type DayBounds,
+} from './repo/eredes';
 import {
   getQualityZone,
   listOutages,
@@ -139,6 +154,26 @@ const PeaksQuery = rangeQuery(MAX_QUALITY_DAYS).and(
     meter: z.string().regex(/^[^:]{1,64}:[0-3]$/),
     threshold: z.coerce.number().int().min(0).max(1_000_000),
   }),
+);
+export const MAX_IMPORT_QUARTERS = 3000;
+export const MAX_IMPORT_BYTES = 256 * 1024;
+export const MAX_ENERGY_DAYS = 400;
+/** Energy of a quarter hour: up to 41,4 kVA for 15 min is 10 350 Wh; more is not a reading. */
+const MAX_QUARTER_WH = 20_000;
+const ImportBody = z.object({
+  quarters: z
+    .array(
+      z.tuple([
+        z.number().int().min(946_684_800).multipleOf(900),
+        z.number().int().min(0).max(MAX_QUARTER_WH),
+        z.union([z.literal(0), z.literal(1)]),
+      ]),
+    )
+    .min(1)
+    .max(MAX_IMPORT_QUARTERS),
+});
+const EnergyQuery = rangeQuery(MAX_ENERGY_DAYS).and(
+  z.object({ meter: z.string().regex(/^(?:eredes|[^:]{1,64}:[0-3])$/) }),
 );
 const ZoneBody = z.object({ zone: z.enum(QUALITY_ZONES).nullable() });
 const ExcludedBody = z.object({ excluded: z.boolean() });
@@ -466,6 +501,56 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     c.header('Content-Type', 'application/octet-stream');
     c.header('X-Truncated', peaks.truncated ? '1' : '0');
     return c.body(peaks.records.buffer as ArrayBuffer);
+  });
+
+  app.post('/v1/import/eredes', requireUser, async (c) => {
+    if (Number(c.req.header('Content-Length') ?? 0) > MAX_IMPORT_BYTES) {
+      return c.json({ error: 'too_large' }, 413);
+    }
+    const parsed = await body(c, ImportBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { quarters } = parsed.data;
+    let first = Infinity;
+    let last = -Infinity;
+    for (const [ts] of quarters) {
+      first = Math.min(first, ts);
+      last = Math.max(last, ts);
+    }
+    // Nothing from the future, and a batch spans about a month.
+    if (last > now() || last - first > (MAX_IMPORT_QUARTERS + 96) * 900) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const days: DayBounds[] = [];
+    for (let day = lisbonDate(first); day <= lisbonDate(last); day = nextDate(day)) {
+      days.push([day, startOfLisbonDay(day), startOfLisbonDay(nextDate(day))]);
+    }
+    const written = await importEredes(config.sql, c.get('user').householdId, quarters, days);
+    return c.json({ written });
+  });
+
+  app.get('/v1/import/eredes', requireUser, async (c) =>
+    c.json(await eredesSummary(config.sql, c.get('user').householdId)),
+  );
+
+  app.delete('/v1/import/eredes', requireUser, async (c) => {
+    await deleteEredes(config.sql, c.get('user').householdId);
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/energy', requireUser, async (c) => {
+    const parsed = rangeQuery(MAX_ENERGY_DAYS).safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { from, to } = parsed.data;
+    return c.json({ meters: await energyMeters(config.sql, c.get('user').householdId, from, to) });
+  });
+
+  app.get('/v1/energy/quarters', requireUser, async (c) => {
+    const parsed = EnergyQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { meter, from, to } = parsed.data;
+    const records = await quarterEnergy(config.sql, c.get('user').householdId, meter, from, to);
+    c.header('Content-Type', 'application/octet-stream');
+    return c.body(records.buffer as ArrayBuffer);
   });
 
   app.post('/v1/ingest', async (c) => {
