@@ -340,6 +340,77 @@ export async function fetchPeakRecords(
   return failure(response, []);
 }
 
+const EredesSummary = z.object({
+  quarters: int,
+  estimated: int,
+  energyWh: int,
+  from: int.nullable(),
+  to: int.nullable(),
+});
+export type EredesSummary = z.infer<typeof EredesSummary>;
+
+/** What was imported from E-Redes. */
+export async function fetchEredesSummary(): Promise<
+  { ok: true; summary: EredesSummary } | Failure
+> {
+  const response = await send('GET', '/v1/import/eredes');
+  if (response?.ok) return { ok: true, summary: EredesSummary.parse(await response.json()) };
+  return failure(response, []);
+}
+
+/** Quarter hours per request (30 days); the server takes up to 3000. */
+export const EREDES_BATCH = 2880;
+
+/** Sends one batch of quarter hours [start, Wh, estimated]; idempotent. */
+export async function importEredesBatch(
+  quarters: [number, number, 0 | 1][],
+): Promise<{ ok: true; written: number } | Failure> {
+  const response = await send('POST', '/v1/import/eredes', { quarters });
+  if (response?.ok) {
+    const { written } = z.object({ written: int }).parse(await response.json());
+    return { ok: true, written };
+  }
+  return failure(response, [400, 413]);
+}
+
+export async function deleteEredesImport(): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', '/v1/import/eredes');
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
+const EnergyMeters = z.object({
+  meters: z.array(z.object({ meter: z.string(), quarters: int, energyWh: int })),
+});
+export type EnergyMeter = z.infer<typeof EnergyMeters>['meters'][number];
+
+/** Meters with quarter hours in [from, to) (at most 400 days). */
+export async function fetchEnergyMeters(
+  from: number,
+  to: number,
+): Promise<{ ok: true; meters: EnergyMeter[] } | Failure> {
+  const response = await send('GET', `/v1/energy?from=${from}&to=${to}`);
+  if (response?.ok) return { ok: true, ...EnergyMeters.parse(await response.json()) };
+  return failure(response, []);
+}
+
+/** Energy per quarter hour of a meter, decoded from its records (uint32 ts · uint32 Wh). */
+export async function fetchQuarterEnergy(
+  meter: string,
+  from: number,
+  to: number,
+): Promise<{ ok: true; quarters: { ts: number; energyWh: number }[] } | Failure> {
+  const query = new URLSearchParams({ meter, from: String(from), to: String(to) });
+  const response = await send('GET', `/v1/energy/quarters?${query}`);
+  if (!response?.ok) return failure(response, []);
+  const view = new DataView(await response.arrayBuffer());
+  const quarters: { ts: number; energyWh: number }[] = [];
+  for (let offset = 0; offset + 8 <= view.byteLength; offset += 8) {
+    quarters.push({ ts: view.getUint32(offset, true), energyWh: view.getUint32(offset + 4, true) });
+  }
+  return { ok: true, quarters };
+}
+
 /** The ERSE offers (public/data, 1,7 MB): fetched only when needed. */
 export async function fetchOffers(): Promise<OffersFile | null> {
   try {

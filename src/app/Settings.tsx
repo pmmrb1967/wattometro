@@ -4,6 +4,7 @@ import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
 import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
+import { EredesImportSection } from './EredesImport';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 import { TariffSection } from './Tariff';
@@ -130,6 +131,7 @@ export function Settings() {
 
       <HouseholdForm />
       <TariffSection />
+      <EredesImportSection />
       <DevicesSection />
       <InstallSection />
       <PasswordForm />

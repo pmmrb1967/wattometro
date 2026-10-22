@@ -328,6 +328,46 @@ export const t = {
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
   },
+  eredes: {
+    title: 'Consumos da E-Redes',
+    intro:
+      'Importa o histórico a 15 minutos do teu contador inteligente: serve para o simulador de tarifários e para os meses antes do Shelly. O ficheiro é lido no teu browser; só os consumos vão para o servidor (o CPE e o número do contador não).',
+    steps: [
+      'No Balcão Digital da E-Redes: "Consultar histórico", consumos a 15 minutos, estado real e estimado, o período mais longo possível.',
+      'Exporta: o ficheiro .xlsx fica pronto até 24 horas depois (o portal avisa).',
+      'Escolhe-o aqui, sem o abrir nem gravar no Excel antes.',
+    ],
+    stored: 'Já importado:',
+    period: (from: string, to: string) => `de ${from} a ${to}`,
+    storedDetail: (kwh: string, quarters: number, estimated: number) =>
+      `${kwh} em ${quarters.toLocaleString('pt-PT')} quartos de hora${estimated > 0 ? `, ${estimated.toLocaleString('pt-PT')} estimados pela E-Redes` : ''}.`,
+    choose: 'Ficheiro exportado da E-Redes (.xlsx)',
+    inFile: 'No ficheiro:',
+    fileEnergy: (kwh: string, quarters: number) =>
+      `${kwh} em ${quarters.toLocaleString('pt-PT')} quartos de hora`,
+    fileEstimated: (count: number) =>
+      `${count.toLocaleString('pt-PT')} valores estimados pela E-Redes (falha de comunicação do contador): ficam marcados.`,
+    fileMissing: (count: number) =>
+      `${count.toLocaleString('pt-PT')} quartos de hora em falta no ficheiro (a E-Redes perde a hora repetida no dia em que a hora muda em outubro).`,
+    send: 'Importar',
+    sending: (percent: number) => `A enviar… ${percent} %`,
+    done: (written: number) =>
+      written === 0
+        ? 'Nada de novo: estes consumos já estavam importados.'
+        : `Importados ${written.toLocaleString('pt-PT')} quartos de hora.`,
+    rejected: 'O servidor recusou os dados. Confirma que é o ficheiro da E-Redes.',
+    remove: 'Apagar os consumos importados',
+    removeConfirm: 'Apagar todos os consumos importados da E-Redes? Podes voltar a importá-los.',
+    removed: 'Consumos da E-Redes apagados.',
+    errors: {
+      not_xlsx: () => 'Não consegui ler o ficheiro: tem de ser o .xlsx exportado da E-Redes.',
+      not_eredes: () =>
+        'Este .xlsx não é a exportação de consumos da E-Redes (cabeçalho ou unidade diferentes).',
+      bad_row: (row: number) => `Linha ${row} do ficheiro com valores que não consigo ler.`,
+      duplicate: (row: number) => `A linha ${row} repete um quarto de hora já lido.`,
+      empty: () => 'O ficheiro não tem consumos.',
+    },
+  },
   demo: {
     title: 'Experimentar sem conta',
     intro:

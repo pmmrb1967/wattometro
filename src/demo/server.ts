@@ -297,6 +297,8 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       return json({ devices: devices(data) });
     case 'GET /v1/now':
       return json(now(data));
+    case 'GET /v1/import/eredes':
+      return json({ quarters: 0, estimated: 0, energyWh: 0, from: null, to: null });
     case 'GET /v1/tariffs':
       return json({ tariffs: demo.tariffs });
     case 'POST /v1/tariffs': {
