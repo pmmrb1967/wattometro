@@ -29,6 +29,11 @@
  *   PUT  /v1/quality/zone      {zone: 'A' | 'B' | 'C' | null} → 204
  *   GET  /v1/outages?from&to   → {outages: [{deviceId, bootAt, startAt, excluded}]} (≤ 400 days)
  *   PUT  /v1/outages/:deviceId/:bootAt {excluded} → 204
+ *   GET  /v1/power?from&to     → {devices: [{id, name}], meters: [MeterPower & {top: QuarterPeak[]}],
+ *                              eredes: {quarters, maxEnergyWh}} (repo/power.ts; ≤ 93 days)
+ *   GET  /v1/power/peaks?meter&from&to&threshold → application/octet-stream, the minutes of
+ *                              meter 'device:channel' above threshold (VA, else W) as records
+ *                              (repo/power.ts); X-Truncated: 1 when there were more
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
@@ -68,6 +73,7 @@ import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
 import { STATE } from './rollups';
 import { getHousehold, renameHousehold } from './repo/households';
+import { eredesQuarters, peakMinutes, powerByMeter, topQuarters } from './repo/power';
 import {
   getQualityZone,
   listOutages,
@@ -125,6 +131,14 @@ const rangeQuery = (maxDays: number) =>
     .refine(({ from, to }) => from < to && to - from <= maxDays * DAY_SECONDS);
 const QualityQuery = rangeQuery(MAX_QUALITY_DAYS).and(
   z.object({ low: decivolts, high: decivolts }),
+);
+export const TOP_QUARTERS = 10;
+export const MAX_PEAK_MINUTES = 1440;
+const PeaksQuery = rangeQuery(MAX_QUALITY_DAYS).and(
+  z.object({
+    meter: z.string().regex(/^[^:]{1,64}:[0-3]$/),
+    threshold: z.coerce.number().int().min(0).max(1_000_000),
+  }),
 );
 const ZoneBody = z.object({ zone: z.enum(QUALITY_ZONES).nullable() });
 const ExcludedBody = z.object({ excluded: z.boolean() });
@@ -403,6 +417,55 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       parsed.data.excluded,
     );
     return c.body(null, 204);
+  });
+
+  app.get('/v1/power', requireUser, async (c) => {
+    const parsed = rangeQuery(MAX_QUALITY_DAYS).safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { from, to } = parsed.data;
+    const { householdId } = c.get('user');
+    const meters = [];
+    for (const meter of await powerByMeter(config.sql, householdId, from, to)) {
+      const [deviceId = '', channel] = meter.meter.split(':');
+      const top = await topQuarters(
+        config.sql,
+        householdId,
+        deviceId,
+        Number(channel),
+        from,
+        to,
+        TOP_QUARTERS,
+      );
+      meters.push({ ...meter, top });
+    }
+    return c.json({
+      devices: (await listDevices(config.sql, householdId)).map((d) => ({
+        id: d.id,
+        name: d.name,
+      })),
+      meters,
+      eredes: await eredesQuarters(config.sql, householdId, from, to),
+    });
+  });
+
+  app.get('/v1/power/peaks', requireUser, async (c) => {
+    const parsed = PeaksQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { meter, from, to, threshold } = parsed.data;
+    const [deviceId = '', channel] = meter.split(':');
+    const peaks = await peakMinutes(
+      config.sql,
+      c.get('user').householdId,
+      deviceId,
+      Number(channel),
+      from,
+      to,
+      threshold,
+      MAX_PEAK_MINUTES,
+    );
+    c.header('Content-Type', 'application/octet-stream');
+    c.header('X-Truncated', peaks.truncated ? '1' : '0');
+    return c.body(peaks.records.buffer as ArrayBuffer);
   });
 
   app.post('/v1/ingest', async (c) => {

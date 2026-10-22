@@ -203,6 +203,8 @@ describe('POST /v1/ingest', () => {
       voltage_avg_dv: 2330,
       voltage_max_dv: 2359,
       pf_avg_pct: 97,
+      // sqrt(559² + 120²) = 571,7 VA, at second 59.
+      apparent_max_va: 572,
     });
     const blob = db.prepare('SELECT data FROM readings_1s').get() as { data: Uint8Array };
     const decoded = decodeSeconds(new Uint8Array(blob.data));
@@ -284,8 +286,14 @@ describe('POST /v1/ingest', () => {
       rejected: 0,
     });
     expect(count('readings_1s')).toBe(0);
+    expect(db.prepare('SELECT apparent_max_va FROM readings_1m').get()).toEqual({
+      apparent_max_va: null,
+    });
     await send(token, payload([minute(MINUTE)]));
     expect(count('readings_1s')).toBe(1);
+    expect(db.prepare('SELECT apparent_max_va FROM readings_1m').get()).toEqual({
+      apparent_max_va: 572,
+    });
   });
 
   it('rejects bad minutes one by one and stores the rest', async () => {

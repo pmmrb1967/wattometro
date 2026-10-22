@@ -15,14 +15,16 @@ export interface MinuteReading {
   voltageAvgDv: number;
   voltageMaxDv: number;
   pfAvgPct: number;
+  /** Highest one-second apparent power, VA; null without per-second values. */
+  apparentMaxVa: number | null;
   /** docs/readings-1s.md; null when the device sent the aggregate only. */
   seconds: Uint8Array | null;
 }
 
 /**
  * Statements that store one minute. A minute already stored is left as it was
- * (a resend changes nothing); its per-second row is still added if it was
- * missing. The first statement's change count says whether the minute was new.
+ * (a resend changes nothing); its per-second row and apparent peak are still
+ * added if they were missing. The first statement's change count says whether the minute was new.
  */
 export function minuteStatements(
   device: { id: string; householdId: string },
@@ -31,8 +33,9 @@ export function minuteStatements(
   const statements: Statement[] = [
     {
       query: `INSERT INTO readings_1m (device_id, channel, ts, household_id, samples, energy_wh,
-        power_avg_w, power_min_w, power_max_w, voltage_min_dv, voltage_avg_dv, voltage_max_dv, pf_avg_pct)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+        power_avg_w, power_min_w, power_max_w, voltage_min_dv, voltage_avg_dv, voltage_max_dv, pf_avg_pct,
+        apparent_max_va)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
       params: [
         device.id,
         minute.channel,
@@ -47,9 +50,18 @@ export function minuteStatements(
         minute.voltageAvgDv,
         minute.voltageMaxDv,
         minute.pfAvgPct,
+        minute.apparentMaxVa,
       ],
     },
   ];
+  if (minute.apparentMaxVa !== null) {
+    // A minute first sent without its per-second values gets its apparent peak now.
+    statements.push({
+      query: `UPDATE readings_1m SET apparent_max_va = ?
+        WHERE device_id = ? AND channel = ? AND ts = ? AND apparent_max_va IS NULL`,
+      params: [minute.apparentMaxVa, device.id, minute.channel, minute.ts],
+    });
+  }
   if (minute.seconds) {
     statements.push({
       query: `INSERT INTO readings_1s (device_id, channel, ts, household_id, data)

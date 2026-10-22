@@ -133,9 +133,9 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [ ] "Quanto teria de deslocar para o vazio para o bi-horário compensar"
 
 ### 3.4 Potência contratada
-- [ ] Potência máxima por 15 min e por minuto (`power_max_w`)
-- [ ] Recomendação do escalão mínimo com margem configurável; poupança anual
-- [ ] Lista dos momentos mais próximos do limite; aviso quando só há dados E-Redes
+- [x] Potência máxima por 15 min e por minuto (`power_max_w`; aparente `apparent_max_va` a partir dos valores ao segundo)
+- [x] Recomendação do escalão mínimo com margem configurável (curva de corte do contador inteligente, `docs/contracted-power.md`); poupança anual
+- [x] Lista dos momentos mais próximos do limite; aviso quando só há dados E-Redes
 
 ### 3.5 Consumo base
 - [ ] Percentil baixo noturno robusto; custo anual; evolução mensal
@@ -292,3 +292,5 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-22 — Limites de tensão da NP EN 50160 (paga) tirados da reprodução da ERSE (Formação ACE, 2021), coerente com a E-Redes (DIT-C14-100) e o RQS (art. 25.º): ± 10 % em 95 % dos valores de 10 min de cada semana, + 10 % / − 15 % sempre. Semana = segunda a domingo em Lisboa; os valores de 10 min que tocam uma falha ficam de fora.
 - 2026-10-22 — Falhas de energia detetadas pelo **arranque do Shelly** (o script 0.2.0 envia `b` = unixtime − uptime; campo opcional, scripts antigos continuam a funcionar). Uma falha de internet não reinicia o Shelly, por isso não conta. Início = fim do último minuto antes do arranque (precisão ~1 min). O utilizador pode marcar falhas que não contam; a app não distingue acidentais de previstas.
 - 2026-10-22 — Valores de 10 min (`voltage_10m`) agregados pelo Cron em SQL; episódios por minuto pedidos ao servidor só para os minutos fora da banda. O "PDF" é a impressão da página (estilos de impressão), sem biblioteca.
+- 2026-10-22 — Potência contratada: simula-se no browser, segundo a segundo, a **curva de corte do contador inteligente** (E-Redes DEF-C44-506/N, anexo B1, valores por omissão Q = 50, k = 1,2 monofásico) com a potência **aparente** √(P² + Q²) dos últimos 90 dias (retenção de `readings_1s`). O servidor guarda o pico aparente de cada minuto (`apparent_max_va`, calculado no ingest) e só envia os minutos acima do limiar de cada escalão (registos binários). Minutos sem valores ao segundo contam com o pico ativo durante o minuto inteiro (assinalado). Margem por omissão 10 %. Trifásico ainda não simulado.
+- 2026-10-22 — Poupança da potência: só o termo de potência com IVA × 365 dias; o preço do escalão recomendado vem da oferta ERSE com o mesmo termo de potência atual (o utilizador pode escrever outro).

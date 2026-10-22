@@ -81,6 +81,21 @@ export type IngestOutcome =
   | { ok: false; status: 400 | 413; error: 'invalid_payload' | 'payload_too_large' }
   | { ok: false; status: 429; error: 'rate_limited'; retryAfter: number };
 
+/** Highest sqrt(P² + Q²) over the seconds with both values (VA), or null. */
+export function apparentMax(
+  power: readonly (number | null)[],
+  nonActive: readonly (number | null)[],
+): number | null {
+  let max: number | null = null;
+  power.forEach((p, second) => {
+    const q = nonActive[second];
+    if (p === null || q === null || q === undefined) return;
+    const va = Math.round(Math.sqrt(p * p + q * q));
+    if (max === null || va > max) max = va;
+  });
+  return max;
+}
+
 function toReading(minute: z.infer<typeof Minute>): MinuteReading {
   return {
     ts: minute.t,
@@ -94,6 +109,7 @@ function toReading(minute: z.infer<typeof Minute>): MinuteReading {
     voltageAvgDv: minute.va,
     voltageMaxDv: minute.vx,
     pfAvgPct: minute.pf,
+    apparentMaxVa: minute.p && minute.q ? apparentMax(minute.p, minute.q) : null,
     seconds:
       minute.p && minute.q && minute.u
         ? encodeSeconds({ power: minute.p, nonActive: minute.q, voltage: minute.u })

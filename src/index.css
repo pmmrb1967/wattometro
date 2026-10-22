@@ -548,3 +548,9 @@ h2 {
     break-inside: avoid;
   }
 }
+
+.big {
+  margin: 4px 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}

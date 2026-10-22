@@ -8,6 +8,7 @@ export const t = {
   loading: 'A carregar…',
   nav: {
     home: 'Início',
+    power: 'Potência',
     quality: 'Qualidade',
     settings: 'Definições',
   },
@@ -162,6 +163,59 @@ export const t = {
       tooShort: (min: number) => `A nova password tem de ter pelo menos ${min} caracteres.`,
       mismatch: 'As novas passwords não coincidem.',
     },
+  },
+  power: {
+    title: 'Potência contratada',
+    intro:
+      'Qual o escalão mais baixo que não teria cortado a luz nos últimos 90 dias, simulando o contador inteligente da E-Redes segundo a segundo com os dados do teu Shelly.',
+    meter: 'Contador',
+    margin: 'Margem de segurança (%)',
+    marginHint:
+      'Baixa cada escalão nesta percentagem antes de simular, para cobrir cargas que ainda não apareceram e contadores configurados de outra forma.',
+    current: (kva: string) => `Potência atual: ${kva}`,
+    noTariff:
+      'Indica o teu tarifário em Definições para comparar com a potência atual e calcular a poupança.',
+    computing: 'A simular…',
+    recommended: 'Escalão recomendado',
+    recommendedValue: (kva: string) => `${kva}`,
+    tooHigh: 'Os picos ultrapassam o escalão mais alto em baixa tensão normal (41,4 kVA).',
+    same: 'A tua potência contratada é a mais baixa que não teria cortado.',
+    lower: 'Podes baixar a potência contratada sem que o contador tivesse cortado nestes 90 dias.',
+    higher:
+      'Com a potência atual o contador teria cortado nestes 90 dias (ou já cortou). Considera subir.',
+    savingTitle: 'Poupança estimada',
+    saving: (euros: string) => `${euros} por ano`,
+    savingHint: 'Só o termo de potência, com IVA, durante 365 dias.',
+    priceFrom: (offer: string, supplier: string) =>
+      `Preço a usar no escalão recomendado tirado da oferta “${offer}” (${supplier}) do simulador da ERSE, que tem o mesmo termo de potência que o teu contrato.`,
+    priceLabel: (kva: string) => `Termo de potência a ${kva} (€/dia, sem IVA)`,
+    priceMissing:
+      'Não encontrei nas ofertas da ERSE o teu preço atual. Escreve o preço do escalão recomendado (vê no site do teu comercializador) para calcular a poupança.',
+    vatNote:
+      'Ao passar a 6,9 kVA ou menos, os primeiros 200 kWh por mês (300 em família numerosa) passam a ter IVA a 6 %: uma poupança extra, não incluída.',
+    tiersTitle: 'Escalões simulados',
+    tierColumns: { tier: 'Escalão', result: 'Resultado' },
+    clear: 'nunca chega ao limite de corte',
+    safe: (pct: number, when: string) =>
+      `passa o limite mas não corta (no máximo ${pct} % do tempo de corte, em ${when})`,
+    trips: (count: number, when: string, kva: string) =>
+      `cortaria ${count} ${count === 1 ? 'vez' : 'vezes'} (a 1.ª em ${when}, a ${kva})`,
+    unknown: 'demasiados minutos acima do limite para verificar',
+    estimated: (count: number) =>
+      `${count} ${count === 1 ? 'minuto sem' : 'minutos sem'} valores ao segundo: contado com o pico do minuto durante o minuto inteiro.`,
+    topTitle: 'Momentos com maior potência',
+    topColumns: { when: 'Quarto de hora', peak: 'Pico de 1 s', share: 'Da potência atual' },
+    topEstimatedMark: '*',
+    topEstimated:
+      '* potência ativa (W): esse minuto chegou sem valores ao segundo; a aparente é igual ou maior.',
+    noShelly: 'Ainda não há dados do Shelly neste período.',
+    eredesOnly: (kw: string) =>
+      `Só há dados da E-Redes: médias de 15 minutos, que escondem os picos curtos que fazem o contador cortar. A maior média foi ${kw}. Não é possível recomendar uma potência só com estes dados.`,
+    caveats: [
+      'Curva de corte da especificação do contador inteligente da E-Redes (DEF-C44-506/N, anexo B1), com os valores por omissão: só corta acima de 1,2 × a potência contratada, e mais depressa quanto maior o excesso. A E-Redes pode configurar outros valores; a margem cobre essa diferença.',
+      'Monofásico. Em instalações trifásicas o contador usa 1,3 × e controla também cada fase: ainda não é simulado.',
+      'Só vê o que aconteceu nestes 90 dias: um inverno frio ou um aparelho novo podem pedir mais potência.',
+    ],
   },
   quality: {
     title: 'Qualidade da energia',

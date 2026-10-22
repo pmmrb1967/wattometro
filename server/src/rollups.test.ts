@@ -50,6 +50,7 @@ async function minute(ts: number, fields: Fields = {}, device = { id: deviceId, 
       voltageAvgDv: 2310,
       voltageMaxDv: fields.voltageMaxDv ?? 2320,
       pfAvgPct: 95,
+      apparentMaxVa: null,
       seconds: fields.seconds ? new Uint8Array(361) : null,
     }),
   );

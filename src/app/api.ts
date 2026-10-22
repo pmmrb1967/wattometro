@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Calls to the project's API, same-origin under /v1. Every response is validated with zod. */
 import { z } from 'zod';
+import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
 
 const Health = z.object({ status: z.enum(['ok', 'degraded']), database: z.boolean() });
@@ -275,4 +276,67 @@ export async function setBootExcluded(
   });
   if (response?.ok) return { ok: true };
   return failure(response, []);
+}
+
+const QuarterPeak = z.object({ ts: int, peak: int, estimated: z.boolean() });
+
+const Power = z.object({
+  devices: z.array(z.object({ id: z.string(), name: z.string() })),
+  meters: z.array(
+    z.object({
+      meter: z.string(),
+      minutes: int,
+      apparentMinutes: int,
+      apparentMaxVa: int.nullable(),
+      activeMaxW: int.nullable(),
+      activeOnlyMaxW: int.nullable(),
+      top: z.array(QuarterPeak),
+    }),
+  ),
+  eredes: z.object({ quarters: int, maxEnergyWh: int.nullable() }),
+});
+export type Power = z.infer<typeof Power>;
+
+/** Peaks per meter in [from, to) (at most 93 days). */
+export async function fetchPower(
+  from: number,
+  to: number,
+): Promise<{ ok: true; power: Power } | Failure> {
+  const response = await send('GET', `/v1/power?from=${from}&to=${to}`);
+  if (response?.ok) return { ok: true, power: Power.parse(await response.json()) };
+  return failure(response, []);
+}
+
+/** Minutes of a meter above `threshold`, as records for decodePeaks (src/domain/contracted-power.ts). */
+export async function fetchPeakRecords(
+  meter: string,
+  from: number,
+  to: number,
+  threshold: number,
+): Promise<{ ok: true; records: ArrayBuffer; truncated: boolean } | Failure> {
+  const query = new URLSearchParams({
+    meter,
+    from: String(from),
+    to: String(to),
+    threshold: String(threshold),
+  });
+  const response = await send('GET', `/v1/power/peaks?${query}`);
+  if (response?.ok) {
+    return {
+      ok: true,
+      records: await response.arrayBuffer(),
+      truncated: response.headers.get('X-Truncated') === '1',
+    };
+  }
+  return failure(response, []);
+}
+
+/** The ERSE offers (public/data, 1,7 MB): fetched only when needed. */
+export async function fetchOffers(): Promise<OffersFile | null> {
+  try {
+    const response = await fetch(OFFERS_URL);
+    return response.ok ? offersFileSchema.parse(await response.json()) : null;
+  } catch {
+    return null;
+  }
 }

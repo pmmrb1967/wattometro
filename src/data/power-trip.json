@@ -1,0 +1,7 @@
+{
+  "source": "docs/contracted-power.md (E-Redes DEF-C44-506/N, ed. 3, Anexo B1: default values)",
+  "consulted": "2026-10-22",
+  "q": 50,
+  "kSinglePhase": 1.2,
+  "kThreePhase": 1.3
+}

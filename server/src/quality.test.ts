@@ -76,6 +76,7 @@ async function minute(index: number, ts: number, minDv: number, maxDv: number) {
         voltageAvgDv: Math.round((minDv + maxDv) / 2),
         voltageMaxDv: maxDv,
         pfAvgPct: 95,
+        apparentMaxVa: null,
         seconds: null,
       },
     ),
