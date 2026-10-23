@@ -6,6 +6,7 @@
  */
 import { useMemo, useState } from 'react';
 import { BarChart, HourHeatmap, type Bar } from '../components/Charts';
+import { dayBars, noon, SHORT_DAY, usedPeriods } from './chart-bars';
 import {
   addDays,
   addMonths,
@@ -14,7 +15,6 @@ import {
   monthDates,
   quartersByDay,
   weekDates,
-  weekdayOf,
   type DayTotal,
   type Periods,
 } from '../domain/consumption';
@@ -27,22 +27,11 @@ const texts = t.consumption.charts;
 const periodNames = t.settings.tariff.periods;
 type View = 'day' | 'week' | 'month';
 const VIEWS: View[] = ['day', 'week', 'month'];
-/** Bottom to top. */
-const ORDER: BillingPeriod[] = ['empty', 'offEmpty', 'full', 'peak', 'simple'];
-/** Fewer quarters than this: an incomplete day. */
-const FULL_DAY_QUARTERS = 92;
-
-const noon = (date: LocalDate) => new Date(`${date}T12:00:00Z`);
 const DAY_FORMAT = new Intl.DateTimeFormat('pt-PT', {
   weekday: 'long',
   day: 'numeric',
   month: 'long',
   year: 'numeric',
-  timeZone: 'UTC',
-});
-const SHORT_DAY = new Intl.DateTimeFormat('pt-PT', {
-  day: 'numeric',
-  month: 'short',
   timeZone: 'UTC',
 });
 const MONTH_FORMAT = new Intl.DateTimeFormat('pt-PT', {
@@ -52,13 +41,6 @@ const MONTH_FORMAT = new Intl.DateTimeFormat('pt-PT', {
 });
 
 const kwh = (wh: number) => formatKwh(wh, 2);
-
-function segments(byPeriod: Partial<Record<BillingPeriod, number>>) {
-  return ORDER.filter((period) => (byPeriod[period] ?? 0) > 0).map((period) => ({
-    period,
-    value: byPeriod[period] ?? 0,
-  }));
-}
 
 /** The dates a view shows around the chosen date. */
 function datesOf(view: View, date: LocalDate): LocalDate[] {
@@ -130,25 +112,7 @@ export function ConsumptionCharts({
     });
     total = totals.get(date)?.byPeriod ?? {};
   } else {
-    bars = shown.map((day) => {
-      const dayTotalOf = totals.get(day);
-      return {
-        key: day,
-        title: texts.dayTitle(
-          SHORT_DAY.format(noon(day)),
-          dayTotalOf ? kwh(dayTotalOf.totalWh) : texts.noData,
-        ),
-        segments: segments(dayTotalOf?.byPeriod ?? {}),
-        partial: !dayTotalOf || dayTotalOf.quarters < FULL_DAY_QUARTERS,
-      };
-    });
-    ticks = shown.flatMap((day, index) =>
-      view === 'week'
-        ? [{ index, label: texts.weekdays[weekdayOf(day)] ?? '' }]
-        : [1, 8, 15, 22, 29].includes(Number(day.slice(8)))
-          ? [{ index, label: String(Number(day.slice(8))) }]
-          : [],
-    );
+    ({ bars, ticks } = dayBars(shown, totals, view));
     for (const day of shown) {
       for (const [period, wh] of Object.entries(totals.get(day)?.byPeriod ?? {})) {
         total[period as BillingPeriod] = (total[period as BillingPeriod] ?? 0) + wh;
@@ -156,7 +120,7 @@ export function ConsumptionCharts({
     }
   }
   const totalWh = Object.values(total).reduce((sum, wh) => sum + wh, 0);
-  const used = ORDER.filter((period) => (total[period] ?? 0) > 0);
+  const used = usedPeriods(total);
 
   return (
     <>

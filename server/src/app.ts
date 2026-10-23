@@ -38,9 +38,10 @@
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
  *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
  *   DELETE /v1/import/eredes   → 204, removes the imported E-Redes data
- *   GET  /v1/energy?from&to    → {meters: [{meter, quarters, energyWh}]} (≤ 400 days)
+ *   GET  /v1/energy?from&to    → {meters: [{meter, days, energyWh}]} (≤ 430 days)
+ *   GET  /v1/energy/days?meter&from&to → {days: [[date, Wh]]}, the daily totals of a meter (≤ 430 days)
  *   GET  /v1/energy/quarters?meter&from&to → application/octet-stream, the quarter hours of a
- *                              meter ('eredes' or 'device:channel') as uint32 ts · uint32 Wh (≤ 400 days)
+ *                              meter ('eredes' or 'device:channel') as uint32 ts · uint32 Wh (≤ 430 days)
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
  *
@@ -158,7 +159,8 @@ const PeaksQuery = rangeQuery(MAX_QUALITY_DAYS).and(
 );
 export const MAX_IMPORT_QUARTERS = 3000;
 export const MAX_IMPORT_BYTES = 256 * 1024;
-export const MAX_ENERGY_DAYS = 400;
+// 13 months before the current one, plus the current one (src/app/household-energy.ts).
+export const MAX_ENERGY_DAYS = 430;
 /** Energy of a quarter hour: up to 41,4 kVA for 15 min is 10 350 Wh; more is not a reading. */
 const MAX_QUARTER_WH = 20_000;
 const ImportBody = z.object({

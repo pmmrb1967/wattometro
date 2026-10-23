@@ -394,6 +394,65 @@ export const t = {
         `${day}, ${hour}–${hour + 1} h: ${kwh}`,
     },
   },
+  report: {
+    title: 'Relatório do mês',
+    open: 'Relatório do mês',
+    back: '← Consumo',
+    heading: (month: string) => `Relatório de ${month}`,
+    household: (name: string) => `Casa: ${name}`,
+    generated: (when: string) => `Gerado pelo Wattómetro em ${when}`,
+    month: 'Mês',
+    print: 'Imprimir ou guardar em PDF',
+    usageTitle: 'Consumo',
+    perDay: (kwh: string) => `Em média ${kwh} por dia.`,
+    missingDays: (withData: number, days: number) =>
+      `Há dados de ${withData} dos ${days} dias do mês: o total e o custo contam só esses dias.`,
+    comparison: (month: string, pct: string, before: string, now: string) =>
+      `Face a ${month}: ${pct} por dia (${before} → ${now}).`,
+    noComparison: (month: string) => `Sem dados de ${month} para comparar.`,
+    chartLabel: (month: string) => `Consumo por dia em ${month}`,
+    costTitle: 'Custo estimado',
+    costEnergy: (euros: string) => `Energia: ${euros}`,
+    costPower: (euros: string) => `Potência contratada: ${euros}`,
+    costTaxes: (euros: string) => `Taxas (IEC, contribuição audiovisual, DGEG): ${euros}`,
+    costHint: (days: number, supplier: string) =>
+      `Com IVA, para ${days} ${days === 1 ? 'dia' : 'dias'}, com o tarifário em vigor no fim do mês (${supplier}). A fatura real pode ter outro período e acertos.`,
+    noTariff: 'Para estimar o custo, indica o teu tarifário.',
+    baseloadTitle: 'Consumo base',
+    baseloadCost: (euros: string) => `Custou cerca de ${euros} neste mês.`,
+    peakTitle: 'Potência máxima',
+    peakWhen: (when: string) => `Média do quarto de hora mais alto, a ${when}.`,
+    peakContracted: (power: string) => `Potência contratada: ${power}.`,
+    peakHint:
+      'Em médias de 15 minutos os picos curtos (chaleira, forno a arrancar) não aparecem. A página Potência faz a análise completa.',
+    suggestionsTitle: 'Sugestões',
+    noSuggestions: 'Nada a assinalar neste mês.',
+    see: (page: string) => `Ver ${page}.`,
+    suggestions: {
+      baseload: (pct: number, power: string) =>
+        `O consumo base (${power}, sempre ligado) foi ${pct} % do consumo do mês. Vê o que fica ligado de noite: aparelhos em espera, um segundo frigorífico, bombas, desumidificadores.`,
+      peak: (pct: number) =>
+        `${pct} % do consumo foi na ponta, o período mais caro. Máquinas, termoacumulador e carregamentos rendem mais no vazio.`,
+      offEmpty: (pct: number) =>
+        `${pct} % do consumo foi fora do vazio. No bi-horário compensa passar máquinas e termoacumulador para o vazio.`,
+      higherThanLastYear: (pct: number) =>
+        `Gastaste mais ${pct} % por dia do que no mesmo mês do ano passado. Vê se mudou alguma coisa: aquecimento, um aparelho novo, mais pessoas em casa.`,
+      lowPeak: (peak: string, contracted: string) =>
+        `O quarto de hora mais alto ficou em ${peak}, menos de metade dos ${contracted} contratados: talvez possas baixar a potência.`,
+      simpleTariff:
+        'Tens a opção simples. Com o teu consumo real, o bi-horário ou outra oferta podem sair mais baratos.',
+    },
+    notesTitle: 'Notas',
+    notes: {
+      source: (meter: string) => `Consumos de: ${meter}.`,
+      comparison:
+        'As comparações são por média diária, para que meses de 30 e 31 dias ou dias sem dados não pareçam mudanças.',
+      estimate:
+        'O custo é uma estimativa com os preços que indicaste nas Definições, não uma fatura.',
+      rules:
+        'As sugestões vêm de regras fixas da app (consumo base acima de 20 %, ponta acima de 25 %, fora do vazio acima de 65 %, mais 15 % do que há um ano, pico abaixo de metade da potência contratada), não de IA.',
+    },
+  },
   tariffs: {
     title: 'Tarifários',
     intro:

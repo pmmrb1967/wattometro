@@ -3,29 +3,19 @@
  * "Consumo": the last 12 months of quarter hours of a meter (E-Redes or a
  * Shelly). Baseload: src/domain/baseload.ts.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router';
 import type { Periods } from '../domain/consumption';
 import { baseloadCost, monthlyBaseload, nightlyBaseload, recentBaseload } from '../domain/baseload';
-import { tariffOn, type Tariff } from '../domain/tariff';
+import type { Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
-import { lisbonDate, lisbonToday, startOfLisbonDay } from '../lib/time';
 import { formatKwh, formatPower } from '../lib/units';
-import {
-  fetchDevices,
-  fetchEnergyMeters,
-  fetchTariffs,
-  type Device,
-  type EnergyMeter,
-} from './api';
 import { ConsumptionCharts } from './ConsumptionCharts';
-import { busiestMeter, meterLabel } from './meters';
-import { loadQuarters } from './energy-cache';
-import { useSession } from './session';
+import { lastYear, useHouseholdEnergy } from './household-energy';
+import { meterLabel } from './meters';
 
 const texts = t.consumption;
-const YEAR = 365 * 86_400;
 
 type Quarters = { ts: number; energyWh: number }[];
 
@@ -101,62 +91,18 @@ function Baseload({
 }
 
 export function Consumption() {
-  const { me, signOut } = useSession();
-  const [tariff, setTariff] = useState<Tariff | null>(null);
-  const [meters, setMeters] = useState<EnergyMeter[] | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [meter, setMeter] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState<{ meter: string; quarters: Quarters } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // The year before today (Lisbon), whole days.
-  const [range] = useState(() => {
-    const to = startOfLisbonDay(lisbonToday());
-    return { from: startOfLisbonDay(lisbonDate(to - YEAR)), to };
-  });
-
-  useEffect(() => {
-    let active = true;
-    void Promise.all([
-      fetchTariffs(),
-      fetchEnergyMeters(range.from, range.to),
-      fetchDevices(),
-    ]).then(([tariffs, energy, deviceList]) => {
-      if (!active) return;
-      if ([tariffs, energy, deviceList].some((o) => !o.ok && o.reason === 'unauthenticated')) {
-        signOut();
-        return;
-      }
-      if (!energy.ok) {
-        setError(t.errors.unavailable);
-        return;
-      }
-      // Without a tariff the baseload is still shown, without its cost.
-      if (tariffs.ok) setTariff(tariffOn(tariffs.tariffs, lisbonToday()));
-      setMeters(energy.meters);
-      if (deviceList.ok) setDevices(deviceList.devices);
-      setMeter(busiestMeter(energy.meters));
-    });
-    return () => {
-      active = false;
-    };
-  }, [range, signOut]);
-
-  useEffect(() => {
-    if (!meter) return;
-    let active = true;
-    void loadQuarters(me.householdId, meter, range.from, range.to).then((outcome) => {
-      if (!active) return;
-      if (outcome.ok) setLoaded({ meter, quarters: outcome.quarters });
-      else if (outcome.reason === 'unauthenticated') signOut();
-      else setError(t.errors.unavailable);
-    });
-    return () => {
-      active = false;
-    };
-  }, [me.householdId, meter, range, signOut]);
-
-  const quarters = loaded?.meter === meter ? loaded.quarters : null;
+  const {
+    window,
+    error,
+    tariff,
+    meters,
+    devices,
+    meter,
+    setMeter,
+    quarters: all,
+  } = useHouseholdEnergy();
+  // The last 365 days (the window starts earlier, for the monthly report).
+  const quarters = useMemo(() => (all ? lastYear(all, window) : null), [all, window]);
   // Bars coloured by the tariff's periods (one colour with the simple option or no tariff).
   const periods = useMemo<Periods>(
     () =>
@@ -169,6 +115,11 @@ export function Consumption() {
     <>
       <h1>{texts.title}</h1>
       <p className="lead">{texts.intro}</p>
+      <p>
+        <Link className="secondary button-link" to="/consumo/relatorio">
+          {t.report.open}
+        </Link>
+      </p>
     </>
   );
   if (error) {
@@ -218,7 +169,7 @@ export function Consumption() {
       {!quarters && <p className="hint">{t.loading}</p>}
       {quarters && (
         <>
-          <Baseload quarters={quarters} tariff={tariff} eredes={meter === 'eredes'} />
+          <Baseload quarters={quarters} tariff={tariff ?? null} eredes={meter === 'eredes'} />
           <ConsumptionCharts quarters={quarters} periods={periods} />
         </>
       )}

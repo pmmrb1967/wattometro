@@ -187,7 +187,8 @@ export function AppShell() {
               <NavLink
                 key={section.id}
                 to={section.path}
-                end
+                // "/consumo" stays highlighted on "/consumo/relatorio"; "/" only on itself.
+                end={section.path === '/'}
                 className="nav-item"
                 {...(collapsed ? { title: t.nav[section.id] } : {})}
               >

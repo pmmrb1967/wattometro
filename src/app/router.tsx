@@ -6,6 +6,7 @@ import { Home } from './Home';
 import { Power } from './Power';
 import { Tariffs } from './Tariffs';
 import { Quality } from './Quality';
+import { Report } from './Report';
 import { Settings } from './Settings';
 
 export const router = createBrowserRouter([
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: 'consumo', element: <Consumption /> },
+      { path: 'consumo/relatorio', element: <Report /> },
       { path: 'potencia', element: <Power /> },
       { path: 'tarifarios', element: <Tariffs /> },
       { path: 'qualidade', element: <Quality /> },

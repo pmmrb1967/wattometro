@@ -697,6 +697,13 @@ h2 {
   color: var(--text);
 }
 
+/* A link that looks like a secondary button. */
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .primary:disabled {
   opacity: 0.6;
   cursor: progress;
@@ -809,7 +816,8 @@ h2 {
 }
 
 .chart-hit {
-  fill: transparent;
+  fill: none;
+  pointer-events: all;
 }
 
 .chart-partial rect:not(.chart-hit) {
@@ -1026,6 +1034,12 @@ h2 {
 
   .print-only {
     display: block;
+  }
+
+  /* The side menu's border is drawn as a background of the page: not on paper. */
+  .has-nav .body,
+  .has-nav.is-nav-collapsed .body {
+    background: none;
   }
 
   span.print-only {

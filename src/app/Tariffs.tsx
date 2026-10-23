@@ -9,28 +9,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { annualUsage, compareOffers, type OfferResult, type Shift } from '../domain/compare';
 import type { Offer } from '../domain/erse';
-import { tariffOn, type Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
-import { lisbonDate, lisbonToday, startOfLisbonDay } from '../lib/time';
+import { lisbonToday } from '../lib/time';
 import { formatKva, formatKwh } from '../lib/units';
-import {
-  fetchDevices,
-  fetchEnergyMeters,
-  fetchOffers,
-  fetchTariffs,
-  type Device,
-  type EnergyMeter,
-} from './api';
-import { busiestMeter, meterLabel } from './meters';
-import { loadQuarters } from './energy-cache';
-import { useSession } from './session';
+import { fetchOffers } from './api';
+import { lastYear, useHouseholdEnergy } from './household-energy';
+import { meterLabel } from './meters';
 
 const texts = t.tariffs;
-const YEAR = 365 * 86_400;
 const SHOWN = 15;
-
-type Quarters = { ts: number; energyWh: number }[];
 
 const optionLabel = (result: OfferResult) =>
   result.option === 'simple'
@@ -58,65 +46,25 @@ function ShiftLine({ option, shift }: { option: 'bi' | 'tri'; shift: Shift | nul
 }
 
 export function Tariffs() {
-  const { me, signOut } = useSession();
-  const [tariff, setTariff] = useState<Tariff | null | undefined>(undefined);
-  const [meters, setMeters] = useState<EnergyMeter[] | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [meter, setMeter] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState<{ meter: string; quarters: Quarters } | null>(null);
+  const energy = useHouseholdEnergy();
+  const { window, tariff, meters, devices, meter, setMeter } = energy;
+  const error = energy.error ?? (energy.tariffsFailed ? t.errors.unavailable : null);
   const [offers, setOffers] = useState<Offer[] | null | 'none'>(null);
-  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ option: 'all', noLoyalty: false, noServices: false });
 
-  // The year before today (Lisbon), whole days.
-  const [range] = useState(() => {
-    const to = startOfLisbonDay(lisbonToday());
-    return { from: startOfLisbonDay(lisbonDate(to - YEAR)), to };
-  });
-
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      fetchTariffs(),
-      fetchEnergyMeters(range.from, range.to),
-      fetchDevices(),
-      fetchOffers(),
-    ]).then(([tariffs, energy, deviceList, file]) => {
-      if (!active) return;
-      if ([tariffs, energy, deviceList].some((o) => !o.ok && o.reason === 'unauthenticated')) {
-        signOut();
-        return;
-      }
-      if (!tariffs.ok || !energy.ok) {
-        setError(t.errors.unavailable);
-        return;
-      }
-      setTariff(tariffOn(tariffs.tariffs, lisbonToday()));
-      setMeters(energy.meters);
-      if (deviceList.ok) setDevices(deviceList.devices);
-      setOffers(file ? file.offers : 'none');
-      setMeter(busiestMeter(energy.meters));
+    void fetchOffers().then((file) => {
+      if (active) setOffers(file ? file.offers : 'none');
     });
     return () => {
       active = false;
     };
-  }, [range, signOut]);
+  }, []);
 
-  useEffect(() => {
-    if (!meter) return;
-    let active = true;
-    void loadQuarters(me.householdId, meter, range.from, range.to).then((outcome) => {
-      if (!active) return;
-      if (outcome.ok) setLoaded({ meter, quarters: outcome.quarters });
-      else if (outcome.reason === 'unauthenticated') signOut();
-      else setError(t.errors.unavailable);
-    });
-    return () => {
-      active = false;
-    };
-  }, [me.householdId, meter, range, signOut]);
-
-  const quarters = loaded?.meter === meter ? loaded.quarters : null;
+  // The last 365 days (the window starts earlier, for the monthly report).
+  const all = energy.quarters;
+  const quarters = useMemo(() => (all ? lastYear(all, window) : null), [all, window]);
   const usage = useMemo(
     () => (quarters && tariff ? annualUsage(quarters, tariff.periodsMap) : null),
     [quarters, tariff],
