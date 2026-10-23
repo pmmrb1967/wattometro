@@ -54,6 +54,7 @@ function useServerState(): ServerState {
 
 const SECTIONS: { id: SectionId; path: string }[] = [
   { id: 'home', path: '/' },
+  { id: 'consumption', path: '/consumo' },
   { id: 'power', path: '/potencia' },
   { id: 'tariffs', path: '/tarifarios' },
   { id: 'quality', path: '/qualidade' },

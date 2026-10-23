@@ -23,6 +23,7 @@ import {
   type Device,
   type EnergyMeter,
 } from './api';
+import { busiestMeter, meterLabel } from './meters';
 import { useSession } from './session';
 
 const texts = t.tariffs;
@@ -30,13 +31,6 @@ const YEAR = 365 * 86_400;
 const SHOWN = 15;
 
 type Quarters = { ts: number; energyWh: number }[];
-
-function meterLabel(meter: string, devices: Device[]): string {
-  if (meter === 'eredes') return texts.eredesMeter;
-  const [deviceId, channel] = meter.split(':');
-  const name = devices.find((device) => device.id === deviceId)?.name ?? deviceId ?? meter;
-  return channel && channel !== '0' ? `${name} · ${t.now.channel(Number(channel))}` : name;
-}
 
 const optionLabel = (result: OfferResult) =>
   result.option === 'simple'
@@ -101,12 +95,7 @@ export function Tariffs() {
       setMeters(energy.meters);
       if (deviceList.ok) setDevices(deviceList.devices);
       setOffers(file ? file.offers : 'none');
-      // The meter with the most data; E-Redes on a tie (the billing reference).
-      const best = [...energy.meters].sort(
-        (a, b) =>
-          b.quarters - a.quarters || Number(b.meter === 'eredes') - Number(a.meter === 'eredes'),
-      )[0];
-      setMeter(best?.meter ?? null);
+      setMeter(busiestMeter(energy.meters));
     });
     return () => {
       active = false;

@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { t } from '../i18n/pt-PT';
+import type { Device, EnergyMeter } from './api';
+
+/** "E-Redes", or the Shelly's name (and channel). */
+export function meterLabel(meter: string, devices: Device[]): string {
+  if (meter === 'eredes') return t.tariffs.eredesMeter;
+  const [deviceId, channel] = meter.split(':');
+  const name = devices.find((device) => device.id === deviceId)?.name ?? deviceId ?? meter;
+  return channel && channel !== '0' ? `${name} · ${t.now.channel(Number(channel))}` : name;
+}
+
+/** The meter with the most data; E-Redes on a tie (the billing reference). */
+export function busiestMeter(meters: readonly EnergyMeter[]): string | null {
+  const best = [...meters].sort(
+    (a, b) =>
+      b.quarters - a.quarters || Number(b.meter === 'eredes') - Number(a.meter === 'eredes'),
+  )[0];
+  return best?.meter ?? null;
+}

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Adapted from Faturómetro (src/app/NavIcon.tsx).
-export type SectionId = 'home' | 'power' | 'tariffs' | 'quality' | 'settings';
+export type SectionId = 'home' | 'consumption' | 'power' | 'tariffs' | 'quality' | 'settings';
 
 /** Outline icons for the main sections (24×24, stroke follows the text colour). */
 const PATHS: Record<SectionId, string[]> = {
   // House
   home: ['M3 10.5 12 3l9 7.5', 'M5 9.5V21h5v-6h4v6h5V9.5'],
+  // Bar chart
+  consumption: ['M3 21h18', 'M6 17v-5', 'M10.5 17V7', 'M15 17v-7', 'M19.5 17V4'],
   // Lightning bolt
   power: ['M13 2 4 14h7l-1 8 9-12h-7z'],
   // Euro sign in a tag

@@ -16,6 +16,7 @@ export const t = {
   nav: {
     home: 'Início',
     power: 'Potência',
+    consumption: 'Consumo',
     tariffs: 'Tarifários',
     quality: 'Qualidade',
     settings: 'Definições',
@@ -347,6 +348,29 @@ export const t = {
       'NP EN 50160, características da tensão de alimentação em baixa tensão, conforme reproduzida pela ERSE (Formação ACE, 2021).',
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
+  },
+  consumption: {
+    title: 'Consumo',
+    intro:
+      'O que a tua casa gastou nos últimos 12 meses, a partir do ficheiro da E-Redes ou do Shelly.',
+    baseload: {
+      title: 'Consumo base',
+      intro:
+        'O que a casa gasta quando ninguém está a usar nada: frigorífico, router, aparelhos em espera. Está ligado 24 horas por dia, por isso pesa na fatura.',
+      recent: (nights: number) =>
+        `Valor típico das noites dos últimos 30 dias de dados (${nights} ${nights === 1 ? 'noite' : 'noites'}).`,
+      cost: (euros: string, kwh: string) =>
+        `Cerca de ${euros} por ano (${kwh}) com o teu tarifário.`,
+      noTariff: 'Para saberes quanto custa, indica o teu tarifário.',
+      noNights: 'Ainda não há noites com dados suficientes (entre as 0 h e as 6 h).',
+      monthsTitle: 'Mês a mês',
+      method:
+        'Em cada noite, entre as 0 h e as 6 h, a app vê a potência média de cada quarto de hora e fica com um dos valores mais baixos (o percentil 10), para que um quarto de hora fora do normal não decida. O valor de cada mês é o das noites típicas desse mês.',
+      eredesNote:
+        'Com os quartos de hora da E-Redes, as pausas curtas do frigorífico ficam na média: o valor real é um pouco mais baixo. Com o Shelly fica mais exato.',
+      costNote:
+        'O custo é o da energia, com IEC e IVA: o que a fatura desceria sem este consumo. A potência contratada paga-se na mesma.',
+    },
   },
   tariffs: {
     title: 'Tarifários',
