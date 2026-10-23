@@ -371,6 +371,28 @@ export const t = {
       costNote:
         'O custo é o da energia, com IEC e IVA: o que a fatura desceria sem este consumo. A potência contratada paga-se na mesma.',
     },
+    charts: {
+      title: 'Ao longo do tempo',
+      views: { day: 'Dia', week: 'Semana', month: 'Mês' },
+      previous: 'Anterior',
+      next: 'Seguinte',
+      weekOf: (first: string, last: string) => `Semana de ${first} a ${last}`,
+      total: (kwh: string) => `Total: ${kwh}`,
+      perQuarter: (kwh: string) => `${kwh} por quarto de hora`,
+      perDay: (kwh: string) => `${kwh} por dia`,
+      quarterTitle: (time: string, kwh: string, period: string) => `${time}: ${kwh} (${period})`,
+      dayTitle: (day: string, kwh: string) => `${day}: ${kwh}`,
+      noData: 'sem dados',
+      partialHint: 'Barras mais claras: dias sem dados ou incompletos.',
+      heatmapTitle: 'Hora a hora, por dia da semana',
+      heatmapIntro:
+        'Quanto gastas em média em cada hora de cada dia da semana, nas últimas 12 semanas com dados. Cor mais forte é mais consumo.',
+      heatmapLegend:
+        'Toca ou passa o rato numa célula para ver o valor. Horas que se repetem com consumo alto mostram hábitos que podes mudar para o vazio.',
+      weekdays: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+      cellTitle: (day: string, hour: number, kwh: string) =>
+        `${day}, ${hour}–${hour + 1} h: ${kwh}`,
+    },
   },
   tariffs: {
     title: 'Tarifários',

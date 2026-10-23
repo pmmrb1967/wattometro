@@ -12,6 +12,9 @@
   --danger: #b3261e;
   --accent-soft: #dcefef;
   --danger-soft: #fbe4e2;
+  --period-empty: #2a7fb8;
+  --period-full: #d08a12;
+  --period-peak: #c2412d;
   --nav-height: 64px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
@@ -37,6 +40,9 @@
     --danger: #ff8a80;
     --accent-soft: #1d3b3e;
     --danger-soft: #3d1f22;
+    --period-empty: #6cb6ea;
+    --period-full: #f0b44c;
+    --period-peak: #ff8a72;
   }
 }
 
@@ -778,6 +784,127 @@ h2 {
 
 .caveats li + li {
   margin-top: 4px;
+}
+
+/* Hand-drawn SVG charts (src/components/Charts.tsx). */
+.chart {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+
+.chart-text {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-dasharray: 3 3;
+}
+
+.chart-axis {
+  stroke: var(--border);
+}
+
+.chart-hit {
+  fill: transparent;
+}
+
+.chart-partial rect:not(.chart-hit) {
+  opacity: 0.45;
+}
+
+.period-simple,
+.heat-cell {
+  fill: var(--accent);
+  background: var(--accent);
+}
+
+.period-empty {
+  fill: var(--period-empty);
+  background: var(--period-empty);
+}
+
+.period-offEmpty,
+.period-full {
+  fill: var(--period-full);
+  background: var(--period-full);
+}
+
+.period-peak {
+  fill: var(--period-peak);
+  background: var(--period-peak);
+}
+
+.heat-empty {
+  fill: none;
+  stroke: var(--border);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+
+.segmented {
+  display: inline-flex;
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.segmented button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.chart-nav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.chart-nav .secondary {
+  padding: 0 14px;
+  font-size: 1.25rem;
+}
+
+.chart-nav .secondary:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* Horizontal bars, one per row (e.g. the baseload per month). */

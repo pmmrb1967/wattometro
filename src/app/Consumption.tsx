@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import type { Periods } from '../domain/consumption';
 import { baseloadCost, monthlyBaseload, nightlyBaseload, recentBaseload } from '../domain/baseload';
 import { tariffOn, type Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
@@ -19,6 +20,7 @@ import {
   type Device,
   type EnergyMeter,
 } from './api';
+import { ConsumptionCharts } from './ConsumptionCharts';
 import { busiestMeter, meterLabel } from './meters';
 import { useSession } from './session';
 
@@ -155,6 +157,14 @@ export function Consumption() {
   }, [meter, range, signOut]);
 
   const quarters = loaded?.meter === meter ? loaded.quarters : null;
+  // Bars coloured by the tariff's periods (one colour with the simple option or no tariff).
+  const periods = useMemo<Periods>(
+    () =>
+      tariff && tariff.option !== 'simple'
+        ? { option: tariff.option, cycle: tariff.cycle, periodsMap: tariff.periodsMap }
+        : null,
+    [tariff],
+  );
   const header = (
     <>
       <h1>{texts.title}</h1>
@@ -206,7 +216,12 @@ export function Consumption() {
         </section>
       )}
       {!quarters && <p className="hint">{t.loading}</p>}
-      {quarters && <Baseload quarters={quarters} tariff={tariff} eredes={meter === 'eredes'} />}
+      {quarters && (
+        <>
+          <Baseload quarters={quarters} tariff={tariff} eredes={meter === 'eredes'} />
+          <ConsumptionCharts quarters={quarters} periods={periods} />
+        </>
+      )}
     </>
   );
 }

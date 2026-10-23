@@ -94,7 +94,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 ### 1.5 App
 - [x] Página "Agora": último minuto (potência, tensão), energia de hoje, pico de hoje, estado do Shelly (último envio)
 - [x] Custo provisório de hoje (tarifário em Definições; motor de custos da Fase 3.2)
-- [ ] Gráficos dia/semana/mês e mapa de calor hora × dia da semana
+- [x] Gráficos dia/semana/mês e mapa de calor hora × dia da semana (página `/consumo`, `src/domain/consumption.ts`)
 
 **Aceitação:** 7 dias de dados sem perdas relevantes; um corte de internet de 30 min é recuperado sem buracos.
 
@@ -300,3 +300,4 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-22 — Exportação da E-Redes: `.xlsx` com kW médios por quarto de hora e a hora a marcar o fim do intervalo (`docs/eredes-csv.md`). Lida no browser; ao servidor só vão os quartos de hora (sem CPE nem número de contador). Cada lote é gravado com duas instruções SQL (`json_each`), qualquer que seja o tamanho. O dia de 25 h vem com 4 quartos de hora em falta (a hora repetida aparece uma vez): a app aceita a falha e mostra-a.
 - 2026-10-22 — Simulador de tarifários: consumo dos últimos 12 meses (E-Redes ou Shelly, o contador com mais dados), extrapolado se houver menos de 360 dias. A tarifa social, o seu financiamento, o IEC, a CAV e a taxa DGEG vêm do tarifário da casa e são iguais em todas as ofertas. Preços, descontos e serviços obrigatórios vêm de cada oferta (o desconto social é aplicado igual em todas as opções horárias, como no Faturómetro). Bi e tri-horário: o ciclo mais barato. "Mudar para o vazio" compara com a opção simples mais barata (atual ou oferta).
 - 2026-10-23 — Consumo base: por noite (00:00–06:00, hora de Lisboa), percentil 10 da potência média dos quartos de hora (pelo menos 12 quartos de hora); por mês, a mediana das noites; "agora", a mediana das noites dos últimos 30 dias de dados. Custo anual = custo do ano medido − custo sem o consumo base (energia, IEC e IVA; repartido pelos períodos como as horas dos dados). Página `/consumo`, com 12 meses de quartos de hora pedidos uma vez (≈ 35 mil linhas lidas por visita).
+- 2026-10-23 — Gráficos de consumo em SVG feito à mão (`src/components/Charts.tsx`), sem biblioteca: são poucas dezenas de barras ou células. Dia: barras de 15 min; semana e mês: uma barra por dia, empilhada pelos períodos do tarifário da casa (uma cor na opção simples). Mapa de calor: média por hora e dia da semana nas últimas 12 semanas com dados.
