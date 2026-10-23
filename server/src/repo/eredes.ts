@@ -128,19 +128,44 @@ export async function quarterEnergy(
   return records;
 }
 
-/** Meters with quarter hours in [from, to): their energy and how many quarters. */
+/**
+ * Meters with data on the Lisbon days [fromDay, toDay]: their energy and how many
+ * days. From the daily totals (one row per day), not the quarter hours.
+ */
 export async function energyMeters(
   sql: Sql,
   householdId: string,
-  from: number,
-  to: number,
-): Promise<{ meter: string; quarters: number; energyWh: number }[]> {
-  const rows = await sql.all<{ meter: string; quarters: number; energy_wh: number }>(
-    `SELECT meter, COUNT(*) AS quarters, SUM(energy_wh) AS energy_wh FROM readings_15m
-     WHERE household_id = ? AND ts >= ? AND ts < ? GROUP BY meter ORDER BY meter`,
+  fromDay: string,
+  toDay: string,
+): Promise<{ meter: string; days: number; energyWh: number }[]> {
+  const rows = await sql.all<{ meter: string; days: number; energy_wh: number }>(
+    `SELECT meter, COUNT(*) AS days, SUM(energy_wh) AS energy_wh FROM daily
+     WHERE household_id = ? AND day >= ? AND day <= ? GROUP BY meter ORDER BY meter`,
     householdId,
-    from,
-    to,
+    fromDay,
+    toDay,
   );
-  return rows.map((row) => ({ meter: row.meter, quarters: row.quarters, energyWh: row.energy_wh }));
+  return rows.map((row) => ({ meter: row.meter, days: row.days, energyWh: row.energy_wh }));
+}
+
+/**
+ * Energy of a meter per Lisbon day in [fromDay, toDay], oldest first: the sum of
+ * its quarter hours, so the app can check the ones it keeps (src/app/energy-cache.ts).
+ */
+export async function dailyEnergy(
+  sql: Sql,
+  householdId: string,
+  meter: string,
+  fromDay: string,
+  toDay: string,
+): Promise<[string, number][]> {
+  const rows = await sql.all<{ day: string; energy_wh: number }>(
+    `SELECT day, energy_wh FROM daily
+     WHERE household_id = ? AND meter = ? AND day >= ? AND day <= ? ORDER BY day`,
+    householdId,
+    meter,
+    fromDay,
+    toDay,
+  );
+  return rows.map((row) => [row.day, row.energy_wh]);
 }

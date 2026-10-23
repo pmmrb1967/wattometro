@@ -9,6 +9,7 @@ import { InstallSection } from '../components/InstallSection';
 import { enterDemo, exitDemo, isDemo } from '../demo/mode';
 import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
+import { clearEnergyCache } from './energy-cache';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
 
@@ -89,6 +90,8 @@ export function AppShell() {
 
   // Stable, so pages can depend on it in effects.
   const signOut = useCallback(() => {
+    // The consumption kept in this browser goes with the session.
+    void clearEnergyCache();
     if (isDemo()) {
       exitDemo();
       setMe(null);

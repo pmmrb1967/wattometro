@@ -15,13 +15,13 @@ import { formatKwh, formatPower } from '../lib/units';
 import {
   fetchDevices,
   fetchEnergyMeters,
-  fetchQuarterEnergy,
   fetchTariffs,
   type Device,
   type EnergyMeter,
 } from './api';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { busiestMeter, meterLabel } from './meters';
+import { loadQuarters } from './energy-cache';
 import { useSession } from './session';
 
 const texts = t.consumption;
@@ -101,7 +101,7 @@ function Baseload({
 }
 
 export function Consumption() {
-  const { signOut } = useSession();
+  const { me, signOut } = useSession();
   const [tariff, setTariff] = useState<Tariff | null>(null);
   const [meters, setMeters] = useState<EnergyMeter[] | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -145,7 +145,7 @@ export function Consumption() {
   useEffect(() => {
     if (!meter) return;
     let active = true;
-    void fetchQuarterEnergy(meter, range.from, range.to).then((outcome) => {
+    void loadQuarters(me.householdId, meter, range.from, range.to).then((outcome) => {
       if (!active) return;
       if (outcome.ok) setLoaded({ meter, quarters: outcome.quarters });
       else if (outcome.reason === 'unauthenticated') signOut();
@@ -154,7 +154,7 @@ export function Consumption() {
     return () => {
       active = false;
     };
-  }, [meter, range, signOut]);
+  }, [me.householdId, meter, range, signOut]);
 
   const quarters = loaded?.meter === meter ? loaded.quarters : null;
   // Bars coloured by the tariff's periods (one colour with the simple option or no tariff).

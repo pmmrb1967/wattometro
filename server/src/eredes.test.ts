@@ -117,7 +117,17 @@ describe('POST /v1/import/eredes', () => {
     const meters = await (
       await request(cookie, 'GET', `/v1/energy?from=${from}&to=${from + 3600}`)
     ).json();
-    expect(meters).toEqual({ meters: [{ meter: 'eredes', quarters: 2, energyWh: 333 }] });
+    expect(meters).toEqual({ meters: [{ meter: 'eredes', days: 1, energyWh: 333 }] });
+
+    const days = await (
+      await request(cookie, 'GET', `/v1/energy/days?meter=eredes&from=${from}&to=${from + 3600}`)
+    ).json();
+    expect(days).toEqual({ days: [['2026-01-15', 333]] });
+    // Another meter, or days without data: nothing.
+    const none = await (
+      await request(cookie, 'GET', `/v1/energy/days?meter=x:0&from=${from}&to=${from + 3600}`)
+    ).json();
+    expect(none).toEqual({ days: [] });
   });
 
   it('keeps households apart and can remove the import', async () => {

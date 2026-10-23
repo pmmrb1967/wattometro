@@ -258,6 +258,16 @@ function quarterEnergy(data: DemoData, from: number, to: number): [number, numbe
   return [...quarters];
 }
 
+/** Energy per Lisbon day of quarter hours (GET /v1/energy/days, server/src/repo/eredes.ts). */
+function dailyEnergy(quarters: [number, number][]): [string, number][] {
+  const days = new Map<string, number>();
+  for (const [ts, wh] of quarters) {
+    const date = lisbonDate(ts);
+    days.set(date, (days.get(date) ?? 0) + wh);
+  }
+  return [...days];
+}
+
 /** Records of GET /v1/energy/quarters (server/src/repo/eredes.ts): uint32 ts · uint32 Wh. */
 function energyRecords(quarters: [number, number][]): Response {
   const records = new Uint8Array(quarters.length * 8);
@@ -331,12 +341,17 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
             : [
                 {
                   meter: METER,
-                  quarters: quarters.length,
+                  days: dailyEnergy(quarters).length,
                   energyWh: quarters.reduce((sum, [, wh]) => sum + wh, 0),
                 },
               ],
       });
     }
+    case 'GET /v1/energy/days':
+      if (from === null || to === null || url.searchParams.get('meter') !== METER) {
+        return invalid();
+      }
+      return json({ days: dailyEnergy(quarterEnergy(data, from, to)) });
     case 'GET /v1/energy/quarters':
       if (from === null || to === null || url.searchParams.get('meter') !== METER) {
         return invalid();

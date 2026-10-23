@@ -18,12 +18,12 @@ import {
   fetchDevices,
   fetchEnergyMeters,
   fetchOffers,
-  fetchQuarterEnergy,
   fetchTariffs,
   type Device,
   type EnergyMeter,
 } from './api';
 import { busiestMeter, meterLabel } from './meters';
+import { loadQuarters } from './energy-cache';
 import { useSession } from './session';
 
 const texts = t.tariffs;
@@ -58,7 +58,7 @@ function ShiftLine({ option, shift }: { option: 'bi' | 'tri'; shift: Shift | nul
 }
 
 export function Tariffs() {
-  const { signOut } = useSession();
+  const { me, signOut } = useSession();
   const [tariff, setTariff] = useState<Tariff | null | undefined>(undefined);
   const [meters, setMeters] = useState<EnergyMeter[] | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -105,7 +105,7 @@ export function Tariffs() {
   useEffect(() => {
     if (!meter) return;
     let active = true;
-    void fetchQuarterEnergy(meter, range.from, range.to).then((outcome) => {
+    void loadQuarters(me.householdId, meter, range.from, range.to).then((outcome) => {
       if (!active) return;
       if (outcome.ok) setLoaded({ meter, quarters: outcome.quarters });
       else if (outcome.reason === 'unauthenticated') signOut();
@@ -114,7 +114,7 @@ export function Tariffs() {
     return () => {
       active = false;
     };
-  }, [meter, range, signOut]);
+  }, [me.householdId, meter, range, signOut]);
 
   const quarters = loaded?.meter === meter ? loaded.quarters : null;
   const usage = useMemo(

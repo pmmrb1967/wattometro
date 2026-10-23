@@ -380,17 +380,31 @@ export async function deleteEredesImport(): Promise<{ ok: true } | Failure> {
 }
 
 const EnergyMeters = z.object({
-  meters: z.array(z.object({ meter: z.string(), quarters: int, energyWh: int })),
+  meters: z.array(z.object({ meter: z.string(), days: int, energyWh: int })),
 });
 export type EnergyMeter = z.infer<typeof EnergyMeters>['meters'][number];
 
-/** Meters with quarter hours in [from, to) (at most 400 days). */
+/** Meters with data on the days of [from, to) (at most 400 days). */
 export async function fetchEnergyMeters(
   from: number,
   to: number,
 ): Promise<{ ok: true; meters: EnergyMeter[] } | Failure> {
   const response = await send('GET', `/v1/energy?from=${from}&to=${to}`);
   if (response?.ok) return { ok: true, ...EnergyMeters.parse(await response.json()) };
+  return failure(response, []);
+}
+
+const DailyEnergy = z.object({ days: z.array(z.tuple([z.string(), int])) });
+
+/** Energy of a meter per Lisbon day of [from, to): [date, Wh], oldest first. */
+export async function fetchDailyEnergy(
+  meter: string,
+  from: number,
+  to: number,
+): Promise<{ ok: true; days: [string, number][] } | Failure> {
+  const query = new URLSearchParams({ meter, from: String(from), to: String(to) });
+  const response = await send('GET', `/v1/energy/days?${query}`);
+  if (response?.ok) return { ok: true, ...DailyEnergy.parse(await response.json()) };
   return failure(response, []);
 }
 

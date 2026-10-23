@@ -13,8 +13,7 @@ export function meterLabel(meter: string, devices: Device[]): string {
 /** The meter with the most data; E-Redes on a tie (the billing reference). */
 export function busiestMeter(meters: readonly EnergyMeter[]): string | null {
   const best = [...meters].sort(
-    (a, b) =>
-      b.quarters - a.quarters || Number(b.meter === 'eredes') - Number(a.meter === 'eredes'),
+    (a, b) => b.days - a.days || Number(b.meter === 'eredes') - Number(a.meter === 'eredes'),
   )[0];
   return best?.meter ?? null;
 }

@@ -83,6 +83,7 @@ import { getHousehold, renameHousehold } from './repo/households';
 import { eredesQuarters, peakMinutes, powerByMeter, topQuarters } from './repo/power';
 import {
   deleteEredes,
+  dailyEnergy,
   energyMeters,
   eredesSummary,
   importEredes,
@@ -541,7 +542,28 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const parsed = rangeQuery(MAX_ENERGY_DAYS).safeParse(c.req.query());
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     const { from, to } = parsed.data;
-    return c.json({ meters: await energyMeters(config.sql, c.get('user').householdId, from, to) });
+    // The Lisbon days that overlap [from, to).
+    const meters = await energyMeters(
+      config.sql,
+      c.get('user').householdId,
+      lisbonDate(from),
+      lisbonDate(to - 1),
+    );
+    return c.json({ meters });
+  });
+
+  app.get('/v1/energy/days', requireUser, async (c) => {
+    const parsed = EnergyQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { meter, from, to } = parsed.data;
+    const days = await dailyEnergy(
+      config.sql,
+      c.get('user').householdId,
+      meter,
+      lisbonDate(from),
+      lisbonDate(to - 1),
+    );
+    return c.json({ days });
   });
 
   app.get('/v1/energy/quarters', requireUser, async (c) => {
