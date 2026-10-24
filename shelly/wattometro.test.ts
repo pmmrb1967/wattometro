@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { createContext, runInContext, type Context } from 'node:vm';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { embedConfig } from '../scripts/shelly/embed';
 import { memorySql } from '../server/test/sqlite';
 import { createApp } from '../server/src/app';
 import { hashDeviceToken } from '../server/src/auth';
@@ -68,6 +69,8 @@ class FakeShelly {
   dip: (clock: number) => boolean = () => false;
   timeSynced = true;
   kvs: Record<string, string> = { 'wattometro.url': URL, 'wattometro.token': TOKEN };
+  /** The script as uploaded (pnpm shelly:install embeds the URL and token). */
+  source = SOURCE;
   requests: Request[] = [];
   logs: string[] = [];
   private tick: (() => void) | null = null;
@@ -140,7 +143,7 @@ class FakeShelly {
       },
       print: (...parts: unknown[]) => this.logs.push(parts.join(' ')),
     });
-    runInContext(SOURCE, this.context);
+    runInContext(this.source, this.context);
   }
 
   /** Memory in use now, from what the script holds in its queue. */
@@ -227,7 +230,7 @@ describe('shelly/wattometro.js', () => {
     expect(seconds.voltage.every((v) => v === 2312)).toBe(true);
 
     const device = db.prepare('SELECT model, firmware, script_version FROM devices').get();
-    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.3.0' });
+    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.3.1' });
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     // The boot time goes in every request; with no earlier minute it is not an outage.
     expect(shelly.requests.every((r) => (JSON.parse(r.body) as { b: number }).b === BOOT)).toBe(
@@ -355,5 +358,14 @@ describe('shelly/wattometro.js', () => {
     await shelly.advance(3 * 60);
     expect(shelly.requests).toHaveLength(0);
     expect(shelly.logs.join('\n')).toContain('wattometro.token');
+  });
+
+  it('after a reboot that emptied KVS, sends with the URL and token embedded at install', async () => {
+    shelly.kvs = {};
+    shelly.source = embedConfig(SOURCE, { url: URL, token: TOKEN });
+    shelly.run();
+    await shelly.advance(10 + 60 + 10);
+    expect(minutes().length).toBeGreaterThan(0);
+    expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
   });
 });

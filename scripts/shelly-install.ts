@@ -10,12 +10,18 @@
  * turns on "Run on startup", restarts it and checks the code on the device is
  * the repository's. It also schedules Script.Start every 5 minutes, so a script
  * stopped by anything (e.g. out of memory) comes back without a reboot; starting
- * a running script does nothing. The URL and token in KVS are left alone
- * (shelly/README.md, step 3); it only says whether they are set.
+ * a running script does nothing.
+ *
+ * The URL and token: the EM Gen3 empties its KVS on every reboot (docs/shelly.md,
+ * "KVS"). With SHELLY_INGEST_URL and SHELLY_DEVICE_TOKEN in .env, they are
+ * written into the uploaded copy of the script (scripts/shelly/embed.ts), which
+ * survives a reboot, and into KVS when missing or different, handing them to
+ * the running script too so the minutes it has queued are sent without a restart.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { embedConfig } from './shelly/embed';
 import { parseEnv, shellyRpc } from './shelly/rpc';
 
 const NAME = 'wattometro';
@@ -31,13 +37,19 @@ const envPath = resolve('.env');
 const env = existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')) : {};
 const host = env.SHELLY_HOST || fail('Set SHELLY_HOST in .env (see .env.example).');
 const rpc = shellyRpc(host, env.SHELLY_PASSWORD || undefined);
-const code = readFileSync(resolve('shelly', 'wattometro.js'), 'utf8');
-const version = /SCRIPT_VERSION = '([^']+)'/.exec(code)?.[1] ?? '?';
+const source = readFileSync(resolve('shelly', 'wattometro.js'), 'utf8');
+const version = /SCRIPT_VERSION = '([^']+)'/.exec(source)?.[1] ?? '?';
+const wanted = { url: env.SHELLY_INGEST_URL, token: env.SHELLY_DEVICE_TOKEN };
+const code =
+  wanted.url && wanted.token
+    ? embedConfig(source, { url: wanted.url, token: wanted.token })
+    : source;
 
 const List = z.object({
   scripts: z.array(z.object({ id: z.number(), name: z.string().nullable(), running: z.boolean() })),
 });
 const Code = z.object({ data: z.string(), left: z.number() });
+const Value = z.object({ value: z.string() });
 const Jobs = z.object({
   jobs: z.array(
     z.object({
@@ -77,7 +89,7 @@ try {
     }
     await rpc('Script.Start', { id });
     if ((await codeOnDevice(id)) !== code) {
-      fail('The code on the Shelly differs from shelly/wattometro.js.');
+      fail('The code on the Shelly differs from the one uploaded.');
     }
     console.log(`Script ${version} installed and running on ${host}, starting with the Shelly.`);
   }
@@ -99,16 +111,39 @@ try {
     console.log('Scheduled a restart check every 5 minutes.');
   }
 
-  const configured = await Promise.all(
-    ['url', 'token'].map((key) =>
-      rpc('KVS.Get', { key: `${NAME}.${key}` }).then(
-        () => true,
-        () => false,
-      ),
+  if (code === source) {
+    console.log(
+      'No SHELLY_INGEST_URL / SHELLY_DEVICE_TOKEN in .env: the script relies on KVS alone, which a reboot empties.',
+    );
+  }
+  const stored = Object.fromEntries(
+    await Promise.all(
+      (['url', 'token'] as const).map(async (key) => {
+        const value = await rpc('KVS.Get', { key: `${NAME}.${key}` }).then(
+          (result) => Value.parse(result).value,
+          () => null,
+        );
+        return [key, value] as const;
+      }),
     ),
+  ) as Record<'url' | 'token', string | null>;
+  const toWrite = (['url', 'token'] as const).filter(
+    (key) => wanted[key] && stored[key] !== wanted[key],
   );
-  if (configured.includes(false)) {
-    console.log('URL or token missing in KVS: see shelly/README.md, step 3.');
+  for (const key of toWrite) {
+    await rpc('KVS.Set', { key: `${NAME}.${key}`, value: wanted[key] });
+  }
+  if (toWrite.length > 0) {
+    // The script reads KVS only when it starts: give it the values now.
+    const assignments = toWrite.map((key) => `cfg.${key}=${JSON.stringify(wanted[key])};`);
+    await rpc('Script.Eval', { id, code: `${assignments.join('')}true` });
+    console.log(`Wrote ${toWrite.join(' and ')} to KVS and to the running script.`);
+  }
+  const missing = (['url', 'token'] as const).filter((key) => !stored[key] && !wanted[key]);
+  if (missing.length > 0) {
+    console.log(
+      `${missing.join(' and ')} missing in KVS: set SHELLY_INGEST_URL / SHELLY_DEVICE_TOKEN in .env, or see shelly/README.md, step 3.`,
+    );
   }
 } catch (error) {
   fail(error instanceof Error ? error.message : String(error));

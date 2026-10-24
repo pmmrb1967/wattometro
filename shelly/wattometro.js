@@ -12,11 +12,14 @@
 //   wattometro.url      https://app.wattometro.workers.dev/v1/ingest
 //   wattometro.token    the device token from Definições → Dispositivos
 //   wattometro.channel  0 (default) or 1
+// The EM Gen3 (firmware 2.1.0) empties its KVS on every reboot (docs/shelly.md,
+// "KVS"), so pnpm shelly:install also writes the URL and token into the copy
+// of this script it uploads (INSTALLED, empty here): used when KVS lacks them.
 //
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
 // Runs on a Shelly EM Gen3 since 2026-10-24 (docs/shelly.md).
 
-let SCRIPT_VERSION = '0.3.0';
+let SCRIPT_VERSION = '0.3.1';
 let FORMAT = 1;
 // A script has ~25 KB of memory in all (docs/shelly.md, measured on an EM Gen3).
 // Sending a request needs about SEND_OVERHEAD + SEND_FACTOR × body bytes at its
@@ -36,6 +39,7 @@ let INT16 = 32767;
 let COUNTER_SETTLE = 5;
 
 let cfg = { url: null, token: null, channel: 0 };
+let INSTALLED = { url: '', token: '' };
 let info = Shelly.getDeviceInfo();
 
 let cur = null; // the minute being collected
@@ -290,6 +294,8 @@ function loadConfig(keys, done) {
 }
 
 loadConfig(['url', 'token', 'channel'], function () {
+  if (!cfg.url && INSTALLED.url) cfg.url = INSTALLED.url;
+  if (!cfg.token && INSTALLED.token) cfg.token = INSTALLED.token;
   cfg.channel = Number(cfg.channel) === 1 ? 1 : 0;
   if (!cfg.url || !cfg.token) print('wattometro: set wattometro.url and wattometro.token in KVS');
   print('wattometro', SCRIPT_VERSION, 'channel', cfg.channel, info.model, info.ver);

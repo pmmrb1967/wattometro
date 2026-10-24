@@ -85,6 +85,8 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/KVS>
 
 - Chave até 42 caracteres, valor até 253, até 50 chaves.
 - Chaves usadas: `wattometro.url`, `wattometro.token`, `wattometro.channel`.
+- **No EM Gen3 (firmware 2.1.0) o KVS esvazia-se em cada reinício** — medido a 2026-10-25: depois de uma falha de luz, e outra vez com `Shelly.Reboot`, `KVS.GetMany` respondeu `{"items":[],"total":0}`, embora `kvs_rev` em `Sys.GetStatus` se mantivesse (9). O código dos scripts e os agendamentos sobrevivem. Não encontrei este comportamento descrito na documentação nem em relatos públicos; a causa não está confirmada.
+- Consequência: o script 0.3.0 arrancou sem URL nem token e não enviou nada durante 2 h (perdeu 129 minutos, das 21:47 às 23:57 de 2026-10-24). A partir do 0.3.1, `pnpm shelly:install` escreve também o URL e o token na cópia do script que envia para o Shelly (`INSTALLED`, `scripts/shelly/embed.ts`; vazio no repositório), usada quando o KVS não os tem. Verificado com um reinício: voltou a enviar sozinho.
 
 ## Autenticação (palavra-passe local)
 

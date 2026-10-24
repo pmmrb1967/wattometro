@@ -25,6 +25,8 @@ Funciona com Shelly de 2.ª geração ou mais recente que meça energia, por exe
 
 ## 3. Guardar a configuração no Shelly
 
+> **Importante (EM Gen3, firmware 2.1.0):** o Shelly esquece esta configuração sempre que reinicia, por exemplo numa falha de luz (`docs/shelly.md`, «KVS»). Para não depender dela, usa `pnpm shelly:install` com `SHELLY_INGEST_URL` e `SHELLY_DEVICE_TOKEN` no `.env`: o endereço e o token ficam gravados no próprio script, que sobrevive aos reinícios.
+
 No browser de um computador ou telemóvel **ligado à mesma rede Wi-Fi**, abre estes três endereços, um de cada vez (troca `IP` e `TOKEN`; mantém as aspas). Cada um deve responder com algo como `{"etag":"…"}`.
 
 ```
@@ -48,7 +50,7 @@ Com um computador e o repositório, `pnpm shelly:install` faz estes passos (ver 
 
 ## 5. Confirmar
 
-- Na consola do script deve aparecer `wattometro 0.3.0 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
+- Na consola do script deve aparecer `wattometro 0.3.1 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
 - Ao fim de 1–2 minutos, em **Definições → Dispositivos** no Wattómetro, o dispositivo mostra **Último envio** com a hora.
 - Mensagens `send failed` ou `server answered 401` indicam falta de internet ou token errado.
 
@@ -58,7 +60,7 @@ Repete o passo 3 com o valor novo e depois **Stop** e **Start** no script. Um to
 
 ## Atualizar o script
 
-A partir de um computador na mesma rede, com o repositório: copia `.env.example` para `.env`, preenche `SHELLY_HOST` (e `SHELLY_PASSWORD`, se o Shelly tiver palavra-passe) e corre `pnpm shelly:install`. O comando cria o script se faltar, envia o código, ativa o arranque automático, reinicia-o e confirma que o código no Shelly é igual ao do repositório. Se já for igual, não mexe em nada.
+A partir de um computador na mesma rede, com o repositório: copia `.env.example` para `.env`, preenche `SHELLY_HOST` (e `SHELLY_PASSWORD`, se o Shelly tiver palavra-passe), `SHELLY_INGEST_URL` e `SHELLY_DEVICE_TOKEN` (o token do dispositivo; fica só no `.env` e no Shelly) e corre `pnpm shelly:install`. O comando cria o script se faltar, envia o código, ativa o arranque automático, reinicia-o e confirma que o código no Shelly é igual ao do repositório. Se já for igual, não mexe em nada.
 
 Sem o repositório: substitui o conteúdo do script pela versão nova de `wattometro.js`, guarda e reinicia.
 
