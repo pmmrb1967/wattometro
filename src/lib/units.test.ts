@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { formatKva, formatKwh, formatPower, formatVolts, roundedKwh, sumWh } from './units';
+import {
+  formatCelsius,
+  formatKva,
+  formatKwh,
+  formatPower,
+  formatVolts,
+  roundedKwh,
+  sumWh,
+  toTenthsCelsius,
+} from './units';
 
 // Intl in pt-PT uses a no-break space as thousands separator.
 const plain = (text: string) => text.replace(/\s/g, ' ');
@@ -59,5 +68,17 @@ describe('formatKva', () => {
     expect(formatKva(6900)).toBe('6,9 kVA');
     expect(formatKva(10350)).toBe('10,35 kVA');
     expect(formatKva(41400)).toBe('41,4 kVA');
+  });
+});
+
+describe('temperature', () => {
+  it('keeps tenths of a degree as integers', () => {
+    expect(toTenthsCelsius(12.3)).toBe(123);
+    expect(toTenthsCelsius(-0.4)).toBe(-4);
+    expect(toTenthsCelsius(18.05)).toBe(181);
+    expect(formatCelsius(123)).toBe('12,3 °C');
+    expect(formatCelsius(-4)).toBe('-0,4 °C');
+    expect(formatCelsius(155, 0)).toBe('16 °C');
+    expect(() => formatCelsius(1.5)).toThrow(TypeError);
   });
 });

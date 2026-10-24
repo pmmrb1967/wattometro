@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Physical units are always integers: energy in Wh, power in W, voltage in
- * decivolts (0.1 V). All conversions live here; never add kWh as floats.
+ * decivolts (0.1 V), temperature in tenths of a degree Celsius. All conversions
+ * live here; never add kWh as floats.
  */
 export type Wh = number;
 export type Watts = number;
 export type Decivolts = number;
+export type TenthsCelsius = number;
 
 function assertInteger(value: number, unit: string): void {
   if (!Number.isInteger(value)) throw new TypeError(`Not integer ${unit}: ${value}`);
@@ -54,4 +56,15 @@ export function formatVolts(decivolts: Decivolts): string {
 export function formatKva(va: number): string {
   assertInteger(va, 'VA');
   return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 }).format(va / 1000)} kVA`;
+}
+
+/** °C as received (e.g. from Open-Meteo, one decimal) → tenths of a degree (12.3 → 123). */
+export function toTenthsCelsius(celsius: number): TenthsCelsius {
+  return Math.round(celsius * 10);
+}
+
+/** Temperature for display only (e.g. 123 → "12,3 °C"). */
+export function formatCelsius(tenths: TenthsCelsius, digits = 1): string {
+  assertInteger(tenths, '0.1 °C');
+  return `${decimal(digits).format(tenths / 10)} °C`;
 }

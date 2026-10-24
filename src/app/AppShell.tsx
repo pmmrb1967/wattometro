@@ -9,6 +9,7 @@ import { InstallSection } from '../components/InstallSection';
 import { enterDemo, exitDemo, isDemo } from '../demo/mode';
 import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
+import { clearWeatherCache } from '../weather/weather';
 import { clearEnergyCache } from './energy-cache';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
@@ -90,8 +91,9 @@ export function AppShell() {
 
   // Stable, so pages can depend on it in effects.
   const signOut = useCallback(() => {
-    // The consumption kept in this browser goes with the session.
+    // The consumption and the weather (it reveals the locality) kept in this browser go with the session.
     void clearEnergyCache();
+    void clearWeatherCache();
     if (isDemo()) {
       exitDemo();
       setMe(null);
