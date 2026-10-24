@@ -20,6 +20,11 @@ const hasData = exportName !== undefined && existsSync(invoicesPath);
 interface RealInvoice {
   file: string;
   period: string;
+  /**
+   * The days the meter readings really cover, when not the billed period: a
+   * reading dated on the invoice can include the next day (seen in August 2026).
+   */
+  meterPeriod?: string;
   days: number;
   tariff: unknown;
   invoice: { totalCents: number };
@@ -40,7 +45,7 @@ describe.skipIf(!hasData)('E-Redes export against invoices', () => {
     : { parsed: { quarters: [] }, invoices: [] as RealInvoice[] };
 
   it.each(invoices)('$file: the quarter hours of its period give its total (±1 %)', (invoice) => {
-    const [first = '', last = ''] = invoice.period.split('..');
+    const [first = '', last = ''] = (invoice.meterPeriod ?? invoice.period).split('..');
     const from = startOfLisbonDay(first);
     const to = startOfLisbonDay(nextDate(last));
     const energyWh = parsed.quarters
