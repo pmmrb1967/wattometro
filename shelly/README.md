@@ -1,6 +1,6 @@
 # Instalar o script do Wattómetro no Shelly
 
-> **Estado:** o script ainda não correu num Shelly real. Foi testado num Shelly simulado (`shelly/wattometro.test.ts`) contra o servidor verdadeiro. Os pontos por confirmar estão em `docs/shelly.md`.
+> **Estado:** a correr num Shelly EM Gen3 (firmware 2.1.0) desde 2026-10-24. Também é testado num Shelly simulado (`shelly/wattometro.test.ts`) contra o servidor verdadeiro. Os pontos ainda por confirmar estão em `docs/shelly.md`.
 
 Funciona com Shelly de 2.ª geração ou mais recente que meça energia, por exemplo o **Shelly EM Gen3**. O Shelly EM de 1.ª geração não corre scripts.
 
@@ -46,7 +46,7 @@ O token fica no histórico desse browser: apaga-o no fim, ou usa uma janela priv
 
 ## 5. Confirmar
 
-- Na consola do script deve aparecer `wattometro 0.2.0 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
+- Na consola do script deve aparecer `wattometro 0.2.1 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
 - Ao fim de 1–2 minutos, em **Definições → Dispositivos** no Wattómetro, o dispositivo mostra **Último envio** com a hora.
 - Mensagens `send failed` ou `server answered 401` indicam falta de internet ou token errado.
 

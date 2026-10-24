@@ -1,6 +1,6 @@
 # Shelly — o que o Wattómetro usa
 
-> **Estado: por confirmar com o aparelho.** Tudo o que está abaixo vem da documentação oficial da Shelly, consultada a **2026-10-22**. Quando o Shelly EM Gen3 chegar, cada ponto marcado com ☐ é confirmado com respostas reais (guardadas em `fixtures/private/`) e esta nota é atualizada.
+> **Estado:** o que está abaixo vem da documentação oficial da Shelly, consultada a **2026-10-22**. O Shelly EM Gen3 está a funcionar desde **2026-10-24**: os pontos marcados com ☑ foram confirmados no aparelho (respostas reais em `fixtures/private/`), e os marcados com ☐ ainda estão por confirmar.
 
 ## Modelo
 
@@ -40,7 +40,8 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM1Data>
 
 - `total_act_energy` (Wh) e `total_act_ret_energy` (Wh, energia devolvida). Os totais são gravados na memória flash.
 - O Wattómetro calcula a energia do minuto como `floor(total no fim) − floor(total no início)`: cada minuto é inteiro em Wh e a soma dos minutos é exatamente a diferença do contador, sem acumular arredondamentos. Se o contador descer (reposição), o minuto conta só `floor(total)`.
-- ☐ Resolução real do contador (casas decimais).
+- ☑ Resolução: duas casas decimais (ex.: `467.01`).
+- ☑ **O total só muda uma vez por minuto**, cerca de **1,2 s depois** do minuto certo do relógio do aparelho (medido a 2026-10-24, firmware 2.1.0: lido a cada 0,5 s, mudou às hh:mm:01,2–01,3). Com o script 0.2.0, que lia o total ao segundo :00, a leitura apanhava às vezes o valor antes da mudança e às vezes depois, e a energia saltava entre minutos (0, 12 e 6 Wh a ~345 W constantes). O total do dia estava certo, mas o de cada minuto não. A partir do **0.2.1**, o script fecha o minuto ao :00 e só lê a energia dele 5 s depois (`COUNTER_SETTLE`).
 
 ## Hora — `Sys.GetStatus`
 

@@ -33,8 +33,15 @@ interface Request {
 
 class FakeShelly {
   clock = START;
-  /** Wh, as the Shelly reports it (with decimals). */
+  /** Wh measured so far (with decimals). */
   counter = 1234.4;
+  /**
+   * Wh as the Shelly reports it: like the real EM Gen3 (docs/shelly.md), the
+   * total moves once a minute, about 1 s after the minute, to the energy at
+   * that minute's start.
+   */
+  reported = this.counter;
+  private atMinute = this.counter;
   power = (second: number) => 400 + (second % 60);
   online = true;
   /** Next readings of free script memory; plenty once they run out. */
@@ -68,7 +75,7 @@ class FakeShelly {
             return { id: 0, voltage: 231.24, act_power: p + 0.4, aprt_power: (p + 0.4) / 0.9 };
           }
           case 'em1data':
-            return { id: 0, total_act_energy: this.counter };
+            return { id: 0, total_act_energy: this.reported };
           case 'script':
             return { id: 1, mem_free: this.memFree.shift() ?? 20_000 };
           default:
@@ -114,6 +121,8 @@ class FakeShelly {
   /** Lets `seconds` pass, one timer tick per second (energy follows the power). */
   async advance(seconds: number) {
     for (let i = 0; i < seconds; i++) {
+      if (this.clock % 60 === 0) this.atMinute = this.counter;
+      if (this.clock % 60 === 2) this.reported = this.atMinute;
       this.tick?.();
       await this.pending;
       this.counter += (this.power(this.clock) + 0.4) / 3600;
@@ -151,7 +160,7 @@ const minutes = () =>
 describe('shelly/wattometro.js', () => {
   it('sends each finished minute with its per-second values', async () => {
     shelly.run();
-    await shelly.advance(10 + 3 * 60 + 5);
+    await shelly.advance(10 + 3 * 60 + 10);
 
     const rows = minutes();
     // The partial first minute (10 s) and three whole ones.
@@ -177,7 +186,7 @@ describe('shelly/wattometro.js', () => {
     expect(seconds.voltage.every((v) => v === 2312)).toBe(true);
 
     const device = db.prepare('SELECT model, firmware, script_version FROM devices').get();
-    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.2.0' });
+    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.2.1' });
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     // The boot time goes in every request; with no earlier minute it is not an outage.
     expect(shelly.requests.every((r) => (JSON.parse(r.body) as { b: number }).b === BOOT)).toBe(
@@ -190,19 +199,31 @@ describe('shelly/wattometro.js', () => {
 
   it('adds whole Wh per minute that sum exactly to the counter', async () => {
     shelly.run();
-    await shelly.advance(10 + 20 * 60 + 5);
+    await shelly.advance(10 + 20 * 60 + 10);
     const rows = minutes();
     const total = rows.reduce((sum, row) => sum + (row.energy_wh ?? 0), 0);
-    // Counter at the last closed boundary: 10 + 20 × 60 s after the start.
+    // Energy up to the last closed minute, 10 + 20 × 60 s after the start.
     let counter = firstCounter;
     for (let t = START; t < START + 10 + 20 * 60; t++) counter += (shelly.power(t) + 0.4) / 3600;
     expect(total).toBe(Math.floor(counter) - Math.floor(firstCounter));
     expect(rows.every((row) => Number.isInteger(row.energy_wh))).toBe(true);
   });
 
+  it('gives each minute its own energy, though the counter moves after the minute', async () => {
+    // Off for one whole minute, then 6000 W (100 Wh) for the next.
+    const off = START + 10;
+    shelly.power = (second) => (second >= off + 60 && second < off + 120 ? 6000 : 0);
+    shelly.run();
+    await shelly.advance(10 + 3 * 60 + 10);
+    const energy = (ts: number) => minutes().find((row) => row.ts === ts)?.energy_wh;
+    expect(energy(off)).toBe(0);
+    expect(energy(off + 60)).toBe(100);
+    expect(energy(off + 120)).toBe(0);
+  });
+
   it('recovers 30 minutes without internet with no gaps, in requests under the Shelly limit', async () => {
     shelly.run();
-    await shelly.advance(10 + 60 + 5);
+    await shelly.advance(10 + 60 + 10);
     shelly.online = false;
     await shelly.advance(30 * 60);
     expect(minutes()).toHaveLength(2);

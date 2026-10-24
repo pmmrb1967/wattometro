@@ -14,9 +14,9 @@
 //   wattometro.channel  0 (default) or 1
 //
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
-// STATUS: not yet run on a device (see docs/shelly.md, "Por confirmar").
+// Runs on a Shelly EM Gen3 since 2026-10-24 (docs/shelly.md).
 
-let SCRIPT_VERSION = '0.2.0';
+let SCRIPT_VERSION = '0.2.1';
 let FORMAT = 1;
 let MAX_BODY = 7000; // HTTP.Request allows 8192 bytes with URL and headers
 let MAX_MINUTES_PER_REQUEST = 20;
@@ -25,11 +25,16 @@ let LOW_MEMORY = 6000; // free script memory (bytes) below which the queue is tr
 let SEND_GAP = 5; // seconds between requests while catching up
 let MAX_BACKOFF = 300;
 let INT16 = 32767;
+// The energy total moves once a minute, ~1.2 s after it (docs/shelly.md): a
+// minute's energy is read this many seconds into the next one.
+let COUNTER_SETTLE = 5;
 
 let cfg = { url: null, token: null, channel: 0 };
 let info = Shelly.getDeviceInfo();
 
 let cur = null; // the minute being collected
+let done = null; // the minute just closed, waiting for its energy
+let base = null; // energy total (whole Wh) up to the start of `done`
 let queue = []; // [{t, a: aggregate JSON, s: per-second JSON fragment or null, sent}]
 let sending = false;
 let sendSeq = 0;
@@ -56,8 +61,8 @@ function energyFloor() {
   return Math.floor(data.total_act_energy);
 }
 
-function openMinute(start, counter) {
-  cur = { t: start, e0: counter, p: emptySeries(), q: emptySeries(), u: emptySeries() };
+function openMinute(start) {
+  cur = { t: start, p: emptySeries(), q: emptySeries(), u: emptySeries() };
 }
 
 function sample(second) {
@@ -72,9 +77,8 @@ function sample(second) {
   }
 }
 
-// Closes `cur`, queues it and returns the energy counter read at the boundary.
+// Closes `cur` into `done` (null when it has no samples).
 function closeMinute() {
-  let counter = energyFloor();
   let n = 0,
     sumP = 0,
     sumS = 0,
@@ -97,17 +101,13 @@ function closeMinute() {
     if (u < vn) vn = u;
     if (u > vx) vx = u;
   }
+  done = null;
   if (n > 0) {
-    let e = 0;
-    if (counter !== null && cur.e0 !== null) {
-      // A counter that went down was reset: count what it holds now.
-      e = counter >= cur.e0 ? counter - cur.e0 : counter;
-    }
-    let aggregate = JSON.stringify({
+    let aggregate = {
       t: cur.t,
       c: cfg.channel,
       n: n,
-      e: e,
+      e: 0,
       pa: Math.round(sumP / n),
       pn: pn,
       px: px,
@@ -115,7 +115,7 @@ function closeMinute() {
       vn: vn,
       vx: vx,
       pf: sumS > 0 ? Math.round((100 * sumP) / sumS) : 100
-    });
+    };
     let seconds =
       ',"p":' +
       JSON.stringify(cur.p) +
@@ -123,10 +123,23 @@ function closeMinute() {
       JSON.stringify(cur.q) +
       ',"u":' +
       JSON.stringify(cur.u);
-    queue.push({ t: cur.t, a: aggregate, s: seconds, sent: 0 });
+    done = { a: aggregate, s: seconds };
   }
-  trimQueue();
-  return counter;
+}
+
+// Gives `done` the energy the total gained since `base`, and queues it.
+function settleMinute() {
+  let counter = energyFloor();
+  if (done !== null) {
+    if (counter !== null && base !== null) {
+      // A total that went down was reset: count what it holds now.
+      done.a.e = counter >= base ? counter - base : counter;
+    }
+    queue.push({ t: done.a.t, a: JSON.stringify(done.a), s: done.s, sent: 0 });
+    done = null;
+    trimQueue();
+  }
+  base = counter;
 }
 
 function memoryFree() {
@@ -227,13 +240,17 @@ function tick() {
   if (bootAt === null && typeof sys.uptime === 'number') bootAt = Math.round(sys.unixtime - sys.uptime);
   let start = now - (now % 60);
   if (cur === null) {
-    openMinute(start, energyFloor());
+    openMinute(start);
   } else if (start !== cur.t) {
+    // A minute not settled yet (ticks were missed): settle it late.
+    if (done !== null) settleMinute();
     // A clock that jumps back starts a new minute without queuing the old one.
-    let counter = start > cur.t ? closeMinute() : energyFloor();
-    openMinute(start, counter);
+    if (start > cur.t) closeMinute();
+    openMinute(start);
   }
   sample(now - start);
+  // Once the total has moved: the closed minute's energy, or the first base.
+  if (now - start >= COUNTER_SETTLE && (done !== null || base === null)) settleMinute();
   maybeSend(now);
 }
 
