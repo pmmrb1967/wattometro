@@ -14,7 +14,8 @@ import { formatKwh, formatPower } from '../lib/units';
 import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
-import { meterLabel } from './meters';
+import { HOUSE_METER } from './meters';
+import { MeterSelect } from './MeterSelect';
 
 const texts = t.consumption;
 
@@ -93,7 +94,7 @@ function Baseload({
 
 export function Consumption() {
   const energy = useHouseholdEnergy();
-  const { window, error, tariff, meters, devices, meter, setMeter, quarters: all } = energy;
+  const { window, error, tariff, meters, meter, quarters: all } = energy;
   // The last 365 days (the window starts earlier, for the monthly report).
   const quarters = useMemo(() => (all ? lastYear(all, window) : null), [all, window]);
   // Bars coloured by the tariff's periods (one colour with the simple option or no tariff).
@@ -145,26 +146,26 @@ export function Consumption() {
   return (
     <>
       {header}
-      {meters.length > 1 && (
+      {energy.choices.length > 1 && (
         <section className="card form">
-          <label>
-            {t.tariffs.meter}
-            <select value={meter ?? ''} onChange={(event) => setMeter(event.target.value)}>
-              {meters.map((item) => (
-                <option key={item.meter} value={item.meter}>
-                  {meterLabel(item.meter, devices)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MeterSelect energy={energy} label={t.tariffs.meter} />
         </section>
       )}
       {!quarters && <p className="hint">{t.loading}</p>}
       {quarters && (
         <>
           <BillForecastDetail energy={energy} />
-          <Baseload quarters={quarters} tariff={tariff ?? null} eredes={meter === 'eredes'} />
-          <ConsumptionCharts quarters={quarters} periods={periods} />
+          <Baseload
+            quarters={quarters}
+            tariff={tariff ?? null}
+            eredes={meter === 'eredes' || meter === HOUSE_METER}
+          />
+          <ConsumptionCharts
+            quarters={quarters}
+            today={energy.today}
+            shellyFrom={energy.shellyFrom}
+            periods={periods}
+          />
         </>
       )}
     </>

@@ -523,6 +523,9 @@ export const t = {
       dayTitle: (day: string, kwh: string) => `${day}: ${kwh}`,
       noData: 'sem dados',
       partialHint: 'Barras mais claras: dias sem dados ou incompletos.',
+      today: 'até agora',
+      shellyFrom: (date: string) =>
+        `Desde ${date}: medido pelo Shelly. A E-Redes só chega ao último dia do ficheiro que importaste; quando importares um mais recente, esses dias passam a ser os da E-Redes.`,
       heatmapTitle: 'Hora a hora, por dia da semana',
       heatmapIntro:
         'Quanto gastas em média em cada hora de cada dia da semana, nas últimas 12 semanas com dados. Cor mais forte é mais consumo.',
@@ -602,6 +605,7 @@ export const t = {
     usageTitle: 'O teu consumo',
     meter: 'Consumos de',
     eredesMeter: 'E-Redes (contador da rede)',
+    houseMeter: 'Casa (E-Redes e, a seguir, Shelly)',
     tooLittle: 'Há menos de 30 dias de consumos: pouco para estimar um ano.',
     perYear: (kwh: string) => `${kwh} por ano`,
     fullYear: (meter: string) => `Os últimos 12 meses medidos (${meter}).`,

@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+/** The meter (or the house) whose data a page shows; nothing when there is no choice. */
+import type { HouseholdEnergy } from './household-energy';
+import { meterLabel } from './meters';
+
+export function MeterSelect({
+  energy: { choices, devices, meter, setMeter },
+  label,
+}: {
+  energy: Pick<HouseholdEnergy, 'choices' | 'devices' | 'meter' | 'setMeter'>;
+  label: string;
+}) {
+  if (choices.length < 2) return null;
+  return (
+    <label>
+      {label}
+      <select value={meter ?? ''} onChange={(event) => setMeter(event.target.value)}>
+        {choices.map((choice) => (
+          <option key={choice} value={choice}>
+            {meterLabel(choice, devices)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}

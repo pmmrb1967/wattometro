@@ -2,8 +2,12 @@
 import { t } from '../i18n/pt-PT';
 import type { Device, EnergyMeter } from './api';
 
-/** "E-Redes", or the Shelly's name (and channel). */
+/** Not a meter: E-Redes up to its last day, then the main Shelly (household-energy.ts). */
+export const HOUSE_METER = 'house';
+
+/** "Casa", "E-Redes", or the Shelly's name (and channel). */
 export function meterLabel(meter: string, devices: Device[]): string {
+  if (meter === HOUSE_METER) return t.tariffs.houseMeter;
   if (meter === 'eredes') return t.tariffs.eredesMeter;
   const [deviceId, channel] = meter.split(':');
   const name = devices.find((device) => device.id === deviceId)?.name ?? deviceId ?? meter;

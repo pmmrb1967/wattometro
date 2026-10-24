@@ -5,21 +5,34 @@
  * (from the first day of the month 13 months ago to the start of today, so a
  * month can be compared with the same month a year before). One window for all
  * pages, so the browser cache (energy-cache.ts) serves them all.
+ *
+ * With E-Redes and a Shelly, the default is the house (HOUSE_METER): E-Redes up
+ * to its last imported day, the Shelly after it (houseQuarters). Today, still
+ * going, comes apart (`today`, from /v1/now) for the charts only: totals,
+ * forecasts and comparisons use whole days.
  */
 import { useEffect, useState } from 'react';
-import { addMonths } from '../domain/consumption';
+import { addMonths, houseQuarters } from '../domain/consumption';
 import { tariffOn, type Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
-import { lisbonDate, lisbonToday, startOfLisbonDay, type EpochSeconds } from '../lib/time';
+import {
+  lisbonDate,
+  lisbonToday,
+  startOfLisbonDay,
+  type EpochSeconds,
+  type LocalDate,
+} from '../lib/time';
 import {
   fetchDevices,
   fetchEnergyMeters,
+  fetchNow,
   fetchTariffs,
   type Device,
   type EnergyMeter,
+  type Now,
 } from './api';
 import { loadQuarters, type Quarter } from './energy-cache';
-import { busiestMeter } from './meters';
+import { busiestMeter, HOUSE_METER } from './meters';
 import { useSession } from './session';
 
 const YEAR = 365 * 86_400;
@@ -52,11 +65,32 @@ export interface HouseholdEnergy {
   tariff: Tariff | null | undefined;
   tariffsFailed: boolean;
   meters: EnergyMeter[] | null;
+  /** What can be chosen: the house (with E-Redes and a Shelly), then each meter. */
+  choices: string[];
   devices: Device[];
   meter: string | null;
   setMeter: (meter: string) => void;
   /** Quarter hours of the chosen meter over the whole window, in time order. */
   quarters: Quarter[] | null;
+  /** First day taken from the Shelly in the house (today included); null otherwise. */
+  shellyFrom: LocalDate | null;
+  /** Today's quarters so far, from a Shelly; null for E-Redes or when unknown. */
+  today: Quarter[] | null;
+}
+
+const meterOf = (item: Now['meters'][number]) => `${item.deviceId}:${item.channel}`;
+
+/**
+ * The Shelly that measures the house: the one with most days; before its first
+ * whole day, the one with most minutes today.
+ */
+function mainShelly(meters: readonly EnergyMeter[], now: Now | null): string | null {
+  const measured = busiestMeter(meters.filter((item) => item.meter !== 'eredes'));
+  if (measured) return measured;
+  const today = [...(now?.meters ?? [])]
+    .filter((item) => item.today.minutes > 0)
+    .sort((a, b) => b.today.minutes - a.today.minutes)[0];
+  return today ? meterOf(today) : null;
 }
 
 export function useHouseholdEnergy(): HouseholdEnergy {
@@ -65,9 +99,14 @@ export function useHouseholdEnergy(): HouseholdEnergy {
   const [tariffs, setTariffs] = useState<Tariff[] | null>(null);
   const [tariffsFailed, setTariffsFailed] = useState(false);
   const [meters, setMeters] = useState<EnergyMeter[] | null>(null);
+  const [now, setNow] = useState<Now | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [meter, setMeter] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState<{ meter: string; quarters: Quarter[] } | null>(null);
+  const [loaded, setLoaded] = useState<{
+    meter: string;
+    quarters: Quarter[];
+    shellyFrom: LocalDate | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,9 +115,14 @@ export function useHouseholdEnergy(): HouseholdEnergy {
       fetchTariffs(),
       fetchEnergyMeters(window.from, window.to),
       fetchDevices(),
-    ]).then(([tariffList, energy, deviceList]) => {
+      fetchNow(),
+    ]).then(([tariffList, energy, deviceList, nowOutcome]) => {
       if (!active) return;
-      if ([tariffList, energy, deviceList].some((o) => !o.ok && o.reason === 'unauthenticated')) {
+      if (
+        [tariffList, energy, deviceList, nowOutcome].some(
+          (o) => !o.ok && o.reason === 'unauthenticated',
+        )
+      ) {
         signOut();
         return;
       }
@@ -90,27 +134,64 @@ export function useHouseholdEnergy(): HouseholdEnergy {
       else setTariffsFailed(true);
       setMeters(energy.meters);
       if (deviceList.ok) setDevices(deviceList.devices);
-      setMeter(busiestMeter(energy.meters));
+      // Without /v1/now there is no today, nor a Shelly before its first whole day.
+      const current = nowOutcome.ok ? nowOutcome.now : null;
+      setNow(current);
+      const hasEredes = energy.meters.some((item) => item.meter === 'eredes');
+      const shelly = mainShelly(energy.meters, current);
+      setMeter(hasEredes && shelly ? HOUSE_METER : (busiestMeter(energy.meters) ?? shelly));
     });
     return () => {
       active = false;
     };
   }, [window, signOut]);
 
+  const shelly = meters ? mainShelly(meters, now) : null;
+  /** Meters with whole days in the window; a Shelly started today has only `today`. */
+  const withDays = meters?.map((item) => item.meter).join(',') ?? '';
+
   useEffect(() => {
     if (!meter) return;
     let active = true;
-    void loadQuarters(me.householdId, meter, window.from, window.to).then((outcome) => {
+    const load = (id: string | null) =>
+      id && withDays.split(',').includes(id)
+        ? loadQuarters(me.householdId, id, window.from, window.to)
+        : Promise.resolve({ ok: true as const, quarters: [] as Quarter[] });
+    const parts = meter === HOUSE_METER ? [load('eredes'), load(shelly)] : [load(meter)];
+    void Promise.all(parts).then((outcomes) => {
       if (!active) return;
-      if (outcome.ok) setLoaded({ meter, quarters: outcome.quarters });
-      else if (outcome.reason === 'unauthenticated') signOut();
-      else setError(t.errors.unavailable);
+      const quarters: Quarter[][] = [];
+      for (const outcome of outcomes) {
+        if (!outcome.ok) {
+          if (outcome.reason === 'unauthenticated') signOut();
+          else setError(t.errors.unavailable);
+          return;
+        }
+        quarters.push(outcome.quarters);
+      }
+      const [first = [], second = []] = quarters;
+      setLoaded(
+        meter === HOUSE_METER
+          ? { meter, ...houseQuarters(first, second) }
+          : { meter, quarters: first, shellyFrom: null },
+      );
     });
     return () => {
       active = false;
     };
-  }, [me.householdId, meter, window, signOut]);
+  }, [me.householdId, meter, shelly, withDays, window, signOut]);
 
+  const listed = meters?.map((item) => item.meter) ?? [];
+  const choices = [
+    ...(shelly && listed.includes('eredes') ? [HOUSE_METER] : []),
+    ...listed,
+    ...(shelly && !listed.includes(shelly) ? [shelly] : []),
+  ];
+  const todayMeter = meter === HOUSE_METER ? shelly : meter === 'eredes' ? null : meter;
+  const todayOf = now?.meters.find((item) => meterOf(item) === todayMeter);
+  // In the house, today comes from the Shelly even when no whole day does yet.
+  const firstToday = todayOf?.today.quarters[0];
+  const todayFromShelly = meter === HOUSE_METER && firstToday ? lisbonDate(firstToday.ts) : null;
   const tariff =
     tariffs !== null ? tariffOn(tariffs, lisbonToday()) : tariffsFailed ? null : undefined;
   return {
@@ -120,10 +201,13 @@ export function useHouseholdEnergy(): HouseholdEnergy {
     tariff,
     tariffsFailed,
     meters,
+    choices,
     devices,
     meter,
     setMeter,
     quarters: loaded?.meter === meter ? loaded.quarters : null,
+    shellyFrom: loaded?.meter === meter ? (loaded.shellyFrom ?? todayFromShelly) : null,
+    today: todayOf ? todayOf.today.quarters : null,
   };
 }
 

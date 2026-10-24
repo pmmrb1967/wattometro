@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * "Consumo": energy per quarter hour (a day) or per day (a week, a month),
- * coloured by the tariff's periods, and the hour × weekday profile.
+ * coloured by the tariff's periods, and the hour × weekday profile. Today, so
+ * far, is shown in the bars only (the profile uses whole days).
  * Calculation: src/domain/consumption.ts.
  */
 import { useMemo, useState } from 'react';
@@ -20,7 +21,7 @@ import {
 } from '../domain/consumption';
 import type { BillingPeriod } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
-import { formatLisbonTime, type LocalDate } from '../lib/time';
+import { formatLisbonTime, lisbonDate, type LocalDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
 
 const texts = t.consumption.charts;
@@ -61,14 +62,29 @@ function title(view: View, dates: LocalDate[]): string {
   return texts.weekOf(SHORT_DAY.format(noon(first)), SHORT_DAY.format(noon(dates[6] as LocalDate)));
 }
 
+type Quarter = { ts: number; energyWh: number };
+
 export function ConsumptionCharts({
   quarters,
+  today,
+  shellyFrom,
   periods,
 }: {
-  quarters: { ts: number; energyWh: number }[];
+  /** Whole days. */
+  quarters: Quarter[];
+  /** Today so far; null without it. */
+  today: Quarter[] | null;
+  /** First day measured by the Shelly instead of E-Redes; null for none. */
+  shellyFrom: LocalDate | null;
   periods: Periods;
 }) {
-  const days = useMemo(() => quartersByDay(quarters, periods), [quarters, periods]);
+  const whole = useMemo(() => quartersByDay(quarters, periods), [quarters, periods]);
+  const days = useMemo(
+    () => (today?.length ? quartersByDay([...quarters, ...today], periods) : whole),
+    [whole, quarters, today, periods],
+  );
+  const firstToday = today?.[0];
+  const todayDate = firstToday ? lisbonDate(firstToday.ts) : null;
   const totals = useMemo(() => {
     const map = new Map<LocalDate, DayTotal>();
     for (const [date, dayQuarters] of days) map.set(date, dayTotal(date, dayQuarters));
@@ -77,13 +93,14 @@ export function ConsumptionCharts({
   const dates = [...days.keys()];
   const firstDate = dates[0];
   const lastDate = dates.at(-1);
+  const lastWhole = [...whole.keys()].at(-1);
   const profile = useMemo(
-    () => (lastDate ? hourlyProfile(days, lastDate) : null),
-    [days, lastDate],
+    () => (lastWhole ? hourlyProfile(whole, lastWhole) : null),
+    [whole, lastWhole],
   );
   const [view, setView] = useState<View>('day');
   const [chosen, setChosen] = useState<LocalDate | null>(null);
-  if (!firstDate || !lastDate || !profile) return null;
+  if (!firstDate || !lastDate) return null;
 
   const date = chosen ?? lastDate;
   const shown = datesOf(view, date);
@@ -148,7 +165,10 @@ export function ConsumptionCharts({
           >
             ‹
           </button>
-          <strong>{title(view, shown)}</strong>
+          <strong>
+            {title(view, shown)}
+            {view === 'day' && date === todayDate && ` · ${texts.today}`}
+          </strong>
           <button
             type="button"
             className="secondary"
@@ -194,25 +214,30 @@ export function ConsumptionCharts({
           </>
         )}
         {view !== 'day' && <p className="hint">{texts.partialHint}</p>}
+        {shellyFrom && (shown.at(-1) as LocalDate) >= shellyFrom && (
+          <p className="hint">{texts.shellyFrom(SHORT_DAY.format(noon(shellyFrom)))}</p>
+        )}
       </section>
 
-      <section className="card form">
-        <h2>{texts.heatmapTitle}</h2>
-        <p className="hint">{texts.heatmapIntro}</p>
-        <HourHeatmap
-          rows={texts.weekdays}
-          values={profile}
-          label={texts.heatmapTitle}
-          title={(row, hour, value) =>
-            texts.cellTitle(
-              texts.weekdays[row] ?? '',
-              hour,
-              value === null ? texts.noData : kwh(value),
-            )
-          }
-        />
-        <p className="hint">{texts.heatmapLegend}</p>
-      </section>
+      {profile && (
+        <section className="card form">
+          <h2>{texts.heatmapTitle}</h2>
+          <p className="hint">{texts.heatmapIntro}</p>
+          <HourHeatmap
+            rows={texts.weekdays}
+            values={profile}
+            label={texts.heatmapTitle}
+            title={(row, hour, value) =>
+              texts.cellTitle(
+                texts.weekdays[row] ?? '',
+                hour,
+                value === null ? texts.noData : kwh(value),
+              )
+            }
+          />
+          <p className="hint">{texts.heatmapLegend}</p>
+        </section>
+      )}
     </>
   );
 }

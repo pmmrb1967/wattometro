@@ -4,7 +4,14 @@
  * quarters of one day, and the average hour × weekday profile. Lisbon calendar
  * days (23 h or 25 h when the clocks change).
  */
-import { lisbonDate, lisbonParts, nextDate, type EpochSeconds, type LocalDate } from '../lib/time';
+import {
+  lisbonDate,
+  lisbonParts,
+  nextDate,
+  startOfLisbonDay,
+  type EpochSeconds,
+  type LocalDate,
+} from '../lib/time';
 import type { Wh } from '../lib/units';
 import type { BillingPeriod, TariffInput } from './tariff';
 import { billingPeriod } from './time-cycles';
@@ -52,6 +59,33 @@ export function dayTotal(date: LocalDate, quarters: readonly PricedQuarter[]): D
     byPeriod[period] = (byPeriod[period] ?? 0) + energyWh;
   }
   return { date, totalWh, byPeriod, quarters: quarters.length };
+}
+
+/**
+ * One series for the house, from the grid meter and a Shelly on the main board:
+ * E-Redes up to its last day (what is billed), the Shelly on the days after it
+ * (the E-Redes export arrives later, imported by hand). Days the E-Redes data
+ * lacks before its last one stay empty: the two are not mixed within the record.
+ * `shellyFrom` is the first day taken from the Shelly; null when none is.
+ */
+export function houseQuarters(
+  eredes: readonly Quarter[],
+  shelly: readonly Quarter[],
+): { quarters: Quarter[]; shellyFrom: LocalDate | null } {
+  const last = eredes.reduce<EpochSeconds | null>(
+    (latest, { ts }) => (latest === null || ts > latest ? ts : latest),
+    null,
+  );
+  const cut = last === null ? null : startOfLisbonDay(nextDate(lisbonDate(last)));
+  const after = shelly.filter(({ ts }) => cut === null || ts >= cut);
+  const first = after.reduce<EpochSeconds | null>(
+    (earliest, { ts }) => (earliest === null || ts < earliest ? ts : earliest),
+    null,
+  );
+  return {
+    quarters: [...eredes, ...after].sort((a, b) => a.ts - b.ts),
+    shellyFrom: first === null ? null : lisbonDate(first),
+  };
 }
 
 /** Day of the week of a date: 0 = Monday … 6 = Sunday. */

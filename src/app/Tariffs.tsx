@@ -16,6 +16,7 @@ import { formatKva, formatKwh } from '../lib/units';
 import { fetchOffers } from './api';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
+import { MeterSelect } from './MeterSelect';
 
 const texts = t.tariffs;
 const SHOWN = 15;
@@ -47,7 +48,7 @@ function ShiftLine({ option, shift }: { option: 'bi' | 'tri'; shift: Shift | nul
 
 export function Tariffs() {
   const energy = useHouseholdEnergy();
-  const { window, tariff, meters, devices, meter, setMeter } = energy;
+  const { window, tariff, meters, devices, meter } = energy;
   const error = energy.error ?? (energy.tariffsFailed ? t.errors.unavailable : null);
   const [offers, setOffers] = useState<Offer[] | null | 'none'>(null);
   const [filters, setFilters] = useState({ option: 'all', noLoyalty: false, noServices: false });
@@ -133,18 +134,7 @@ export function Tariffs() {
 
       <section className="card form">
         <h2>{texts.usageTitle}</h2>
-        {meters.length > 1 && (
-          <label>
-            {texts.meter}
-            <select value={meter ?? ''} onChange={(event) => setMeter(event.target.value)}>
-              {meters.map((item) => (
-                <option key={item.meter} value={item.meter}>
-                  {meterLabel(item.meter, devices)}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <MeterSelect energy={energy} label={texts.meter} />
         {!quarters && <p className="hint">{t.loading}</p>}
         {quarters && !usage && <p>{texts.tooLittle}</p>}
         {usage && split && (

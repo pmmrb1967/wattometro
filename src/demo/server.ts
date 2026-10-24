@@ -6,17 +6,21 @@
  * sent to the server. Changes (tariff, zone, locality, outages not counted) live in
  * memory until the demonstration ends; the account and devices cannot change
  * (409 {error: 'demo'}).
+ * The E-Redes "import" is the Shelly's quarter hours up to EREDES_LAG_DAYS ago,
+ * as when the last file was downloaded a few days back.
  */
+import { addDays } from '../domain/consumption';
 import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
-import { lisbonDate, startOfLisbonDay } from '../lib/time';
+import { lisbonDate, lisbonToday, startOfLisbonDay } from '../lib/time';
 import { DEMO_DAYS, generateDemo, type DemoData } from './model';
 
 const MINUTE = 60;
 const DAY = 86_400;
 const DEVICE_ID = 'demo-shelly';
 const METER = `${DEVICE_ID}:0`;
+const EREDES_LAG_DAYS = 3;
 const TOP_QUARTERS = 10;
 const MAX_PEAK_MINUTES = 1440;
 const PEAK_RECORD_BYTES = 4 + 4 + 4 + 1 + READINGS_1S_BYTES;
@@ -286,6 +290,13 @@ function quarterEnergy(data: DemoData, from: number, to: number): [number, numbe
   return [...quarters];
 }
 
+/** The quarters of a meter: the Shelly's, or the E-Redes import (the same, ending earlier). */
+function meterQuarters(data: DemoData, meter: string, from: number, to: number) {
+  if (meter === METER) return quarterEnergy(data, from, to);
+  const end = Math.min(to, startOfLisbonDay(addDays(lisbonToday(), -EREDES_LAG_DAYS)));
+  return meter === 'eredes' && from < end ? quarterEnergy(data, from, end) : null;
+}
+
 /** Energy per Lisbon day of quarter hours (GET /v1/energy/days, server/src/repo/eredes.ts). */
 function dailyEnergy(quarters: [number, number][]): [string, number][] {
   const days = new Map<string, number>();
@@ -372,32 +383,42 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       return json(now(data));
     case 'GET /v1/energy': {
       if (from === null || to === null || from >= to) return invalid();
-      const quarters = quarterEnergy(data, from, to);
       return json({
-        meters:
-          quarters.length === 0
+        meters: ['eredes', METER].flatMap((meter) => {
+          const quarters = meterQuarters(data, meter, from, to) ?? [];
+          return quarters.length === 0
             ? []
             : [
                 {
-                  meter: METER,
+                  meter,
                   days: dailyEnergy(quarters).length,
                   energyWh: quarters.reduce((sum, [, wh]) => sum + wh, 0),
                 },
-              ],
+              ];
+        }),
       });
     }
     case 'GET /v1/energy/days':
-      if (from === null || to === null || url.searchParams.get('meter') !== METER) {
-        return invalid();
-      }
-      return json({ days: dailyEnergy(quarterEnergy(data, from, to)) });
-    case 'GET /v1/energy/quarters':
-      if (from === null || to === null || url.searchParams.get('meter') !== METER) {
-        return invalid();
-      }
-      return energyRecords(quarterEnergy(data, from, to));
-    case 'GET /v1/import/eredes':
-      return json({ quarters: 0, estimated: 0, energyWh: 0, from: null, to: null });
+    case 'GET /v1/energy/quarters': {
+      const quarters =
+        from === null || to === null
+          ? null
+          : meterQuarters(data, url.searchParams.get('meter') ?? '', from, to);
+      if (!quarters) return invalid();
+      return route === 'GET /v1/energy/days'
+        ? json({ days: dailyEnergy(quarters) })
+        : energyRecords(quarters);
+    }
+    case 'GET /v1/import/eredes': {
+      const quarters = meterQuarters(data, 'eredes', data.start, Number.MAX_SAFE_INTEGER) ?? [];
+      return json({
+        quarters: quarters.length,
+        estimated: 0,
+        energyWh: quarters.reduce((sum, [, wh]) => sum + wh, 0),
+        from: quarters[0]?.[0] ?? null,
+        to: quarters.length > 0 ? (quarters.at(-1)?.[0] ?? 0) + 900 : null,
+      });
+    }
     case 'GET /v1/tariffs':
       return json({ tariffs: demo.tariffs });
     case 'POST /v1/tariffs': {

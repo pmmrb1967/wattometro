@@ -28,6 +28,7 @@ import { formatKva, formatKwh, formatPower } from '../lib/units';
 import { dayBars, usedPeriods } from './chart-bars';
 import { useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
+import { MeterSelect } from './MeterSelect';
 import { useSession } from './session';
 
 const texts = t.report;
@@ -86,7 +87,8 @@ function suggestionText(suggestion: Suggestion): { text: string; link?: [string,
 
 export function Report() {
   const { me } = useSession();
-  const { error, tariffs, meters, devices, meter, setMeter, quarters } = useHouseholdEnergy();
+  const energy = useHouseholdEnergy();
+  const { error, tariffs, meters, devices, meter, quarters } = energy;
   const months = useMemo(() => (quarters ? reportMonths(quarters) : []), [quarters]);
   const [chosen, setChosen] = useState<string | null>(null);
   // By default the last whole month (the current one is still going).
@@ -175,18 +177,7 @@ export function Report() {
               ))}
             </select>
           </label>
-          {meters.length > 1 && (
-            <label>
-              {t.tariffs.meter}
-              <select value={meter ?? ''} onChange={(event) => setMeter(event.target.value)}>
-                {meters.map((item) => (
-                  <option key={item.meter} value={item.meter}>
-                    {meterLabel(item.meter, devices)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <MeterSelect energy={energy} label={t.tariffs.meter} />
         </div>
         <button type="button" className="primary" onClick={() => window.print()}>
           {texts.print}
