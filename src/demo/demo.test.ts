@@ -140,4 +140,18 @@ describe('demo API, through the app calculations', () => {
     expect(await get('/v1/household/location')).toEqual({ location: null });
     resetDemo();
   });
+
+  it('has an installation that can change in memory', async () => {
+    const { installation } = (await get('/v1/household/installation')) as {
+      installation: { heating: string[]; waterHeating: string };
+    };
+    expect(installation).toMatchObject({ heating: ['gas-boiler'], waterHeating: 'electric' });
+    const changed = { ...installation, heating: ['heat-pump'], airConditioning: true };
+    const put = (value: unknown) =>
+      demoResponse('PUT', '/v1/household/installation', { installation: value }).status;
+    expect(put(changed)).toBe(204);
+    expect(await get('/v1/household/installation')).toEqual({ installation: changed });
+    expect(put({ ...changed, heating: ['none', 'wood'] })).toBe(400);
+    resetDemo();
+  });
 });

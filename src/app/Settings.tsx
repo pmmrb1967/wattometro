@@ -5,6 +5,7 @@ import { t } from '../i18n/pt-PT';
 import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
 import { EredesImportSection } from './EredesImport';
+import { InstallationSection } from './Installation';
 import { LocationSection } from './Location';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
@@ -132,6 +133,7 @@ export function Settings() {
 
       <HouseholdForm />
       <LocationSection />
+      <InstallationSection />
       <TariffSection />
       <EredesImportSection />
       <DevicesSection />

@@ -7,6 +7,7 @@
  * memory until the demonstration ends; the account and devices cannot change
  * (409 {error: 'demo'}).
  */
+import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
 import { lisbonDate, startOfLisbonDay } from '../lib/time';
@@ -31,6 +32,7 @@ interface DemoState {
   tariffs: Tariff[];
   zone: 'A' | 'B' | 'C' | null;
   location: DemoLocation | null;
+  installation: Installation;
   excluded: Set<number>;
 }
 
@@ -41,6 +43,16 @@ interface DemoLocation {
 }
 
 const DEMO_LOCATION: DemoLocation = { name: 'Lisboa', latitudeCdeg: 3872, longitudeCdeg: -914 };
+
+/** As src/demo/model.ts draws it: electric water heater, no heating on electricity. */
+const DEMO_INSTALLATION: Installation = {
+  heating: ['gas-boiler'],
+  airConditioning: false,
+  waterHeating: 'electric',
+  hob: 'electric',
+  solarPanels: false,
+  electricCar: false,
+};
 
 let state: DemoState | null = null;
 
@@ -78,6 +90,7 @@ function current(): DemoState {
       tariffs: [demoTariff(data)],
       zone: 'B',
       location: DEMO_LOCATION,
+      installation: DEMO_INSTALLATION,
       excluded: new Set(),
     };
   }
@@ -416,6 +429,16 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       if (location === null) demo.location = null;
       else if (isDemoLocation(location)) demo.location = location;
       else return invalid();
+      return empty();
+    }
+    case 'GET /v1/household/installation':
+      return json({ installation: demo.installation });
+    case 'PUT /v1/household/installation': {
+      const parsed = installationSchema.safeParse(
+        (body as { installation?: unknown } | undefined)?.installation,
+      );
+      if (!parsed.success) return invalid();
+      demo.installation = parsed.data;
       return empty();
     }
     case 'GET /v1/outages':

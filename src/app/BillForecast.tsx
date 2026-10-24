@@ -2,12 +2,14 @@
 /**
  * The month's bill before it arrives (src/ml/bill-forecast.ts): a card on the
  * "Agora" page and the detail on "Consumo". The weather comes from Open-Meteo
- * for the household's locality (src/weather/); without one, the forecast
- * leaves the temperature out.
+ * for the household's locality (src/weather/); without one, or when the
+ * household said nothing electric follows the weather (src/domain/
+ * installation.ts), the forecast leaves the temperature out.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { addDays, monthDates } from '../domain/consumption';
+import { followsTemperature } from '../domain/installation';
 import { tariffOn } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents, formatWholeEuros } from '../lib/money';
@@ -21,7 +23,7 @@ import {
   dailyMeans,
   loadHourlyTemperature,
 } from '../weather/weather';
-import { fetchHouseholdLocation, type HouseholdLocation } from './api';
+import { fetchHouseholdInstallation, fetchHouseholdLocation, type HouseholdLocation } from './api';
 import type { HouseholdEnergy } from './household-energy';
 import { useSession } from './session';
 
@@ -32,6 +34,8 @@ interface Weather {
   location: HouseholdLocation | null;
   daily: Map<LocalDate, number> | null;
   failed: boolean;
+  /** The installation says the temperature cannot matter: not even asked for. */
+  notNeeded: boolean;
 }
 
 function useWeather(today: LocalDate): Weather | undefined {
@@ -40,16 +44,25 @@ function useWeather(today: LocalDate): Weather | undefined {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const outcome = await fetchHouseholdLocation();
+      const [outcome, installation] = await Promise.all([
+        fetchHouseholdLocation(),
+        fetchHouseholdInstallation(),
+      ]);
       if (!active) return;
-      if (!outcome.ok) {
-        if (outcome.reason === 'unauthenticated') signOut();
-        else setWeather({ location: null, daily: null, failed: false });
-        return;
+      if (!outcome.ok || !installation.ok) {
+        const unauthenticated = [outcome, installation].some(
+          (o) => !o.ok && o.reason === 'unauthenticated',
+        );
+        if (unauthenticated) {
+          signOut();
+          return;
+        }
       }
-      const location = outcome.location;
-      if (!location) {
-        setWeather({ location: null, daily: null, failed: false });
+      const location = outcome.ok ? outcome.location : null;
+      // An unknown installation keeps the temperature: the backtest decides.
+      const notNeeded = installation.ok && !followsTemperature(installation.installation);
+      if (!location || notNeeded) {
+        setWeather({ location, daily: null, failed: false, notNeeded });
         return;
       }
       const from = startOfLisbonDay(
@@ -58,7 +71,12 @@ function useWeather(today: LocalDate): Weather | undefined {
       const to = startOfLisbonDay(addDays(today, FORECAST_DAYS + 1));
       const hours = await loadHourlyTemperature(location, from, to);
       if (!active) return;
-      setWeather({ location, daily: hours ? dailyMeans(hours) : null, failed: hours === null });
+      setWeather({
+        location,
+        daily: hours ? dailyMeans(hours) : null,
+        failed: hours === null,
+        notNeeded: false,
+      });
     })();
     return () => {
       active = false;
@@ -199,10 +217,11 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
         {late.length > 0 && (
           <li>{texts.late(formatLocalDate(late[0]!.date), formatLocalDate(late.at(-1)!.date))}</li>
         )}
+        {weather.notNeeded && <li>{texts.temperatureNotNeeded}</li>}
         {weather.location && meanUpcoming !== null && (
           <li>{texts.temperature(weather.location.name, formatCelsius(meanUpcoming))}</li>
         )}
-        {!weather.location && (
+        {!weather.location && !weather.notNeeded && (
           <li>
             {texts.noLocation} <Link to="/definicoes">{texts.toSettings}</Link>
           </li>
@@ -225,7 +244,7 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
             {texts.noTariff} <Link to="/definicoes">{texts.toSettings}</Link>
           </li>
         )}
-        {weather.location && (
+        {weather.daily && (
           <li>
             {texts.attribution}{' '}
             <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">

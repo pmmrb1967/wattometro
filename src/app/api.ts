@@ -5,6 +5,7 @@ import { isDemo } from '../demo/mode';
 import { demoResponse } from '../demo/server';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
+import { installationSchema, type Installation } from '../domain/installation';
 
 const Health = z.object({ status: z.enum(['ok', 'degraded']), database: z.boolean() });
 export type Health = z.infer<typeof Health>;
@@ -278,6 +279,26 @@ export async function saveHouseholdLocation(
   location: HouseholdLocation | null,
 ): Promise<{ ok: true } | Failure> {
   const response = await send('PUT', '/v1/household/location', { location });
+  if (response?.ok) return { ok: true };
+  return failure(response, [400]);
+}
+
+/** What the household said about its installation; every answer null until saved. */
+export async function fetchHouseholdInstallation(): Promise<
+  { ok: true; installation: Installation } | Failure
+> {
+  const response = await send('GET', '/v1/household/installation');
+  if (response?.ok) {
+    const parsed = z.object({ installation: installationSchema }).parse(await response.json());
+    return { ok: true, installation: parsed.installation };
+  }
+  return failure(response, []);
+}
+
+export async function saveHouseholdInstallation(
+  installation: Installation,
+): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', '/v1/household/installation', { installation });
   if (response?.ok) return { ok: true };
   return failure(response, [400]);
 }

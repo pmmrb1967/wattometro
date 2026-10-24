@@ -123,6 +123,40 @@ export const t = {
       confirm: 'Guardar esta localização',
       cancel: 'Cancelar',
     },
+    installation: {
+      title: 'A tua instalação',
+      intro:
+        'Ajuda a app a interpretar o consumo: por exemplo, se o aquecimento não é elétrico, a previsão da fatura não usa a temperatura. Responde só ao que souberes.',
+      heating: 'Aquecimento da casa',
+      heatingHint: 'Podes marcar vários. Se não marcares nenhum, fica «Não sei».',
+      heatingKinds: {
+        'gas-boiler': 'Caldeira a gás (radiadores ou piso radiante de água)',
+        'heat-pump': 'Bomba de calor ou ar condicionado',
+        'electric-heaters': 'Aquecedores elétricos (a óleo, termoventiladores, acumuladores)',
+        wood: 'Lenha ou pellets (lareira, salamandra, recuperador)',
+        none: 'Nenhum',
+      },
+      waterHeating: 'Água quente',
+      waterHeatingKinds: {
+        gas: 'Caldeira ou esquentador a gás',
+        electric: 'Termoacumulador elétrico',
+        'heat-pump': 'Bomba de calor',
+        solar: 'Solar térmico',
+      },
+      hob: 'Placa do fogão',
+      hobKinds: { electric: 'Elétrica ou de indução', gas: 'A gás' },
+      flags: {
+        airConditioning: 'Ar condicionado para arrefecer',
+        solarPanels: 'Painéis solares fotovoltaicos (produzem eletricidade)',
+        electricCar: 'Carro elétrico carregado em casa',
+      },
+      unknown: 'Não sei',
+      yes: 'Sim',
+      no: 'Não',
+      save: 'Guardar',
+      saved: 'Instalação guardada.',
+      invalid: 'Respostas inválidas.',
+    },
     devices: {
       title: 'Dispositivos',
       intro: 'O Shelly do quadro envia as medições para aqui. Cada Shelly tem o seu token.',
@@ -403,6 +437,8 @@ export const t = {
     methodNaive:
       'Previsão pela média diária das últimas 4 semanas: foi o método que menos errou nos meses anteriores desta casa.',
     methodFewData: 'Ainda há poucos dados: a previsão é a média diária das últimas 4 semanas.',
+    temperatureNotNeeded:
+      'O teu aquecimento não é elétrico e não tens ar condicionado (Definições → A tua instalação), por isso a previsão não usa a temperatura.',
     temperatureLeftOut:
       'A temperatura não melhorou as previsões dos meses anteriores (o consumo desta casa quase não depende dela), por isso fica de fora.',
     late: (from: string, to: string) =>
