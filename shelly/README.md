@@ -15,7 +15,7 @@ Funciona com Shelly de 2.ª geração ou mais recente que meça energia, por exe
 
 1. Instala o Shelly no quadro (fase, neutro e a pinça no cabo de entrada da casa). Se não estiveres à vontade com o quadro, pede a um eletricista.
 2. Liga-o ao Wi-Fi com a app **Shelly Smart Control** e atualiza o firmware.
-3. Na app, configura o **tipo de pinça** do canal 0 (50 A, a que vem com o aparelho).
+3. A pinça de 50 A que vem com o Shelly EM Gen3 já está configurada de fábrica, por isso não há nada a escolher. Para confirmar, abre `http://IP/rpc/EM1.GetConfig?id=0`: deve mostrar `"ct_type":"50AEMG3"`. Só é preciso mudar com a pinça opcional de 120 A.
 4. Descobre o endereço IP do Shelly na rede de casa (na app: Definições do dispositivo → Informação do dispositivo). Nos passos seguintes é `IP`.
 
 ## 2. Criar o token no Wattómetro

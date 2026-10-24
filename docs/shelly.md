@@ -6,7 +6,9 @@
 
 - **Shelly EM Gen3** (monofásico, 2 canais de medição, 1 pinça de 50 A incluída; pinça de 120 A opcional). Encomendado em 2026-10-22.
 - O Shelly EM de 1.ª geração **não serve**: não corre scripts.
-- ☐ Identificador do modelo e versão do firmware (`Shelly.GetDeviceInfo` → `model`, `ver`).
+- ☑ Confirmado no aparelho a **2026-10-24** (`Shelly.GetDeviceInfo`): `model` **`S3EM-002CXCEU`**, `gen` 3, `app` `EMG3`, firmware de fábrica `1.6.99` (o próprio aparelho indica a `2.1.0` como versão estável disponível).
+- ☑ A pinça de 50 A já vem configurada nos dois canais: `EM1.GetConfig` → `"ct_type": "50AEMG3"`, `"reverse": false`. Não é preciso escolher nada; só muda com a pinça opcional de 120 A.
+- `switch:0` é um **contacto seco** (relé sem tensão própria) para comandar um aparelho externo, por exemplo um contactor. Sem nada ligado aos seus terminais, "Ligar"/"Desligar" na app não liga nem desliga nada na casa. Por omissão arranca desligado (`initial_state: "off"`). O Wattómetro não o usa (o corte de potência fica para a Fase 4).
 
 Fonte: <https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen3/ShellyEMG3>
 
