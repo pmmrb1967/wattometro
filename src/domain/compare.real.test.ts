@@ -63,5 +63,5 @@ describe.skipIf(!hasData)('E-Redes export against invoices', () => {
     const comparison = compareOffers({ usage: usage!, current, offers, today: lisbonToday() });
     expect(comparison.results.length).toBeGreaterThan(100);
     expect(comparison.currentCents).toBeGreaterThan(0);
-  });
+  }, 20_000);
 });

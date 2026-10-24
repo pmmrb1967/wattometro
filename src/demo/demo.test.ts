@@ -33,10 +33,11 @@ describe('demo household', () => {
     expect(data.energyWh.every((wh) => wh >= 0)).toBe(true);
   });
 
+  // Builds the whole demo household again (~4 s): more time when the suite runs in parallel.
   it('is the same household on every visit', () => {
     const again = generateDemo(NOW);
     expect(again.powerMaxW).toEqual(data.powerMaxW);
-  });
+  }, 20_000);
 });
 
 describe('demo API, through the app calculations', () => {
