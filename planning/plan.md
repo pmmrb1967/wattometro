@@ -60,11 +60,11 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 ## Fase 1 — Ingestão Shelly
 
 ### 1.1 Preparação
-- [ ] **Confirmar modelo do Shelly** (ex.: EM Gen3, Pro EM-50) e firmware; registar em `docs/shelly.md` — EM Gen3 encomendado; `docs/shelly.md` escrito a partir da documentação oficial, falta confirmar com o aparelho
-- [ ] Capturar respostas reais de `EM1.GetStatus`/`EM.GetStatus` e `EM1Data`/`EMData` → `fixtures/private/`; criar equivalentes sintéticas
-- [ ] Confirmar suporte de scripts, `Timer`, `HTTP.POST` com HTTPS e limites de memória do script
-- [ ] Confirmar **como o script obtém medições a cada segundo** (handler de estado vs `Timer` a 1 s com `EM1.GetStatus`) e **que grandezas existem ao segundo** (potência ativa, aparente, FP; potência reativa direta ou derivada)
-- [ ] Medir o tamanho real do pedido por minuto (agregado + arrays) e confirmar que o Shelly o envia sem problemas
+- [x] **Confirmar modelo do Shelly** e firmware; registar em `docs/shelly.md` — EM Gen3 (`S3EM-002CXCEU`), firmware 2.1.0, a funcionar desde 2026-10-24
+- [x] Capturar respostas reais de `EM1.GetStatus` e `EM1Data` → `fixtures/private/shelly/`; equivalentes sintéticas em `fixtures/shelly/`
+- [x] Confirmar suporte de scripts, `Timer`, `HTTP.POST` com HTTPS e limites de memória do script (~25 KB por script; um envio precisa de ~3,3 KB + 4 × o corpo — `docs/shelly.md`)
+- [ ] Confirmar **como o script obtém medições a cada segundo** e **que grandezas existem ao segundo** — `Timer` a 1 s com `Shelly.getComponentStatus('em1')`; o valor muda 1×/s (☑); potência ativa, aparente e FP, reativa derivada (☑); falta saber se cada valor é a média do segundo ou instantâneo (precisa de uma carga grande ligada/desligada durante a medição)
+- [x] Medir o tamanho real do pedido por minuto (agregado + arrays) e confirmar que o Shelly o envia sem problemas — ~1 KB por minuto com os valores ao segundo, ~100 bytes só com o resumo
 
 ### 1.2 Servidor
 - [x] Migração `readings_1m` (ver `CLAUDE.md`), com chave `(device_id, channel, ts)` — `0003_readings.sql`
@@ -82,8 +82,8 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] Enviar 1×/min; em falha, guardar os minutos em fila (limitada pela memória; se faltar memória, descartar primeiro os arrays ao segundo e manter os agregados) e reenviar em lote
 - [x] Configuração por `KVS` do Shelly (URL, token, canal; limiares na Fase 4) — nada fixo no código
 - [x] `shelly/README.md` com instalação passo a passo
-- [x] Teste do script num Shelly simulado contra o servidor real (`shelly/wattometro.test.ts`), incluindo 30 min sem internet
-- [ ] Correr o script num Shelly real (quando chegar)
+- [x] Teste do script num Shelly simulado contra o servidor real (`shelly/wattometro.test.ts`), com o modelo de memória medido no aparelho (cortes de 20 min e de 3 h, quebra momentânea de memória)
+- [x] Correr o script num Shelly real — desde 2026-10-24 (script 0.3.0; `pnpm shelly:install`, com agendamento que volta a arrancar o script se parar)
 
 ### 1.4 Agregações (Cron)
 - [x] Migrações `readings_15m`, `daily` (`0004_rollups.sql`; por contador `meter`; períodos horários e consumo base no `daily` ficam para a Fase 3)
@@ -125,7 +125,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] `classifyPeriod(ts, cycle)` com testes de fronteiras, fins de semana e mudança de hora (`meterPeriod`/`billingPeriod` em `src/domain/time-cycles.ts`)
 - [x] Custo por período: energia, potência, taxas, IVA (incluindo limiar proporcional aos dias), em cêntimos
 - [x] Tarifário da casa (migração `0005_tariffs.sql`, `/v1/tariffs`, secção em Definições), com histórico por data de início
-- [ ] Validação contra 2–3 faturas reais (em `fixtures/private/`); definir margem aceitável — 1 fatura Repsol: a menos de 2 cêntimos com os preços, e a menos de 1 % com a energia do ficheiro da E-Redes (testes `*.real`, só locais); faltam mais faturas (IVA do IEC: 23 %, pela ERSE)
+- [x] Validação contra 3 faturas reais Repsol (maio–agosto de 2026, em `fixtures/private/`): com a energia faturada, o total bate a ±1 cêntimo (margem do teste: 2 cêntimos); com a energia do ficheiro da E-Redes, a menos de 1 % (testes `*.real`, só locais). IVA do IEC: 23 %, pela ERSE
 - [x] Descontos do comercializador na energia, tarifa social e o seu financiamento no tarifário da casa (migração 0008)
 
 ### 3.3 Simulador de tarifários
@@ -310,5 +310,7 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - 2026-10-24 — Resultado no ficheiro real da E-Redes (12 meses, opção simples, temperatura de Lisboa provisória): modelo 4,08 % de erro médio, baseline 4,16 %; mesmo com previsão meteorológica perfeita a 16 dias o ganho é pequeno — o consumo desta casa parece pouco sensível à temperatura. Repetir com a localidade real e com mais meses.
 - 2026-10-24 — Com a temperatura da localidade real (Lavra, Matosinhos), a temperatura **piora** a previsão desta casa (4,29 % contra 4,15 % sem ela; baseline 4,16 %). A app passa a **escolher por casa**, pelo backtest, entre modelo com temperatura, modelo só com o tipo de dia e média das últimas 4 semanas (empates para o mais simples; com menos de 10 previsões passadas, o modelo completo). Aqui fica "só tipo de dia".
 - 2026-10-24 — Localização também pela **posição do dispositivo** (pedido do utilizador): só ao carregar no botão, com a autorização do browser (`Permissions-Policy: geolocation=(self)`), arredondada logo a 0,01°, mostrada com link para o mapa e guardada só depois de confirmada. A geocodificação da Open-Meteo não aceita códigos postais portugueses: a app explica que se procura pelo nome.
+- 2026-10-24 — **Shelly real.** O total de energia muda 1×/min, ~1,2 s depois do minuto, por isso o script 0.2.1 lê a energia de cada minuto 5 s depois de ele acabar (com o 0.2.0, minutos de 0 e de 12 Wh a potência constante). A memória de um script é ~25 KB e o pico de um envio é ~3,3 KB + 4 × o corpo: com o 0.2.1, um corte de internet de ~6 min parou o script (`out_of_memory`). O 0.3.0 dimensiona cada envio à memória livre (corpo ≤ 2200 bytes) e descarta primeiro os valores ao segundo dos minutos mais antigos; num corte simulado de 25 min no aparelho, nenhum minuto se perdeu (pico de 21,3 KB). Cabem ~30 min de corte sem perdas, à justa para a aceitação da Fase 1 (corte de 30 min); para cortes mais longos, guardar os resumos de forma mais compacta fica como melhoria. Rede de segurança: agendamento no Shelly que chama `Script.Start` a cada 5 min.
+- 2026-10-24 — Validação com 3 faturas: a leitura real "de 21/08" da fatura de agosto inclui o consumo de 22/08 (244 kWh faturados; o ficheiro da E-Redes dá 237,5 kWh até 21/08 e 244,8 kWh até 22/08), ao contrário de junho e julho. A fatura está certa face às suas leituras; para comparar com os quartos de hora, a fatura privada indica `meterPeriod`. Consequência para a reconciliação com faturas (Faturómetro, Fase 9): as datas das leituras podem estar desfasadas um dia, e isso não é um erro de medição.
 - 2026-10-24 — **Perfil da instalação** declarado pelo utilizador (pedido do utilizador; a casa de referência aquece com caldeira a gás e radiadores e não tem ar condicionado). Todas as respostas podem ficar "Não sei". É uma pista, não substitui os dados: se o aquecimento não é elétrico e não há ar condicionado, a previsão nem pede a temperatura à Open-Meteo e explica porquê; com respostas desconhecidas, o backtest decide como antes. Servirá também às anomalias, às recomendações (termoacumulador no vazio, painéis solares que a E-Redes não vê) e ao contexto da IA.
 

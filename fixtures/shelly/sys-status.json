@@ -1,0 +1,15 @@
+{
+  "mac": "000000000000",
+  "restart_required": false,
+  "time": "19:35",
+  "unixtime": 1792000000,
+  "last_sync_ts": 1791999000,
+  "uptime": 11756,
+  "ram_size": 276212,
+  "ram_free": 140556,
+  "ram_min_free": 92392,
+  "fs_size": 786432,
+  "fs_free": 278528,
+  "reset_reason": 3,
+  "utc_offset": 3600
+}

@@ -16,12 +16,18 @@
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
 // Runs on a Shelly EM Gen3 since 2026-10-24 (docs/shelly.md).
 
-let SCRIPT_VERSION = '0.2.1';
+let SCRIPT_VERSION = '0.3.0';
 let FORMAT = 1;
-let MAX_BODY = 7000; // HTTP.Request allows 8192 bytes with URL and headers
+// A script has ~25 KB of memory in all (docs/shelly.md, measured on an EM Gen3).
+// Sending a request needs about SEND_OVERHEAD + SEND_FACTOR × body bytes at its
+// peak, so each request is sized to the memory free at the time.
+let MAX_BODY = 2200; // about two minutes with their per-second values
+let SEND_OVERHEAD = 6000;
+let SEND_FACTOR = 4;
 let MAX_MINUTES_PER_REQUEST = 20;
-let QUEUE_MAX = 240; // minutes kept while offline (4 h of aggregates)
-let LOW_MEMORY = 6000; // free script memory (bytes) below which the queue is trimmed
+let QUEUE_MAX = 240; // minutes kept while offline, if memory allows
+// Free memory (bytes) below which the queue is trimmed: room to send one aggregate.
+let LOW_MEMORY = 8000;
 let SEND_GAP = 5; // seconds between requests while catching up
 let MAX_BACKOFF = 300;
 let INT16 = 32767;
@@ -148,17 +154,27 @@ function memoryFree() {
   return status && typeof status.mem_free === 'number' ? status.mem_free : null;
 }
 
+// Drops the per-second values of the oldest minute that has them, or the oldest
+// minute; false when nothing is left to drop.
+function dropOldest() {
+  for (let i = 0; i < queue.length - 1; i++) {
+    if (queue[i].s !== null) {
+      queue[i].s = null;
+      return true;
+    }
+  }
+  if (queue.length > 1) {
+    queue.splice(0, 1);
+    return true;
+  }
+  return false;
+}
+
 // Oldest per-second values go first, then the oldest minutes.
 function trimQueue() {
   while (queue.length > QUEUE_MAX) queue.splice(0, 1);
   let free = memoryFree();
-  let i = 0;
-  while (free !== null && free < LOW_MEMORY && queue.length > 1) {
-    while (i < queue.length && queue[i].s === null) i++;
-    if (i < queue.length - 1) queue[i].s = null;
-    else queue.splice(0, 1);
-    free = memoryFree();
-  }
+  while (free !== null && free < LOW_MEMORY && dropOldest()) free = memoryFree();
 }
 
 function entryJson(entry) {
@@ -196,6 +212,9 @@ function onSent(result, errorCode, errorMessage) {
 
 function maybeSend(now) {
   if (sending || queue.length === 0 || now < nextSend || !cfg.url || !cfg.token) return;
+  let free = memoryFree();
+  let budget = MAX_BODY;
+  if (free !== null) budget = Math.min(MAX_BODY, Math.floor((free - SEND_OVERHEAD) / SEND_FACTOR));
   let head =
     '{"v":' +
     FORMAT +
@@ -209,14 +228,21 @@ function maybeSend(now) {
     ',"min":[';
   let size = head.length + 2;
   let parts = [];
-  sendSeq++;
   for (let i = 0; i < queue.length && parts.length < MAX_MINUTES_PER_REQUEST; i++) {
     let json = entryJson(queue[i]);
-    if (size + json.length + 1 > MAX_BODY) break;
+    if (size + json.length + 1 > budget) break;
     parts.push(json);
     size += json.length + 1;
-    queue[i].sent = sendSeq;
   }
+  if (parts.length === 0) {
+    // Not even the oldest minute fits the memory free right now: give up its
+    // per-second values if it has them, and try again next second. Whole
+    // minutes are only dropped by trimQueue, when memory stays low.
+    if (queue[0].s !== null) queue[0].s = null;
+    return;
+  }
+  sendSeq++;
+  for (let i = 0; i < parts.length; i++) queue[i].sent = sendSeq;
   sending = true;
   Shelly.call(
     'HTTP.Request',

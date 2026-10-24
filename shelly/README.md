@@ -8,7 +8,7 @@ Funciona com Shelly de 2.ª geração ou mais recente que meça energia, por exe
 
 - Lê o Shelly **a cada segundo** (potência ativa, potência não ativa, tensão).
 - Ao fim de cada minuto envia para o Wattómetro o resumo do minuto e os 60 valores ao segundo.
-- Se a internet falhar, guarda os minutos em memória (até 4 horas de resumos) e envia-os quando a ligação voltar. Se a memória apertar, descarta primeiro os valores ao segundo dos minutos mais antigos.
+- Se a internet falhar, guarda os minutos em memória e envia-os quando a ligação voltar. A memória de um script é pequena (~25 KB): cabem cerca de 30 minutos de corte sem perder minutos. Se a memória apertar, descarta primeiro os valores ao segundo dos minutos mais antigos e depois os minutos mais antigos.
 - **Não decide nada sozinho:** só recolhe e envia. A análise faz-se na app.
 
 ## 1. Preparar o Shelly
@@ -44,9 +44,11 @@ O token fica no histórico desse browser: apaga-o no fim, ou usa uma janela priv
 3. Cola o conteúdo de [`wattometro.js`](wattometro.js) e guarda.
 4. Carrega em **Start** e ativa **Run on startup** (para arrancar sozinho depois de um corte de luz).
 
+Com um computador e o repositório, `pnpm shelly:install` faz estes passos (ver «Atualizar o script») e cria também um agendamento no Shelly que volta a arrancar o script a cada 5 minutos, se tiver parado.
+
 ## 5. Confirmar
 
-- Na consola do script deve aparecer `wattometro 0.2.1 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
+- Na consola do script deve aparecer `wattometro 0.3.0 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
 - Ao fim de 1–2 minutos, em **Definições → Dispositivos** no Wattómetro, o dispositivo mostra **Último envio** com a hora.
 - Mensagens `send failed` ou `server answered 401` indicam falta de internet ou token errado.
 

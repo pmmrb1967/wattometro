@@ -8,8 +8,10 @@
  * Reads SHELLY_HOST and SHELLY_PASSWORD from .env (never committed; see
  * .env.example). Creates the script "wattometro" if missing, uploads the code,
  * turns on "Run on startup", restarts it and checks the code on the device is
- * the repository's. The URL and token in KVS are left alone (shelly/README.md,
- * step 3); it only says whether they are set.
+ * the repository's. It also schedules Script.Start every 5 minutes, so a script
+ * stopped by anything (e.g. out of memory) comes back without a reboot; starting
+ * a running script does nothing. The URL and token in KVS are left alone
+ * (shelly/README.md, step 3); it only says whether they are set.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,6 +20,7 @@ import { parseEnv, shellyRpc } from './shelly/rpc';
 
 const NAME = 'wattometro';
 const CHUNK = 1024;
+const WATCHDOG = '0 */5 * * * *'; // second minute hour day month weekday
 
 function fail(message: string): never {
   console.error(message);
@@ -35,6 +38,14 @@ const List = z.object({
   scripts: z.array(z.object({ id: z.number(), name: z.string().nullable(), running: z.boolean() })),
 });
 const Code = z.object({ data: z.string(), left: z.number() });
+const Jobs = z.object({
+  jobs: z.array(
+    z.object({
+      id: z.number(),
+      calls: z.array(z.object({ method: z.string(), params: z.unknown().optional() })),
+    }),
+  ),
+});
 
 async function codeOnDevice(id: number): Promise<string> {
   let text = '';
@@ -69,6 +80,23 @@ try {
       fail('The code on the Shelly differs from shelly/wattometro.js.');
     }
     console.log(`Script ${version} installed and running on ${host}, starting with the Shelly.`);
+  }
+
+  const { jobs } = Jobs.parse(await rpc('Schedule.List'));
+  const watched = jobs.some((job) =>
+    job.calls.some(
+      (call) =>
+        call.method.toLowerCase() === 'script.start' &&
+        z.object({ id: z.literal(id) }).safeParse(call.params).success,
+    ),
+  );
+  if (!watched) {
+    await rpc('Schedule.Create', {
+      enable: true,
+      timespec: WATCHDOG,
+      calls: [{ method: 'Script.Start', params: { id } }],
+    });
+    console.log('Scheduled a restart check every 5 minutes.');
   }
 
   const configured = await Promise.all(

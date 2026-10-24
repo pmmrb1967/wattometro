@@ -1,0 +1,10 @@
+{
+  "id": 0,
+  "voltage": 228.4,
+  "current": 2.116,
+  "act_power": 402.7,
+  "aprt_power": 483.3,
+  "pf": 0.83,
+  "freq": 50,
+  "calibration": "factory"
+}

@@ -32,7 +32,7 @@ Todos os valores podem ser `null`. Exemplo da documentação: `{"id":0,"voltage"
 
 - **A potência reativa não vem diretamente.** A grandeza derivada `sqrt(S² − P²)` é a potência *não ativa* (reativa + distorção), **sem sinal**: não distingue cargas indutivas de capacitivas.
 - ☐ **Cada valor é a média do último segundo ou um valor instantâneo?** Determina se os picos de arranque aparecem.
-- ☐ **Com que frequência o valor muda?** Teste: ler a 1 s durante 5 min e contar mudanças. Se mudar menos de 1×/s, os valores ao segundo têm repetições.
+- ☑ **O valor muda uma vez por segundo**, a meio do segundo do relógio do aparelho: medido a 2026-10-24, firmware 2.1.0, com `EM1.GetStatus` lido ~8×/s durante 60 s. Houve 57 mudanças; o intervalo entre mudanças teve mediana de 1,004 s (p10 0,91 s, p90 1,07 s) e as mudanças caíram entre 0,42 e 0,59 s depois do segundo certo. O script lê a cada segundo, por isso cada valor ao segundo é uma leitura nova (salvo alguma repetição ou falha quando o temporizador e a atualização coincidem).
 
 ## Energia — `EM1Data.GetStatus`
 
@@ -63,15 +63,20 @@ Fontes:
 - `Timer.set(período_ms, repetir, callback)`.
 - **Limites por script:** 5 temporizadores, 5 subscrições de eventos, 5 de estado, **5 pedidos RPC em curso** (exceder aborta o script).
 - O interpretador atual (firmware 1.x) é baseado em Espruino; sem classes ES6, sem promessas/async, sem *hoisting*. O script usa JavaScript conservador.
-- ☐ Memória disponível para o script (`Script.GetStatus` → `mem_free`, `mem_peak`) com a fila cheia.
+- ☑ **Memória de um script: ~25 KB no total** (`mem_free` = 25 200 com o script parado; EM Gen3, firmware 2.1.0, 2026-10-24). Com a fila vazia, o script usa ~7 KB. Cada minuto na fila ocupa ~1,2 KB com os valores ao segundo e ~0,3 KB só com o resumo. **Um envio precisa, no pico, de ~3,3 KB mais 4 × o tamanho do corpo** (picos de 15,5, 20,3 e 24,7 KB com envios de 1, 2 e 3 minutos).
+- ☑ Com o script 0.2.1, um corte de internet simulado esgotou a memória ao fim de ~6 minutos: na tentativa de enviar 4 minutos de uma vez, o script parou (`"errors":["out_of_memory"]`) e só voltaria a correr com um reinício. A proteção por memória livre não atuou, porque o pico acontece só durante o envio.
+- ☑ **Script 0.3.0:** cada envio é dimensionado à memória livre nesse momento (`(mem_free − 6000) / 4` bytes, no máximo 2200); abaixo de 8000 bytes livres descartam-se primeiro os valores ao segundo dos minutos mais antigos e depois os minutos mais antigos. Num corte simulado de 25 minutos no aparelho, o pico foi de 21,3 KB, a memória livre nunca baixou de 7,9 KB, e os 25 minutos chegaram ao servidor em 4 envios, 15 s depois de a ligação voltar (só o último manteve os valores ao segundo). Cabem ~30 minutos de corte sem perder minutos; num corte mais longo perdem-se os mais antigos (a E-Redes continua a ter a energia para a fatura).
+- ☑ **Rede de segurança:** `pnpm shelly:install` cria um agendamento (`Schedule.Create`, `"0 */5 * * * *"`) que chama `Script.Start` a cada 5 minutos. Arrancar um script que já corre não o reinicia (`{"was_running": true}`), por isso só tem efeito se o script tiver parado. Os testes (`shelly/wattometro.test.ts`) simulam este modelo de memória e falham se o script passar dos 25,2 KB.
+
+Fonte do agendamento: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Schedule> (cron com segundos; até 20 agendamentos e 5 chamadas por agendamento).
 
 ## Pedidos HTTP — `HTTP.Request`
 
 Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/HTTP>
 
 - Parâmetros: `method`, `url`, `body`, `headers` (máx. 15, cada valor até 1024 bytes), `timeout` (s, defeito 15), `ssl_ca`.
-- **HTTPS:** com `ssl_ca` omitido usa o `ca.pem` incluído no firmware. ☐ Confirmar que valida o certificado de `app.wattometro.workers.dev`.
-- **Tamanho máximo do pedido: 8192 bytes** (URL + cabeçalhos + corpo). O script limita o corpo a 7000 bytes.
+- **HTTPS:** com `ssl_ca` omitido usa o `ca.pem` incluído no firmware. ☑ Funciona com `app.wattometro.workers.dev` (envios desde 2026-10-24).
+- **Tamanho máximo do pedido: 8192 bytes** (URL + cabeçalhos + corpo). Por causa da memória (ver "Scripts"), o script 0.3.0 limita o corpo a 2200 bytes. ☑ Tamanhos reais: ~975–1040 bytes para um minuto com os valores ao segundo; ~100 bytes por minuto só com o resumo (mais ~80 do cabeçalho do pedido).
 - Resposta: `code`, `message`, `headers`, `body`.
 
 ## Configuração — `KVS`
@@ -92,8 +97,9 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/General/Authentication> (consu
 
 ## Por confirmar com o aparelho (lista para a Fase 1.1)
 
-- [ ] Modelo e firmware
-- [ ] Resposta real de `EM1.GetStatus`, `EM1Data.GetStatus`, `Sys.GetStatus` → `fixtures/private/`, e equivalentes sintéticas em `fixtures/`
-- [ ] Ritmo de atualização e natureza (média vs instantâneo) dos valores ao segundo
-- [ ] HTTPS para `app.wattometro.workers.dev` com o `ca.pem` incluído
-- [ ] Memória do script com a fila cheia; tamanho real do pedido por minuto
+- [x] Modelo e firmware
+- [x] Resposta real de `EM1.GetStatus`, `EM1Data.GetStatus`, `Sys.GetStatus` → `fixtures/private/`, e equivalentes sintéticas em `fixtures/shelly/`
+- [x] Ritmo de atualização dos valores ao segundo
+- [ ] Natureza (média vs instantâneo) dos valores ao segundo
+- [x] HTTPS para `app.wattometro.workers.dev` com o `ca.pem` incluído
+- [x] Memória do script com a fila cheia; tamanho real do pedido por minuto

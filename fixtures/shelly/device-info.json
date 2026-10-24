@@ -1,0 +1,13 @@
+{
+  "name": null,
+  "id": "shellyemg3-000000000000",
+  "mac": "000000000000",
+  "slot": 1,
+  "model": "S3EM-002CXCEU",
+  "gen": 3,
+  "fw_id": "20260101-000000/2.1.0-0000000",
+  "ver": "2.1.0",
+  "app": "EMG3",
+  "auth_en": true,
+  "auth_domain": "shellyemg3-000000000000"
+}
