@@ -8,7 +8,16 @@
  */
 import { z } from 'zod';
 import raw from '../data/time-cycles.json';
-import { HOUR, lisbonOffset, lisbonParts, type EpochSeconds } from '../lib/time';
+import {
+  HOUR,
+  QUARTER_HOUR,
+  lisbonDayLength,
+  lisbonOffset,
+  lisbonParts,
+  startOfLisbonDay,
+  type EpochSeconds,
+  type LocalDate,
+} from '../lib/time';
 import type { BillingPeriod, Cycle, MeterPeriod, PeriodsMap, TariffOption } from './tariff';
 
 const TIME = /^([01]\d|2[0-3]):(00|15|30|45)$/;
@@ -78,4 +87,37 @@ export function billingPeriod(
   const period = meterPeriod(ts, cycle, map);
   if (option === 'tri') return period;
   return period === 'empty' ? 'empty' : 'offEmpty';
+}
+
+/**
+ * The billing period of every quarter hour of a Lisbon day, in time order
+ * (92, 96 or 100 quarters). Same result as billingPeriod for each quarter,
+ * with two time-zone lookups per day instead of two per quarter.
+ */
+export function dayBillingPeriods(
+  date: LocalDate,
+  option: TariffOption,
+  cycle: Cycle,
+  map: PeriodsMap,
+): BillingPeriod[] {
+  const start = startOfLisbonDay(date);
+  const count = lisbonDayLength(date) / QUARTER_HOUR;
+  if (option === 'simple') return new Array<BillingPeriod>(count).fill('simple');
+  // The days the clocks change: quarter by quarter.
+  if (count !== 96) {
+    return Array.from({ length: count }, (_, index) =>
+      billingPeriod(start + index * QUARTER_HOUR, option, cycle, map),
+    );
+  }
+  const { weekday } = lisbonParts(start);
+  const season = lisbonOffset(start) === HOUR ? 'summer' : 'winter';
+  const segments =
+    cycle === 'daily'
+      ? MAPS[map].daily[season]
+      : MAPS[map].weekly[season][weekday === 0 ? 'sunday' : weekday === 6 ? 'saturday' : 'weekday'];
+  return Array.from({ length: count }, (_, index) => {
+    const period = periodIn(segments, index * 15);
+    if (option === 'tri') return period;
+    return period === 'empty' ? 'empty' : 'offEmpty';
+  });
 }

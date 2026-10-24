@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { QUARTER_HOUR, startOfLisbonDay } from '../lib/time';
+import { QUARTER_HOUR, lisbonDayLength, startOfLisbonDay } from '../lib/time';
 import type { Cycle, PeriodsMap } from './tariff';
-import { billingPeriod, meterPeriod } from './time-cycles';
+import { billingPeriod, dayBillingPeriods, meterPeriod } from './time-cycles';
 
 /** An instant given in Lisbon local time on a day without a clock change at that hour. */
 function at(date: string, time: string): number {
@@ -150,5 +150,38 @@ describe('billingPeriod', () => {
     expect(billingPeriod(peakHour, 'bi', 'daily', 'pre-2027')).toBe('offEmpty');
     expect(billingPeriod(emptyHour, 'bi', 'daily', 'pre-2027')).toBe('empty');
     expect(billingPeriod(peakHour, 'tri', 'daily', 'pre-2027')).toBe('peak');
+  });
+});
+
+describe('dayBillingPeriods', () => {
+  // A winter weekday, a summer Saturday, a Sunday, and both days the clocks change.
+  const dates = ['2026-01-14', '2026-07-11', '2026-07-12', '2026-03-29', '2026-10-25'];
+  const options = [
+    ['tri', 'daily'],
+    ['tri', 'weekly'],
+    ['bi', 'daily'],
+    ['bi', 'weekly'],
+  ] as const;
+
+  it('matches billingPeriod quarter by quarter', () => {
+    for (const date of dates) {
+      const start = startOfLisbonDay(date);
+      const count = lisbonDayLength(date) / 900;
+      for (const [option, cycle] of options) {
+        for (const map of ['pre-2027', '2027'] as const) {
+          const expected = Array.from({ length: count }, (_, index) =>
+            billingPeriod(start + index * 900, option, cycle, map),
+          );
+          expect(dayBillingPeriods(date, option, cycle, map)).toEqual(expected);
+        }
+      }
+    }
+  });
+
+  it('a simple tariff has one period', () => {
+    expect(new Set(dayBillingPeriods('2026-10-25', 'simple', 'daily', 'pre-2027'))).toEqual(
+      new Set(['simple']),
+    );
+    expect(dayBillingPeriods('2026-10-25', 'simple', 'daily', 'pre-2027')).toHaveLength(100);
   });
 });
