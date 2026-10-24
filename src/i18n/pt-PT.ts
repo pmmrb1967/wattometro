@@ -309,6 +309,25 @@ export const t = {
     unknown: 'demasiados minutos acima do limite para verificar',
     estimated: (count: number) =>
       `${count} ${count === 1 ? 'minuto sem' : 'minutos sem'} valores ao segundo: contado com o pico do minuto durante o minuto inteiro.`,
+    nearTrip: {
+      title: 'Perto do corte',
+      intro: (threshold: string, contract: string) =>
+        `Vezes em que a potência passou ${threshold} (1,2 × os ${contract} contratados) e o contador começou a contar para cortar. Mostra as que chegaram a metade do tempo de corte ou mais.`,
+      noTariff: 'Indica o teu tarifário em Definições para veres quando estiveste perto do corte.',
+      computing: 'A procurar…',
+      none: 'Nos últimos 90 dias o contador nunca começou a contar: estiveste sempre longe do corte.',
+      closest: (count: number, pct: number, when: string) =>
+        `O contador começou a contar ${count} ${count === 1 ? 'vez' : 'vezes'}, sempre longe do corte: no máximo ${pct} % do tempo de corte, a ${when}.`,
+      tooMany: 'Há demasiados minutos acima do limite para os analisar aqui.',
+      columns: { when: 'Início', duration: 'Duração', peak: 'Pico', progress: 'Do tempo de corte' },
+      tripped: 'Terá cortado',
+      duration: (seconds: number) => {
+        if (seconds < 120) return `${seconds} s`;
+        const minutes = Math.floor(seconds / 60);
+        const rest = seconds % 60;
+        return rest === 0 ? `${minutes} min` : `${minutes} min ${rest} s`;
+      },
+    },
     topTitle: 'Momentos com maior potência',
     topColumns: { when: 'Quarto de hora', peak: 'Pico de 1 s', share: 'Da potência atual' },
     topEstimatedMark: '*',

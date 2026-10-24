@@ -4,6 +4,7 @@ import {
   annualFixedCents,
   decodePeaks,
   effectiveLimit,
+  nearTripEpisodes,
   offerFixedPerDay,
   recommendTier,
   samplesOf,
@@ -58,6 +59,36 @@ describe('simulateTier', () => {
     // Limit 6210: 10 350 VA is 1,667 × → Tdisp 107 s.
     expect(simulateTier(run(10_350, 108), 6900, 10, SINGLE_PHASE).trips).toHaveLength(1);
     expect(simulateTier(run(10_350, 108), 6900, 0, SINGLE_PHASE).trips).toHaveLength(0);
+  });
+});
+
+describe('nearTripEpisodes', () => {
+  it('reports each run above 1,2 × the contract with how close it came to a trip', () => {
+    // 6,9 kVA: counts above 8280 VA. 10 s at 10 350 VA (1,5 ×, Tdisp 166,7 s) = 6 %;
+    // then 20 s at 13 800 VA (2 ×, Tdisp 62,5 s) = 32 %, peaking at 13 800.
+    const samples = [
+      ...run(5000, 5),
+      ...run(10_350, 10, T0 + 5),
+      ...run(8280, 3, T0 + 15), // at the threshold: not counting
+      ...run(13_800, 20, T0 + 18),
+    ];
+    expect(nearTripEpisodes(samples, 6900, SINGLE_PHASE)).toEqual([
+      { start: T0 + 5, seconds: 10, peakVa: 10_350, progressPct: 6, tripped: false },
+      { start: T0 + 18, seconds: 20, peakVa: 13_800, progressPct: 32, tripped: false },
+    ]);
+  });
+
+  it('a long overload is one episode, tripped, however long it lasts', () => {
+    // Tdisp 62,5 s at 2 ×: trips on the 63rd second; the data goes on for 200 s.
+    expect(nearTripEpisodes(run(13_800, 200), 6900, SINGLE_PHASE)).toEqual([
+      { start: T0, seconds: 200, peakVa: 13_800, progressPct: 100, tripped: true },
+    ]);
+  });
+
+  it('a missing second starts a new episode', () => {
+    const gap = [...run(13_800, 40), ...run(13_800, 40, T0 + 41)];
+    // 40 / 62,5 = 64 % each.
+    expect(nearTripEpisodes(gap, 6900, SINGLE_PHASE).map((e) => e.progressPct)).toEqual([64, 64]);
   });
 });
 

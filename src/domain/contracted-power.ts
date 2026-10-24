@@ -162,6 +162,61 @@ export function simulateTier(
   return { tierVa, limitVa, trips, closest };
 }
 
+/** A run of seconds above k × the contracted power: the meter was counting. */
+export interface NearTripEpisode {
+  /** First second above the threshold. */
+  start: EpochSeconds;
+  /** Consecutive seconds above it (in the data: after a trip the power stays on). */
+  seconds: number;
+  peakVa: number;
+  /** Highest share of Tdisp reached (0–100); 100 when the meter would have cut. */
+  progressPct: number;
+  tripped: boolean;
+}
+
+/**
+ * Every time the meter would have started counting at the contracted power
+ * (no margin: the real contract), with how close it came to cutting. Same
+ * counting as simulateTier: a second below the threshold or a missing second
+ * ends the episode. A trip does not: the power the data shows afterwards is
+ * the same overload, not a second one.
+ */
+export function nearTripEpisodes(
+  samples: readonly Sample[],
+  tierVa: number,
+  curve: TripCurve,
+): NearTripEpisode[] {
+  const episodes: NearTripEpisode[] = [];
+  let current: NearTripEpisode | null = null;
+  let previous: EpochSeconds | null = null;
+  for (const sample of samples) {
+    if (previous === null || sample.ts !== previous + 1) current = null;
+    previous = sample.ts;
+    const limit = tripSeconds(sample.va, tierVa, curve);
+    if (limit === null) {
+      current = null;
+      continue;
+    }
+    if (!current) {
+      current = { start: sample.ts, seconds: 0, peakVa: 0, progressPct: 0, tripped: false };
+      episodes.push(current);
+    }
+    current.seconds += 1;
+    current.peakVa = Math.max(current.peakVa, sample.va);
+    if (current.tripped) continue;
+    if (current.seconds > limit) {
+      current.progressPct = 100;
+      current.tripped = true;
+      continue;
+    }
+    current.progressPct = Math.max(
+      current.progressPct,
+      Math.round((current.seconds * 100) / limit),
+    );
+  }
+  return episodes;
+}
+
 export type TierStatus =
   /** The peak never reached the threshold: it cannot trip. */
   | 'clear'

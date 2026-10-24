@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * "Potência": the lowest contracted power that would not have tripped in the
- * last 90 days (the per-second retention), the saving on the fixed term, and
+ * last 90 days (the per-second retention), the saving on the fixed term, the
+ * times the meter started counting towards a cut at the current contract, and
  * the moments closest to the limit. Calculation: src/domain/contracted-power.ts.
  */
 import { useEffect, useState } from 'react';
@@ -10,9 +11,13 @@ import {
   annualFixedCents,
   DEFAULT_MARGIN_PCT,
   decodePeaks,
+  nearTripEpisodes,
   offerFixedPerDay,
+  samplesOf,
   recommendTier,
   SINGLE_PHASE,
+  tripThreshold,
+  type NearTripEpisode,
   type Recommendation,
   type TierEvaluation,
 } from '../domain/contracted-power';
@@ -35,6 +40,8 @@ const texts = t.power;
 const PERIOD_DAYS = 90;
 const DAY = 86_400;
 const VAT_POWER_LIMIT_VA = 6900;
+/** Episodes shown: those that reached at least this share of the time to trip. */
+const SHOWN_PROGRESS_PCT = 50;
 
 type MeterData = PowerData['meters'][number];
 
@@ -252,6 +259,126 @@ function RecommendationSection({
   );
 }
 
+type NearTripState =
+  | { kind: 'loading' }
+  | { kind: 'failed' }
+  | { kind: 'truncated' }
+  | { kind: 'done'; episodes: NearTripEpisode[]; estimatedMinutes: number };
+
+function NearTripSection({
+  meter,
+  from,
+  to,
+  contractVa,
+}: {
+  meter: MeterData;
+  from: number;
+  to: number;
+  contractVa: number;
+}) {
+  const nearTexts = texts.nearTrip;
+  const { signOut } = useSession();
+  const threshold = tripThreshold(contractVa, 0, SINGLE_PHASE);
+  const key = `${meter.meter}:${contractVa}:${from}`;
+  const [result, setResult] = useState<{ key: string; state: NearTripState } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const done = (state: NearTripState) => {
+      if (active) setResult({ key, state });
+    };
+    // Below the threshold all along: nothing to fetch.
+    if (peakOf(meter) <= threshold) {
+      done({ kind: 'done', episodes: [], estimatedMinutes: 0 });
+      return;
+    }
+    void fetchPeakRecords(meter.meter, from, to, threshold).then((outcome) => {
+      if (!outcome.ok) {
+        if (outcome.reason === 'unauthenticated') signOut();
+        done({ kind: 'failed' });
+        return;
+      }
+      if (outcome.truncated) {
+        done({ kind: 'truncated' });
+        return;
+      }
+      const { samples, estimatedMinutes } = samplesOf(decodePeaks(outcome.records));
+      done({
+        kind: 'done',
+        episodes: nearTripEpisodes(samples, contractVa, SINGLE_PHASE),
+        estimatedMinutes,
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [key, meter, from, to, threshold, contractVa, signOut]);
+
+  const state: NearTripState = result?.key === key ? result.state : { kind: 'loading' };
+  const shown =
+    state.kind === 'done'
+      ? state.episodes
+          .filter((episode) => episode.tripped || episode.progressPct >= SHOWN_PROGRESS_PCT)
+          .sort((a, b) => b.start - a.start)
+      : [];
+  const closest =
+    state.kind === 'done' && state.episodes.length > 0
+      ? state.episodes.reduce((best, episode) =>
+          episode.progressPct > best.progressPct ? episode : best,
+        )
+      : null;
+  const columns = nearTexts.columns;
+
+  return (
+    <section className="card">
+      <h2>{nearTexts.title}</h2>
+      <p className="hint">{nearTexts.intro(formatKva(threshold), formatKva(contractVa))}</p>
+      {state.kind === 'loading' && <p className="hint">{nearTexts.computing}</p>}
+      {state.kind === 'failed' && <p className="error">{t.errors.unavailable}</p>}
+      {state.kind === 'truncated' && <p className="error">{nearTexts.tooMany}</p>}
+      {state.kind === 'done' && state.episodes.length === 0 && (
+        <p className="success">{nearTexts.none}</p>
+      )}
+      {state.kind === 'done' && shown.length === 0 && closest && (
+        <p className="success">
+          {nearTexts.closest(
+            state.episodes.length,
+            closest.progressPct,
+            formatLisbonDateTime(closest.start),
+          )}
+        </p>
+      )}
+      {shown.length > 0 && (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{columns.when}</th>
+                <th>{columns.duration}</th>
+                <th>{columns.peak}</th>
+                <th>{columns.progress}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((episode) => (
+                <tr key={episode.start}>
+                  <td>{formatLisbonDateTime(episode.start)}</td>
+                  <td>{nearTexts.duration(episode.seconds)}</td>
+                  <td>{formatKva(episode.peakVa)}</td>
+                  <td>{episode.tripped ? nearTexts.tripped : `${episode.progressPct} %`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {state.kind === 'done' && state.estimatedMinutes > 0 && (
+        <p className="hint">{texts.estimated(state.estimatedMinutes)}</p>
+      )}
+    </section>
+  );
+}
+
 function TopSection({ meter, tariff }: { meter: MeterData; tariff: Tariff | null }) {
   const columns = texts.topColumns;
   return (
@@ -350,6 +477,16 @@ export function Power() {
             </section>
           )}
           <RecommendationSection meter={meter} from={from} to={now} tariff={tariff} />
+          {tariff ? (
+            <NearTripSection meter={meter} from={from} to={now} contractVa={tariff.powerVa} />
+          ) : (
+            <section className="card">
+              <h2>{texts.nearTrip.title}</h2>
+              <p className="hint">
+                <Link to="/definicoes">{texts.nearTrip.noTariff}</Link>
+              </p>
+            </section>
+          )}
           <TopSection meter={meter} tariff={tariff} />
         </>
       )}
