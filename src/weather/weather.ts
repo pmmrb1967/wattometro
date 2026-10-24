@@ -90,6 +90,9 @@ export function dailyMeans(hours: readonly HourTemperature[]): Map<LocalDate, Te
   return means;
 }
 
+/** Years of the archive kept for the usual temperature of each time of year. */
+export const CLIMATE_YEARS = 5;
+
 /** Days on each side of a date that count for its usual temperature. */
 export const CLIMATE_WINDOW_DAYS = 7;
 

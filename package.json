@@ -19,7 +19,8 @@
     "deploy:app": "pnpm build && wrangler deploy -c wrangler.app.toml",
     "deploy:server": "wrangler deploy -c server/wrangler.toml",
     "user:create": "tsx scripts/create-user.ts",
-    "erse:sync": "tsx scripts/erse-sync.ts"
+    "erse:sync": "tsx scripts/erse-sync.ts",
+    "ml:backtest": "tsx scripts/ml-backtest.ts"
   },
   "packageManager": "pnpm@12.11.2",
   "license": "AGPL-3.0-or-later",

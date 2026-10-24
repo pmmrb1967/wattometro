@@ -5,10 +5,11 @@
  * sent yet), priced with the household's tariff by the cost engine.
  *
  * Model of the energy of a day (weighted least squares, recent days weigh more):
- *   Wh = a + b·saturday + c·sunday-or-holiday + h·HDD + k·CDD
+ *   Wh = a + b·saturday + c·sunday-or-holiday + h·HDD + k·CDD + r
  * with heating/cooling degree-days HDD = max(0, Th − T), CDD = max(0, T − Tc)
  * from the day's mean temperature; Th and Tc are those that fit best. Without
- * enough temperatures the model uses the type of day only. The energy of a
+ * enough temperatures the model uses the type of day only. r anchors it on the
+ * recent level: the average error of the model over the last 28 days. The energy of a
  * forecast day is spread over its quarter hours like the recent days of the
  * same type, so the tariff periods (and their prices) come out right.
  *
@@ -136,6 +137,8 @@ export interface DailyModel {
 }
 
 interface TrainingDay {
+  /** Days before asOf. */
+  age: number;
   kind: DayKind;
   wh: number;
   weight: number;
@@ -200,6 +203,7 @@ export function fitDailyModel(
     const day = data.days.get(date);
     if (!day?.complete) continue;
     training.push({
+      age,
       kind: dayKind(date),
       wh: day.wh,
       weight: 0.5 ** (age / HALF_LIFE_DAYS),
@@ -247,17 +251,27 @@ export function fitDailyModel(
       mean[1] += cdd / withTemperature.length;
     }
   }
+  const fitted = (kind: DayKind, tenths: TenthsCelsius | null) => {
+    const values = row(
+      chosen.design,
+      kind,
+      tenths === null || !usesTemperature ? mean : degreeDays(chosen.design, tenths),
+    );
+    let wh = 0;
+    for (let j = 0; j < values.length; j++) wh += values[j]! * chosen.beta[j]!;
+    return wh;
+  };
+  // Anchored on the recent level: the average error of the last NAIVE_DAYS days
+  // (a year of data mixes seasons and habits; the recent days say where the house is now).
+  const recent = (usesTemperature ? withTemperature : training).filter(
+    (day) => day.age <= NAIVE_DAYS,
+  );
+  const offset =
+    recent.length === 0
+      ? 0
+      : recent.reduce((sum, day) => sum + day.wh - fitted(day.kind, day.tenths), 0) / recent.length;
   return {
-    predict: (date, tenths) => {
-      const values = row(
-        chosen.design,
-        dayKind(date),
-        tenths === null ? mean : degreeDays(chosen.design, tenths),
-      );
-      let wh = 0;
-      for (let j = 0; j < values.length; j++) wh += values[j]! * chosen.beta[j]!;
-      return Math.max(0, wh);
-    },
+    predict: (date, tenths) => Math.max(0, fitted(dayKind(date), tenths) + offset),
     usesTemperature,
   };
 }
@@ -479,6 +493,8 @@ export function backtest(
   beforeMonth: string,
   measuredOf: TemperatureOf,
   normalOf: TemperatureOf,
+  /** Days after the forecast that use the measured temperature (a perfect weather forecast). */
+  measuredAhead = 0,
 ): Backtest {
   const unit = data.tariff ? 'cents' : 'wh';
   const months = new Set<string>();
@@ -502,8 +518,9 @@ export function backtest(
     if (actual <= 0) continue;
     for (const day of BACKTEST_DAYS) {
       const asOf = dates[day - 1]!;
+      const lastMeasured = addDays(asOf, measuredAhead);
       const temperatureOf: TemperatureOf = (date) =>
-        date < asOf ? measuredOf(date) : normalOf(date);
+        date < lastMeasured ? measuredOf(date) : normalOf(date);
       const model = forecastMonth(data, month, asOf, temperatureOf, 'model');
       const naive = forecastMonth(data, month, asOf, temperatureOf, 'naive');
       // Only where the model itself ran: early months fall back to the baseline.
