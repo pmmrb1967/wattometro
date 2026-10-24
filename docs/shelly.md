@@ -81,6 +81,15 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/KVS>
 - Chave até 42 caracteres, valor até 253, até 50 chaves.
 - Chaves usadas: `wattometro.url`, `wattometro.token`, `wattometro.channel`.
 
+## Autenticação (palavra-passe local)
+
+Fonte: <https://shelly-api-docs.shelly.cloud/gen2/General/Authentication> (consultada a 2026-10-24).
+
+- Define-se na página web do Shelly, em **Settings → Authentication** ("Enable password protected device"); o utilizador é sempre `admin`. Confirmado no aparelho (firmware 2.1.0). Não protege o script nem os envios para o Wattómetro, só o acesso pela rede local.
+- Os pedidos sem autenticação recebem **401** com `WWW-Authenticate: Digest qop="auth", realm="<id do aparelho>", nonce="<base64>", algorithm=SHA-256`.
+- Por RPC, o pedido repete-se com um objeto `auth`: `realm`, `username: "admin"`, `nonce` (texto desde o firmware 2.0.0; número antes), `cnonce` (número aleatório), `nc` (`"00000001"`), `algorithm: "SHA-256"` e `response = SHA256(ha1:nonce:nc:cnonce:auth:ha2)`, com `ha1 = SHA256(admin:realm:password)` e `ha2 = SHA256(dummy_method:dummy_uri)`.
+- O `curl` do Git para Windows (Schannel) não consegue fazer este digest SHA-256: `scripts/shelly/rpc.ts` faz-o em Node. `pnpm shelly:install` lê `SHELLY_HOST` e `SHELLY_PASSWORD` do `.env` (ver `.env.example`).
+
 ## Por confirmar com o aparelho (lista para a Fase 1.1)
 
 - [ ] Modelo e firmware

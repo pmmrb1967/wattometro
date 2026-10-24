@@ -56,4 +56,8 @@ Repete o passo 3 com o valor novo e depois **Stop** e **Start** no script. Um to
 
 ## Atualizar o script
 
-Substitui o conteúdo do script pela versão nova de `wattometro.js`, guarda e reinicia. A configuração (passo 3) mantém-se. O servidor aceita as versões anteriores do formato de envio.
+A partir de um computador na mesma rede, com o repositório: copia `.env.example` para `.env`, preenche `SHELLY_HOST` (e `SHELLY_PASSWORD`, se o Shelly tiver palavra-passe) e corre `pnpm shelly:install`. O comando cria o script se faltar, envia o código, ativa o arranque automático, reinicia-o e confirma que o código no Shelly é igual ao do repositório. Se já for igual, não mexe em nada.
+
+Sem o repositório: substitui o conteúdo do script pela versão nova de `wattometro.js`, guarda e reinicia.
+
+Em ambos os casos a configuração (passo 3) mantém-se. O servidor aceita as versões anteriores do formato de envio.

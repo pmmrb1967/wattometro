@@ -152,6 +152,7 @@ pnpm db:migrate:remote   # migrações D1 na Cloudflare
 pnpm user:create --remote  # cria uma conta ou muda a password (num terminal normal: pede a password)
 pnpm deploy:server       # Worker `api` (sem endereço público; publicar antes da app)
 pnpm deploy:app          # build + Worker `app` → https://app.wattometro.workers.dev (/v1/* → api)
+pnpm shelly:install      # instala/atualiza shelly/wattometro.js no Shelly de casa (SHELLY_HOST e SHELLY_PASSWORD no .env)
 ```
 
 `pnpm erse:sync` atualiza `public/data/erse-offers.json` com as ofertas da ERSE. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas.
