@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import {
+  installationSchema,
+  UNKNOWN_INSTALLATION,
+  type Installation,
+} from '../../../src/domain/installation';
 import type { Sql } from '../db';
 
 export interface Household {
@@ -84,6 +89,64 @@ export async function setHouseholdLocation(
     location?.latitudeCdeg ?? null,
     location?.longitudeCdeg ?? null,
     householdId,
+  );
+}
+
+interface InstallationRow {
+  heating: string | null;
+  air_conditioning: number | null;
+  water_heating: string | null;
+  hob: string | null;
+  solar_panels: number | null;
+  electric_car: number | null;
+}
+
+const flag = (value: number | null) => (value === null ? null : value === 1);
+const toFlag = (value: boolean | null) => (value === null ? null : value ? 1 : 0);
+
+/** What the household said about its installation; all unknown until saved. */
+export async function getHouseholdInstallation(
+  sql: Sql,
+  householdId: string,
+): Promise<Installation> {
+  const row = await sql.first<InstallationRow>(
+    `SELECT heating, air_conditioning, water_heating, hob, solar_panels, electric_car
+       FROM household_installation WHERE household_id = ?`,
+    householdId,
+  );
+  if (!row) return UNKNOWN_INSTALLATION;
+  return installationSchema.parse({
+    heating: row.heating === null ? null : row.heating.split(','),
+    airConditioning: flag(row.air_conditioning),
+    waterHeating: row.water_heating,
+    hob: row.hob,
+    solarPanels: flag(row.solar_panels),
+    electricCar: flag(row.electric_car),
+  });
+}
+
+export async function setHouseholdInstallation(
+  sql: Sql,
+  householdId: string,
+  installation: Installation,
+  now: number,
+): Promise<void> {
+  await sql.run(
+    `INSERT INTO household_installation (household_id, heating, air_conditioning, water_heating,
+       hob, solar_panels, electric_car, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (household_id) DO UPDATE SET heating = excluded.heating,
+       air_conditioning = excluded.air_conditioning, water_heating = excluded.water_heating,
+       hob = excluded.hob, solar_panels = excluded.solar_panels,
+       electric_car = excluded.electric_car, updated_at = excluded.updated_at`,
+    householdId,
+    installation.heating?.join(',') ?? null,
+    toFlag(installation.airConditioning),
+    installation.waterHeating,
+    installation.hob,
+    toFlag(installation.solarPanels),
+    toFlag(installation.electricCar),
+    now,
   );
 }
 

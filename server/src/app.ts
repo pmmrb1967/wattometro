@@ -15,6 +15,9 @@
  *   GET  /v1/household/location → {location: {name, latitudeCdeg, longitudeCdeg} | null}
  *   PUT  /v1/household/location {location: … | null} → 204 (the locality, for the weather;
  *                              hundredths of a degree, docs/open-meteo.md)
+ *   GET  /v1/household/installation → {installation: Installation} (src/domain/installation.ts;
+ *                              every answer null until saved)
+ *   PUT  /v1/household/installation {installation} → 204
  *   GET  /v1/devices           → {devices: DeviceView[]} (not revoked)
  *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
  *   DELETE /v1/devices/:id     → 204, the device's token stops working
@@ -78,6 +81,7 @@ import {
   type Device,
 } from './repo/devices';
 import { databaseReachable } from './repo/health';
+import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
@@ -85,8 +89,10 @@ import { getState } from './repo/rollups';
 import { STATE } from './rollups';
 import {
   getHousehold,
+  getHouseholdInstallation,
   getHouseholdLocation,
   renameHousehold,
+  setHouseholdInstallation,
   setHouseholdLocation,
 } from './repo/households';
 import { eredesQuarters, peakMinutes, powerByMeter, topQuarters } from './repo/power';
@@ -151,6 +157,8 @@ const LocationBody = z.object({
     })
     .nullable(),
 });
+
+const InstallationBody = z.object({ installation: installationSchema });
 
 export const MAX_DEVICE_NAME = 60;
 const DeviceBody = z.object({ name: z.string().trim().min(1).max(MAX_DEVICE_NAME) });
@@ -334,6 +342,20 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const parsed = await body(c, LocationBody);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     await setHouseholdLocation(config.sql, c.get('user').householdId, parsed.data.location);
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/household/installation', requireUser, async (c) =>
+    c.json({
+      installation: await getHouseholdInstallation(config.sql, c.get('user').householdId),
+    }),
+  );
+
+  app.put('/v1/household/installation', requireUser, async (c) => {
+    const parsed = await body(c, InstallationBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { householdId } = c.get('user');
+    await setHouseholdInstallation(config.sql, householdId, parsed.data.installation, now());
     return c.body(null, 204);
   });
 

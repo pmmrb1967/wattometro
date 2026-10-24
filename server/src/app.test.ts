@@ -2,6 +2,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memorySql } from '../test/sqlite';
+import { UNKNOWN_INSTALLATION } from '../../src/domain/installation';
 import { createApp } from './app';
 import { LOCK_SECONDS, MAX_LOGIN_FAILURES, RENEW_AFTER_SECONDS, SESSION_SECONDS } from './auth';
 import type { Sql } from './db';
@@ -335,6 +336,53 @@ describe('/v1/household/location', () => {
     const cookie = sessionFrom(await loginAs());
     expect((await put(cookie, { location: COIMBRA }, 'https://evil.example')).status).toBe(403);
     expect((await put('', { location: COIMBRA })).status).toBe(401);
+  });
+});
+
+describe('/v1/household/installation', () => {
+  const put = (cookie: string, body: unknown, origin = ORIGIN) =>
+    app.request(`${ORIGIN}/v1/household/installation`, {
+      method: 'PUT',
+      headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const get = async (cookie: string) =>
+    (
+      await app.request(`${ORIGIN}/v1/household/installation`, { headers: { Cookie: cookie } })
+    ).json();
+  const GAS_HOUSE = {
+    heating: ['gas-boiler'],
+    airConditioning: false,
+    waterHeating: 'gas',
+    hob: 'electric',
+    solarPanels: false,
+    electricCar: null,
+  };
+
+  it('starts unknown, then keeps the answers', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect(await get(cookie)).toEqual({ installation: UNKNOWN_INSTALLATION });
+    expect((await put(cookie, { installation: GAS_HOUSE })).status).toBe(204);
+    expect(await get(cookie)).toEqual({ installation: GAS_HOUSE });
+    expect((await put(cookie, { installation: UNKNOWN_INSTALLATION })).status).toBe(204);
+    expect(await get(cookie)).toEqual({ installation: UNKNOWN_INSTALLATION });
+  });
+
+  it('rejects unknown kinds and "none" with another heating', async () => {
+    const cookie = sessionFrom(await loginAs());
+    const bad = (change: object) => put(cookie, { installation: { ...GAS_HOUSE, ...change } });
+    expect((await bad({ heating: ['none', 'wood'] })).status).toBe(400);
+    expect((await bad({ waterHeating: 'oil' })).status).toBe(400);
+    expect((await bad({ airConditioning: 'yes' })).status).toBe(400);
+    expect((await put(cookie, { installation: { heating: null } })).status).toBe(400);
+  });
+
+  it('needs a session and the app origin', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect((await put(cookie, { installation: GAS_HOUSE }, 'https://evil.example')).status).toBe(
+      403,
+    );
+    expect((await put('', { installation: GAS_HOUSE })).status).toBe(401);
   });
 });
 

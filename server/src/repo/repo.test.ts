@@ -4,7 +4,13 @@ import { memorySql } from '../../test/sqlite';
 import type { Sql } from '../db';
 import { createDevice, findActiveDeviceByTokenHash, listDevices, revokeDevice } from './devices';
 import { databaseReachable } from './health';
-import { createHousehold, getHousehold } from './households';
+import {
+  createHousehold,
+  getHousehold,
+  getHouseholdInstallation,
+  setHouseholdInstallation,
+} from './households';
+import { UNKNOWN_INSTALLATION } from '../../../src/domain/installation';
 
 const NOW = 1_792_000_000;
 const HASH = 'a'.repeat(64);
@@ -24,6 +30,35 @@ describe('households', () => {
       createdAt: NOW,
     });
     expect(await getHousehold(sql, 'missing')).toBeNull();
+  });
+});
+
+describe('household installation', () => {
+  it('belongs to one household and is replaced on save', async () => {
+    const house = await createHousehold(sql, 'Casa', NOW);
+    const other = await createHousehold(sql, 'Outra', NOW);
+    const mixed = {
+      ...UNKNOWN_INSTALLATION,
+      heating: ['gas-boiler' as const, 'electric-heaters' as const],
+      airConditioning: false,
+    };
+    await setHouseholdInstallation(sql, house.id, mixed, NOW);
+    expect(await getHouseholdInstallation(sql, house.id)).toEqual(mixed);
+    expect(await getHouseholdInstallation(sql, other.id)).toEqual(UNKNOWN_INSTALLATION);
+    await setHouseholdInstallation(sql, house.id, { ...mixed, heating: ['none'] }, NOW + 1);
+    expect((await getHouseholdInstallation(sql, house.id)).heating).toEqual(['none']);
+  });
+
+  it('the database refuses kinds outside the list', async () => {
+    const house = await createHousehold(sql, 'Casa', NOW);
+    await expect(
+      sql.run(
+        'INSERT INTO household_installation (household_id, hob, updated_at) VALUES (?, ?, ?)',
+        house.id,
+        'oil',
+        NOW,
+      ),
+    ).rejects.toThrow();
   });
 });
 
