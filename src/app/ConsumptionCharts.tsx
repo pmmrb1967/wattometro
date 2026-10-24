@@ -2,11 +2,13 @@
 /**
  * "Consumo": energy per quarter hour (a day) or per day (a week, a month),
  * coloured by the tariff's periods, and the hour × weekday profile. Today, so
- * far, is shown in the bars only (the profile uses whole days).
+ * far, is shown in the bars only (the profile uses whole days). With the house,
+ * E-Redes and the Shelly side by side instead (compare-series.ts).
  * Calculation: src/domain/consumption.ts.
  */
 import { useMemo, useState } from 'react';
-import { BarChart, HourHeatmap, type Bar } from '../components/Charts';
+import { BarChart, HourHeatmap, SeriesChart, type Bar } from '../components/Charts';
+import { compareSeries, daySlots, differencePct, hourTicks } from './compare-series';
 import { dayBars, noon, SHORT_DAY, usedPeriods } from './chart-bars';
 import {
   addDays,
@@ -68,6 +70,8 @@ export function ConsumptionCharts({
   quarters,
   today,
   shellyFrom,
+  compare,
+  shellyName,
   periods,
 }: {
   /** Whole days. */
@@ -76,6 +80,10 @@ export function ConsumptionCharts({
   today: Quarter[] | null;
   /** First day measured by the Shelly instead of E-Redes; null for none. */
   shellyFrom: LocalDate | null;
+  /** The house: each system's whole days, shown side by side; null for one meter. */
+  compare: { eredes: Quarter[]; shelly: Quarter[] } | null;
+  /** The Shelly's name, for the legend. */
+  shellyName: string;
   periods: Periods;
 }) {
   const whole = useMemo(() => quartersByDay(quarters, periods), [quarters, periods]);
@@ -90,7 +98,13 @@ export function ConsumptionCharts({
     for (const [date, dayQuarters] of days) map.set(date, dayTotal(date, dayQuarters));
     return map;
   }, [days]);
-  const dates = [...days.keys()];
+  // The Shelly's days the house series leaves out (E-Redes has them) still count here.
+  const shellyAll = useMemo(
+    () => (compare ? [...compare.shelly, ...(today ?? [])] : []),
+    [compare, today],
+  );
+  const shellyDates = useMemo(() => [...quartersByDay(shellyAll, null).keys()], [shellyAll]);
+  const dates = [...new Set([...days.keys(), ...shellyDates])].sort();
   const firstDate = dates[0];
   const lastDate = dates.at(-1);
   const lastWhole = [...whole.keys()].at(-1);
@@ -111,22 +125,24 @@ export function ConsumptionCharts({
   let ticks: { index: number; label: string }[];
   let total: Partial<Record<BillingPeriod, number>> = {};
   if (view === 'day') {
-    const dayQuarters = days.get(date) ?? [];
-    bars = dayQuarters.map((quarter) => ({
-      key: String(quarter.ts),
-      title: texts.quarterTitle(
-        formatLisbonTime(quarter.ts),
-        kwh(quarter.energyWh),
-        periodNames[quarter.period],
-      ),
-      segments: [{ period: quarter.period, value: quarter.energyWh }],
-    }));
-    ticks = dayQuarters.flatMap((quarter, index) => {
-      const time = formatLisbonTime(quarter.ts);
-      return ['00:00', '06:00', '12:00', '18:00'].includes(time)
-        ? [{ index, label: `${Number(time.slice(0, 2))} h` }]
-        : [];
+    // The whole day on the axis, so the hours stay in place on a partial day.
+    const slots = daySlots(date);
+    const byTs = new Map((days.get(date) ?? []).map((quarter) => [quarter.ts, quarter]));
+    bars = slots.map((ts) => {
+      const quarter = byTs.get(ts);
+      return {
+        key: String(ts),
+        title: quarter
+          ? texts.quarterTitle(
+              formatLisbonTime(ts),
+              kwh(quarter.energyWh),
+              periodNames[quarter.period],
+            )
+          : texts.dayTitle(formatLisbonTime(ts), texts.noData),
+        segments: quarter ? [{ period: quarter.period, value: quarter.energyWh }] : [],
+      };
     });
+    ticks = hourTicks(slots);
     total = totals.get(date)?.byPeriod ?? {};
   } else {
     ({ bars, ticks } = dayBars(shown, totals, view));
@@ -138,6 +154,15 @@ export function ConsumptionCharts({
   }
   const totalWh = Object.values(total).reduce((sum, wh) => sum + wh, 0);
   const used = usedPeriods(total);
+  const comparison = compare
+    ? compareSeries(compare.eredes, shellyAll, view === 'day' ? 'day' : 'days', shown)
+    : null;
+  const difference = comparison ? differencePct(comparison.common) : null;
+  const seriesNames = { eredes: texts.eredesSeries, shelly: shellyName };
+  const partsOf = (values: { eredes: number | null; shelly: number | null }) =>
+    (['eredes', 'shelly'] as const)
+      .map((key) => `${seriesNames[key]} ${values[key] === null ? texts.noData : kwh(values[key])}`)
+      .join(' · ');
 
   return (
     <>
@@ -179,7 +204,73 @@ export function ConsumptionCharts({
             ›
           </button>
         </div>
-        {totalWh === 0 ? (
+        {comparison ? (
+          comparison.totals.eredes + comparison.totals.shelly === 0 ? (
+            <p className="hint">{texts.noData}</p>
+          ) : (
+            <>
+              <p>
+                {texts.seriesTotals(
+                  partsOf({
+                    eredes: comparison.slots.some((slot) => slot.eredes !== null)
+                      ? comparison.totals.eredes
+                      : null,
+                    shelly: comparison.slots.some((slot) => slot.shelly !== null)
+                      ? comparison.totals.shelly
+                      : null,
+                  }),
+                )}
+              </p>
+              <SeriesChart
+                kind={view === 'day' ? 'lines' : 'bars'}
+                slots={comparison.slots.map((slot) => ({
+                  key: slot.key,
+                  title: texts.seriesTitle(
+                    typeof slot.at === 'number'
+                      ? formatLisbonTime(slot.at)
+                      : SHORT_DAY.format(noon(slot.at)),
+                    partsOf(slot),
+                  ),
+                }))}
+                series={[
+                  {
+                    name: seriesNames.eredes,
+                    className: 'series-eredes',
+                    values: comparison.slots.map((slot) => slot.eredes),
+                  },
+                  {
+                    name: seriesNames.shelly,
+                    className: 'series-shelly',
+                    values: comparison.slots.map((slot) => slot.shelly),
+                  },
+                ]}
+                ticks={view === 'day' ? ticks : dayBars(shown, totals, view).ticks}
+                maxLabel={(max) =>
+                  view === 'day' ? texts.perQuarter(kwh(max)) : texts.perDay(kwh(max))
+                }
+                label={`${texts.title}: ${title(view, shown)}`}
+              />
+              <ul className="chart-legend">
+                {(['eredes', 'shelly'] as const).map((key) => (
+                  <li key={key}>
+                    <span className={`legend-swatch series-${key}`} aria-hidden="true" />
+                    {seriesNames[key]}
+                  </li>
+                ))}
+              </ul>
+              {difference && (
+                <p className="hint">
+                  {texts.difference(
+                    difference.direction,
+                    difference.pct,
+                    comparison.common.count,
+                    view === 'day' ? 'quarter' : 'day',
+                  )}
+                </p>
+              )}
+            </>
+          )
+        ) : totalWh === 0 ? (
           <p className="hint">{texts.noData}</p>
         ) : (
           <>
@@ -213,8 +304,8 @@ export function ConsumptionCharts({
             )}
           </>
         )}
-        {view !== 'day' && <p className="hint">{texts.partialHint}</p>}
-        {shellyFrom && (shown.at(-1) as LocalDate) >= shellyFrom && (
+        {view !== 'day' && !comparison && <p className="hint">{texts.partialHint}</p>}
+        {shellyFrom && comparison && (
           <p className="hint">{texts.shellyFrom(SHORT_DAY.format(noon(shellyFrom)))}</p>
         )}
       </section>

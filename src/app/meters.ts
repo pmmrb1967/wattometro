@@ -5,10 +5,21 @@ import type { Device, EnergyMeter } from './api';
 /** Not a meter: E-Redes up to its last day, then the main Shelly (household-energy.ts). */
 export const HOUSE_METER = 'house';
 
-/** "Casa", "E-Redes", or the Shelly's name (and channel). */
-export function meterLabel(meter: string, devices: Device[]): string {
-  if (meter === HOUSE_METER) return t.tariffs.houseMeter;
+/**
+ * "Casa (E-Redes) + Quadro (Shelly)", "E-Redes (contador da rede)" or the
+ * Shelly's name (and channel) with "(Shelly)". `houseShelly` names the Shelly
+ * of the house.
+ */
+export function meterLabel(meter: string, devices: Device[], houseShelly?: string | null): string {
+  if (meter === HOUSE_METER) {
+    return t.tariffs.houseMeter(houseShelly ? shellyName(houseShelly, devices) : 'Shelly');
+  }
   if (meter === 'eredes') return t.tariffs.eredesMeter;
+  return t.tariffs.shellyMeter(shellyName(meter, devices));
+}
+
+/** The Shelly's name, with its channel when not the first. */
+export function shellyName(meter: string, devices: Device[]): string {
   const [deviceId, channel] = meter.split(':');
   const name = devices.find((device) => device.id === deviceId)?.name ?? deviceId ?? meter;
   return channel && channel !== '0' ? `${name} · ${t.now.channel(Number(channel))}` : name;

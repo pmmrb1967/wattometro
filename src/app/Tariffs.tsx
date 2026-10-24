@@ -143,7 +143,7 @@ export function Tariffs() {
             <p className="hint">
               {usage.extrapolated
                 ? texts.extrapolated(usage.days)
-                : texts.fullYear(meterLabel(meter ?? '', devices))}
+                : texts.fullYear(meterLabel(meter ?? '', devices, energy.houseShelly))}
             </p>
             <p className="hint">
               {texts.split(

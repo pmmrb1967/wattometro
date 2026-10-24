@@ -6,10 +6,10 @@
  * month can be compared with the same month a year before). One window for all
  * pages, so the browser cache (energy-cache.ts) serves them all.
  *
- * With E-Redes and a Shelly, the default is the house (HOUSE_METER): E-Redes up
- * to its last imported day, the Shelly after it (houseQuarters). Today, still
- * going, comes apart (`today`, from /v1/now) for the charts only: totals,
- * forecasts and comparisons use whole days.
+ * With E-Redes and a Shelly, the default is the house (HOUSE_METER): the charts
+ * show both (`compare`); totals, forecasts and comparisons use E-Redes up to its
+ * last imported day and the Shelly after it (houseQuarters). Today, still going,
+ * comes apart (`today`, from /v1/now) for the charts only.
  */
 import { useEffect, useState } from 'react';
 import { addMonths, houseQuarters } from '../domain/consumption';
@@ -76,6 +76,10 @@ export interface HouseholdEnergy {
   shellyFrom: LocalDate | null;
   /** Today's quarters so far, from a Shelly; null for E-Redes or when unknown. */
   today: Quarter[] | null;
+  /** The house: each system's whole days, for the charts; null for a single meter. */
+  compare: { eredes: Quarter[]; shelly: Quarter[] } | null;
+  /** The Shelly measuring the house (its meter id); null without one. */
+  houseShelly: string | null;
 }
 
 const meterOf = (item: Now['meters'][number]) => `${item.deviceId}:${item.channel}`;
@@ -106,6 +110,7 @@ export function useHouseholdEnergy(): HouseholdEnergy {
     meter: string;
     quarters: Quarter[];
     shellyFrom: LocalDate | null;
+    compare: HouseholdEnergy['compare'];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -172,8 +177,8 @@ export function useHouseholdEnergy(): HouseholdEnergy {
       const [first = [], second = []] = quarters;
       setLoaded(
         meter === HOUSE_METER
-          ? { meter, ...houseQuarters(first, second) }
-          : { meter, quarters: first, shellyFrom: null },
+          ? { meter, ...houseQuarters(first, second), compare: { eredes: first, shelly: second } }
+          : { meter, quarters: first, shellyFrom: null, compare: null },
       );
     });
     return () => {
@@ -208,6 +213,8 @@ export function useHouseholdEnergy(): HouseholdEnergy {
     quarters: loaded?.meter === meter ? loaded.quarters : null,
     shellyFrom: loaded?.meter === meter ? (loaded.shellyFrom ?? todayFromShelly) : null,
     today: todayOf ? todayOf.today.quarters : null,
+    compare: loaded?.meter === meter ? loaded.compare : null,
+    houseShelly: shelly,
   };
 }
 

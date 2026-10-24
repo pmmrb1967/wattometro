@@ -146,3 +146,105 @@ export function HourHeatmap({
     </svg>
   );
 }
+
+export interface Series {
+  name: string;
+  /** CSS class with the series colour (fill and stroke). */
+  className: string;
+  /** One value per slot; null where the series has no data. */
+  values: readonly (number | null)[];
+}
+
+/**
+ * Two or more series over the same slots: lines (many slots, e.g. the quarters
+ * of a day; broken where a value is missing) or bars side by side (a week, a month).
+ */
+export function SeriesChart({
+  slots,
+  series,
+  kind,
+  ticks,
+  maxLabel,
+  label,
+}: {
+  /** Tooltip of each slot (all series' values). */
+  slots: readonly { key: string; title: string }[];
+  series: readonly Series[];
+  kind: 'lines' | 'bars';
+  ticks: readonly { index: number; label: string }[];
+  maxLabel: (max: number) => string;
+  label: string;
+}) {
+  const max = Math.max(1, ...series.flatMap((item) => item.values.map((value) => value ?? 0)));
+  const step = WIDTH / Math.max(slots.length, 1);
+  const y = (value: number) => TOP + PLOT - (value * PLOT) / max;
+  const gap = 0.25;
+  const barWidth = (step * (1 - gap)) / Math.max(series.length, 1);
+  return (
+    <svg
+      className="chart"
+      viewBox={`0 0 ${WIDTH} ${TOP + PLOT + AXIS}`}
+      role="img"
+      aria-label={label}
+    >
+      <line className="chart-grid" x1={0} x2={WIDTH} y1={TOP} y2={TOP} />
+      <text className="chart-text" x={0} y={TOP - 4}>
+        {maxLabel(max)}
+      </text>
+      <line className="chart-axis" x1={0} x2={WIDTH} y1={TOP + PLOT} y2={TOP + PLOT} />
+      {series.map((item, seriesIndex) =>
+        kind === 'lines' ? (
+          <path
+            key={item.name}
+            className={`chart-line ${item.className}`}
+            d={item.values
+              .map((value, index) => {
+                if (value === null) return '';
+                const previous = index > 0 ? item.values[index - 1] : null;
+                const command = previous === null || previous === undefined ? 'M' : 'L';
+                return `${command}${(index * step + step / 2).toFixed(1)},${y(value).toFixed(1)}`;
+              })
+              .join('')}
+          />
+        ) : (
+          <g key={item.name} className={item.className}>
+            {item.values.map((value, index) =>
+              value === null ? null : (
+                <rect
+                  key={index}
+                  x={index * step + (step * gap) / 2 + seriesIndex * barWidth}
+                  y={y(value)}
+                  width={barWidth}
+                  height={TOP + PLOT - y(value)}
+                />
+              ),
+            )}
+          </g>
+        ),
+      )}
+      {slots.map((slot, index) => (
+        <rect
+          key={slot.key}
+          className="chart-hit"
+          x={index * step}
+          y={TOP}
+          width={step}
+          height={PLOT}
+        >
+          <title>{slot.title}</title>
+        </rect>
+      ))}
+      {ticks.map((tick) => (
+        <text
+          key={tick.index}
+          className="chart-text"
+          x={Math.max(tick.index * step + step / 2, 0)}
+          y={TOP + PLOT + AXIS - 3}
+          textAnchor={tick.index * step < 12 ? 'start' : 'middle'}
+        >
+          {tick.label}
+        </text>
+      ))}
+    </svg>
+  );
+}

@@ -14,7 +14,7 @@ import { formatKwh, formatPower } from '../lib/units';
 import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
-import { HOUSE_METER } from './meters';
+import { HOUSE_METER, shellyName } from './meters';
 import { MeterSelect } from './MeterSelect';
 
 const texts = t.consumption;
@@ -164,6 +164,10 @@ export function Consumption() {
             quarters={quarters}
             today={energy.today}
             shellyFrom={energy.shellyFrom}
+            compare={energy.compare}
+            shellyName={
+              energy.houseShelly ? shellyName(energy.houseShelly, energy.devices) : 'Shelly'
+            }
             periods={periods}
           />
         </>

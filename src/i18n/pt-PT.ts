@@ -525,7 +525,12 @@ export const t = {
       partialHint: 'Barras mais claras: dias sem dados ou incompletos.',
       today: 'até agora',
       shellyFrom: (date: string) =>
-        `Desde ${date}: medido pelo Shelly. A E-Redes só chega ao último dia do ficheiro que importaste; quando importares um mais recente, esses dias passam a ser os da E-Redes.`,
+        `A previsão, o consumo base e os tarifários usam a E-Redes até ao último dia do ficheiro que importaste e o Shelly a partir de ${date}. Quando importares um ficheiro mais recente, esses dias passam a ser os da E-Redes.`,
+      eredesSeries: 'E-Redes',
+      seriesTotals: (parts: string) => `Total: ${parts}`,
+      seriesTitle: (when: string, parts: string) => `${when}: ${parts}`,
+      difference: (direction: 1 | 0 | -1, pct: string, count: number, unit: 'quarter' | 'day') =>
+        `Onde há dados dos dois (${count} ${unit === 'quarter' ? (count === 1 ? 'quarto de hora' : 'quartos de hora') : count === 1 ? 'dia completo' : 'dias completos'}), o Shelly mede ${direction === 0 ? 'o mesmo que' : `${direction > 0 ? 'mais' : 'menos'} ${pct} do que`} a E-Redes.`,
       heatmapTitle: 'Hora a hora, por dia da semana',
       heatmapIntro:
         'Quanto gastas em média em cada hora de cada dia da semana, nas últimas 12 semanas com dados. Cor mais forte é mais consumo.',
@@ -605,7 +610,8 @@ export const t = {
     usageTitle: 'O teu consumo',
     meter: 'Consumos de',
     eredesMeter: 'E-Redes (contador da rede)',
-    houseMeter: 'Casa (E-Redes e, a seguir, Shelly)',
+    houseMeter: (shelly: string) => `Casa (E-Redes) + ${shelly} (Shelly)`,
+    shellyMeter: (shelly: string) => `${shelly} (Shelly)`,
     tooLittle: 'Há menos de 30 dias de consumos: pouco para estimar um ano.',
     perYear: (kwh: string) => `${kwh} por ano`,
     fullYear: (meter: string) => `Os últimos 12 meses medidos (${meter}).`,

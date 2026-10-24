@@ -4,10 +4,10 @@ import type { HouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
 
 export function MeterSelect({
-  energy: { choices, devices, meter, setMeter },
+  energy: { choices, devices, meter, setMeter, houseShelly },
   label,
 }: {
-  energy: Pick<HouseholdEnergy, 'choices' | 'devices' | 'meter' | 'setMeter'>;
+  energy: Pick<HouseholdEnergy, 'choices' | 'devices' | 'meter' | 'setMeter' | 'houseShelly'>;
   label: string;
 }) {
   if (choices.length < 2) return null;
@@ -17,7 +17,7 @@ export function MeterSelect({
       <select value={meter ?? ''} onChange={(event) => setMeter(event.target.value)}>
         {choices.map((choice) => (
           <option key={choice} value={choice}>
-            {meterLabel(choice, devices)}
+            {meterLabel(choice, devices, houseShelly)}
           </option>
         ))}
       </select>

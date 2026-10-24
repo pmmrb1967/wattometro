@@ -7,7 +7,8 @@
  * memory until the demonstration ends; the account and devices cannot change
  * (409 {error: 'demo'}).
  * The E-Redes "import" is the Shelly's quarter hours up to EREDES_LAG_DAYS ago,
- * as when the last file was downloaded a few days back.
+ * as when the last file was downloaded a few days back, 2 % lower (a Shelly
+ * reads a little differently from the grid meter).
  */
 import { addDays } from '../domain/consumption';
 import { installationSchema, type Installation } from '../domain/installation';
@@ -294,7 +295,12 @@ function quarterEnergy(data: DemoData, from: number, to: number): [number, numbe
 function meterQuarters(data: DemoData, meter: string, from: number, to: number) {
   if (meter === METER) return quarterEnergy(data, from, to);
   const end = Math.min(to, startOfLisbonDay(addDays(lisbonToday(), -EREDES_LAG_DAYS)));
-  return meter === 'eredes' && from < end ? quarterEnergy(data, from, end) : null;
+  return meter === 'eredes' && from < end
+    ? quarterEnergy(data, from, end).map(([ts, wh]): [number, number] => [
+        ts,
+        Math.round(wh * 0.98),
+      ])
+    : null;
 }
 
 /** Energy per Lisbon day of quarter hours (GET /v1/energy/days, server/src/repo/eredes.ts). */

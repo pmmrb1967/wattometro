@@ -891,6 +891,30 @@ a.button-link {
   background: var(--period-peak);
 }
 
+/* The two systems compared in "Consumo" (Casa (E-Redes) + Shelly). */
+.series-eredes {
+  fill: var(--period-empty);
+  stroke: var(--period-empty);
+  background: var(--period-empty);
+}
+
+.series-shelly {
+  fill: var(--period-full);
+  stroke: var(--period-full);
+  background: var(--period-full);
+}
+
+.series-eredes rect,
+.series-shelly rect {
+  stroke: none;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
 .heat-empty {
   fill: none;
   stroke: var(--border);
