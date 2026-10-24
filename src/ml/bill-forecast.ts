@@ -579,3 +579,73 @@ export function forecastRange(
     high: Math.round(value / (1 + at(0.1))),
   };
 }
+
+// ---- Choosing the method for this house ----
+
+/** How the remaining days are forecast. */
+export type ForecastChoice = 'temperature' | 'dayType' | 'naive';
+
+/** Fewer past forecasts than this: the full model, untested. */
+export const MIN_CHOICE_SAMPLES = 10;
+
+export interface ChosenForecast {
+  forecast: BillForecast;
+  choice: ForecastChoice;
+  /** Mean absolute error of each method in the backtest, %; null when not tested. */
+  errors: Record<ForecastChoice, number | null>;
+  /** Past forecasts of the chosen method. */
+  samples: number;
+  range: { low: number; high: number } | null;
+}
+
+/**
+ * The forecast with the method that erred least on this house's past months:
+ * the model with the temperature, the model without it (houses heated by gas
+ * or wood barely follow the weather, and the temperature terms then add noise),
+ * or the naive baseline. Ties go to the simpler method.
+ */
+export function chooseForecast(
+  data: ForecastData,
+  month: string,
+  asOf: LocalDate,
+  temperatureOf: TemperatureOf,
+  measuredOf: TemperatureOf,
+  normalOf: TemperatureOf,
+): ChosenForecast | null {
+  const withTemperature = backtest(data, month, measuredOf, normalOf);
+  const withoutTemperature = backtest(
+    data,
+    month,
+    () => null,
+    () => null,
+  );
+  const errors: Record<ForecastChoice, number | null> = {
+    temperature: withTemperature.modelErrorPct,
+    dayType: withoutTemperature.modelErrorPct,
+    naive: withTemperature.naiveErrorPct,
+  };
+  let choice: ForecastChoice = 'temperature';
+  if (withTemperature.samples.length >= MIN_CHOICE_SAMPLES) {
+    // Simplest first: a more complex method has to be strictly better.
+    const order: ForecastChoice[] = ['naive', 'dayType', 'temperature'];
+    choice = order.reduce((best, candidate) =>
+      (errors[candidate] ?? Infinity) < (errors[best] ?? Infinity) ? candidate : best,
+    );
+  }
+  const forecast =
+    choice === 'naive'
+      ? forecastMonth(data, month, asOf, temperatureOf, 'naive')
+      : forecastMonth(data, month, asOf, choice === 'temperature' ? temperatureOf : () => null);
+  if (!forecast) return null;
+  const samples = (choice === 'dayType' ? withoutTemperature : withTemperature).samples.map(
+    (sample) => (choice === 'naive' ? { ...sample, model: sample.naive } : sample),
+  );
+  const value = forecast.costCents ?? forecast.totalWh;
+  return {
+    forecast,
+    choice,
+    errors,
+    samples: samples.length,
+    range: forecastRange(value, Number(asOf.slice(8)), samples),
+  };
+}

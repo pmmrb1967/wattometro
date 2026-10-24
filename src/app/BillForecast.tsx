@@ -13,14 +13,7 @@ import { t } from '../i18n/pt-PT';
 import { formatCents, formatWholeEuros } from '../lib/money';
 import { formatLocalDate, lisbonToday, startOfLisbonDay, type LocalDate } from '../lib/time';
 import { formatCelsius, formatKwh } from '../lib/units';
-import {
-  backtest,
-  forecastMonth,
-  forecastRange,
-  prepareForecast,
-  type Backtest,
-  type BillForecast,
-} from '../ml/bill-forecast';
+import { chooseForecast, prepareForecast, type ChosenForecast } from '../ml/bill-forecast';
 import {
   CLIMATE_YEARS,
   FORECAST_DAYS,
@@ -74,10 +67,7 @@ function useWeather(today: LocalDate): Weather | undefined {
   return weather;
 }
 
-interface ForecastResult {
-  forecast: BillForecast;
-  range: { low: number; high: number } | null;
-  backtest: Backtest;
+interface ForecastResult extends ChosenForecast {
   weather: Weather;
 }
 
@@ -96,17 +86,15 @@ function useBillForecast(energy: HouseholdEnergy): ForecastResult | null | undef
     const measured = new Map([...(daily ?? [])].filter(([date]) => date < today));
     const normal = climateNormal(measured);
     const temperatureOf = (date: LocalDate) => (daily ? (daily.get(date) ?? normal(date)) : null);
-    const forecast = forecastMonth(data, month, today, temperatureOf);
-    if (!forecast) return null;
-    const result = backtest(
+    const chosen = chooseForecast(
       data,
       month,
+      today,
+      temperatureOf,
       (date) => measured.get(date) ?? null,
       daily ? normal : () => null,
     );
-    const value = forecast.costCents ?? forecast.totalWh;
-    const range = forecastRange(value, Number(today.slice(8)), result.samples);
-    return { forecast, range, backtest: result, weather };
+    return chosen ? { ...chosen, weather } : null;
   }, [quarters, tariffs, tariffsFailed, weather, today]);
 }
 
@@ -183,7 +171,7 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
       </section>
     );
   }
-  const { forecast, backtest: past, weather } = result;
+  const { forecast, choice, errors, weather } = result;
   const today = forecast.asOf;
   // Days before today not measured yet (E-Redes sends them later).
   const late = forecast.days.filter((day) => !day.known && day.date < today);
@@ -199,12 +187,15 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
       <Headline result={result} />
       <ul className="hint caveats">
         <li>
-          {forecast.method === 'model'
-            ? forecast.usesTemperature
-              ? texts.methodTemperature
-              : texts.methodType
-            : texts.methodNaive}
+          {forecast.method === 'naive' && choice !== 'naive'
+            ? texts.methodFewData
+            : choice === 'naive'
+              ? texts.methodNaive
+              : forecast.usesTemperature
+                ? texts.methodTemperature
+                : texts.methodType}
         </li>
+        {choice !== 'temperature' && weather.daily && <li>{texts.temperatureLeftOut}</li>}
         {late.length > 0 && (
           <li>{texts.late(formatLocalDate(late[0]!.date), formatLocalDate(late.at(-1)!.date))}</li>
         )}
@@ -217,9 +208,14 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
           </li>
         )}
         {weather.failed && <li>{texts.weatherFailed}</li>}
-        {past.modelErrorPct !== null && past.naiveErrorPct !== null && (
+        {result.samples > 0 && (
           <li>
-            {texts.backtest(past.samples.length, pct(past.modelErrorPct), pct(past.naiveErrorPct))}
+            {texts.backtest(
+              result.samples,
+              errors.temperature !== null && weather.daily ? pct(errors.temperature) : null,
+              errors.dayType !== null ? pct(errors.dayType) : null,
+              errors.naive !== null ? pct(errors.naive) : null,
+            )}
           </li>
         )}
         {!result.range && <li>{texts.noRange}</li>}

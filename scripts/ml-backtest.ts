@@ -15,7 +15,13 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { tariffInputSchema } from '../src/domain/tariff';
 import { parseEredesXlsx } from '../src/import/eredes';
-import { BACKTEST_DAYS, backtest, prepareForecast, type Backtest } from '../src/ml/bill-forecast';
+import {
+  BACKTEST_DAYS,
+  backtest,
+  chooseForecast,
+  prepareForecast,
+  type Backtest,
+} from '../src/ml/bill-forecast';
 import { lisbonToday } from '../src/lib/time';
 import {
   CLIMATE_YEARS,
@@ -112,6 +118,11 @@ async function main(): Promise<void> {
       () => null,
     ),
   );
+  const today = lisbonToday();
+  const temperatureOf = (date: string) => measured(date) ?? normal(date);
+  const chosen = chooseForecast(data, month, today, temperatureOf, measured, normal);
+  console.log(`
+Method the app would choose for ${month}: ${chosen?.choice ?? 'none (too few days)'}`);
 }
 
 await main();

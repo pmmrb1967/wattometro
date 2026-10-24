@@ -6,6 +6,7 @@ import type { TariffInput } from '../domain/tariff';
 import { lisbonDayLength, nextDate, startOfLisbonDay, type LocalDate } from '../lib/time';
 import {
   backtest,
+  chooseForecast,
   dayKind,
   fitDailyModel,
   forecastMonth,
@@ -250,5 +251,60 @@ describe('forecastRange', () => {
 
   it('too few samples: no range', () => {
     expect(forecastRange(1000, 10, [sample(10, 100), sample(10, 110)])).toBeNull();
+  });
+});
+
+describe('chooseForecast', () => {
+  it('keeps the temperature for a house that follows it', () => {
+    const { quarters, temperature } = syntheticHouse('2025-09-01', 395);
+    const data = prepareForecast(quarters, SIMPLE);
+    const measured = (date: LocalDate) => temperature.get(date) ?? null;
+    const chosen = chooseForecast(data, '2026-10', '2026-10-01', measured, measured, measured);
+    expect(chosen?.choice).toBe('temperature');
+    expect(chosen!.errors.temperature!).toBeLessThan(chosen!.errors.naive!);
+  }, 20_000);
+
+  it('leaves out a temperature the house does not follow', () => {
+    // Consumption by kind of day only, with noise; the temperature is unrelated.
+    const next = random(7);
+    const quarters = days('2025-09-01', 395, (date) => {
+      const kind = dayKind(date);
+      return Math.round((kind === 'workday' ? 80 : 120) * (0.9 + next() * 0.2));
+    });
+    const data = prepareForecast(quarters, SIMPLE);
+    const noise = random(99);
+    const weather = new Map<LocalDate, number>();
+    const temperatureOf = (date: LocalDate) => {
+      if (!weather.has(date)) weather.set(date, Math.round(50 + noise() * 200));
+      return weather.get(date)!;
+    };
+    const chosen = chooseForecast(
+      data,
+      '2026-10',
+      '2026-10-01',
+      temperatureOf,
+      temperatureOf,
+      temperatureOf,
+    );
+    expect(chosen?.choice).not.toBe('temperature');
+    expect(chosen?.forecast.usesTemperature).toBe(false);
+  }, 20_000);
+
+  it('too few past months: the full model', () => {
+    // 1 May to 10 June: May is complete, but its forecasts had under 28 days to learn from.
+    const data = prepareForecast(
+      days('2026-05-01', 41, () => 100),
+      SIMPLE,
+    );
+    const chosen = chooseForecast(
+      data,
+      '2026-06',
+      '2026-06-11',
+      () => null,
+      () => null,
+      () => null,
+    );
+    expect(chosen?.choice).toBe('temperature');
+    expect(chosen?.range).toBeNull();
   });
 });

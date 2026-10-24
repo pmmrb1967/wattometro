@@ -381,7 +381,11 @@ export const t = {
       'Previsão a partir do teu consumo dos últimos 12 meses, do dia da semana, dos feriados e da temperatura, ajustada ao nível das últimas 4 semanas.',
     methodType:
       'Previsão a partir do teu consumo dos últimos 12 meses, do dia da semana e dos feriados, ajustada ao nível das últimas 4 semanas.',
-    methodNaive: 'Ainda há poucos dados: a previsão é a média diária das últimas 4 semanas.',
+    methodNaive:
+      'Previsão pela média diária das últimas 4 semanas: foi o método que menos errou nos meses anteriores desta casa.',
+    methodFewData: 'Ainda há poucos dados: a previsão é a média diária das últimas 4 semanas.',
+    temperatureLeftOut:
+      'A temperatura não melhorou as previsões dos meses anteriores (o consumo desta casa quase não depende dela), por isso fica de fora.',
     late: (from: string, to: string) =>
       from === to
         ? `O dia ${from} ainda não chegou da E-Redes: está previsto.`
@@ -391,8 +395,19 @@ export const t = {
     noLocation: 'Sem localidade, a previsão não tem em conta a temperatura.',
     toSettings: 'Definições',
     weatherFailed: 'Não foi possível obter a temperatura agora: a previsão não a tem em conta.',
-    backtest: (count: number, model: string, naive: string) =>
-      `Nos meses anteriores (${count} previsões feitas aos dias 5, 10, 15, 20 e 25), o erro médio foi de ${model} % (a média simples das últimas 4 semanas: ${naive} %).`,
+    backtest: (
+      count: number,
+      temperature: string | null,
+      dayType: string | null,
+      naive: string | null,
+    ) =>
+      `Erro médio nos meses anteriores (${count} previsões feitas aos dias 5, 10, 15, 20 e 25): ${[
+        temperature && `com a temperatura ${temperature} %`,
+        dayType && `só com o dia da semana ${dayType} %`,
+        naive && `média das últimas 4 semanas ${naive} %`,
+      ]
+        .filter(Boolean)
+        .join('; ')}. A app usa o que menos errou.`,
     noRange: 'Ainda não há meses anteriores suficientes para indicar a margem de erro.',
     costNote:
       'Inclui potência, taxas e IVA, com o tarifário em vigor no fim do mês. Uma estimativa, não a fatura.',
