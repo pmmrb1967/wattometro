@@ -39,4 +39,6 @@ Todos feitos **no browser** (a CSP em `security-headers.ts` autoriza estes três
 ## Privacidade
 
 - A Open-Meteo guarda os IP e os URL (com as coordenadas) nos registos do servidor durante **90 dias**.
-- Por isso a app só envia as coordenadas da **localidade** escolhida (centro da localidade dado pela geocodificação), arredondadas a **0,01°** (~1 km), nunca a morada nem o GPS do telemóvel. Ficam guardadas em `households` (migração `0010`).
+- Por isso a app só envia coordenadas arredondadas a **0,01°** (~1 km), nunca a morada. Ficam guardadas em `households` (migração `0010`). Duas formas de as indicar, em Definições:
+  - **Pesquisa pelo nome** da localidade: o centro dado pela geocodificação. A geocodificação da Open-Meteo **não conhece códigos postais portugueses** (testado a 2026-10-24 com `4455-237` e `4455`: sem resultados) — procura-se pelo nome da localidade.
+  - **Localização do dispositivo** (`navigator.geolocation`, baixa precisão), só quando o utilizador carrega no botão; o browser pede autorização (`Permissions-Policy: geolocation=(self)`), a posição é arredondada logo a 0,01° e mostrada com um link para o mapa, e só é guardada depois de o utilizador confirmar.

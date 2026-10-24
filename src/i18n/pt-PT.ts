@@ -97,12 +97,31 @@ export const t = {
       search: 'Procurar',
       tooShort: (min: number) => `Escreve pelo menos ${min} letras.`,
       notFound: 'Não encontrei nenhuma localidade com esse nome em Portugal.',
+      postalCode:
+        'A pesquisa não aceita códigos postais: escreve o nome da localidade (por exemplo, Lavra), ou usa a localização do dispositivo.',
       searchFailed: 'Não foi possível procurar agora. Tenta mais tarde.',
       saved: (name: string) => `Localidade guardada: ${name}.`,
       cleared: 'Localidade removida.',
       clear: 'Remover localidade',
       invalid: 'Localidade inválida.',
       attribution: 'Dados meteorológicos e de localidades:',
+      deviceIntro:
+        'Ou usa a localização deste telemóvel ou computador, se estiver em casa. O browser pede-te autorização; depois confirmas antes de guardar. Só fica guardada com precisão de ~1 km.',
+      device: 'Usar a localização deste dispositivo',
+      deviceName: 'Localização do dispositivo',
+      deviceFailed: {
+        unsupported: 'Este browser não indica a localização. Procura a localidade pelo nome.',
+        denied:
+          'Não deste autorização para a localização. Podes autorizá-la nas definições do browser, ou procurar a localidade pelo nome.',
+        unavailable:
+          'Não foi possível obter a localização agora. Tenta outra vez, ou procura a localidade pelo nome.',
+      },
+      confirmTitle: 'Confirmar a localização',
+      confirmText: (lat: string, lon: string, accuracy: number) =>
+        `O dispositivo está perto de ${lat}; ${lon} (precisão de ${accuracy} m; guarda-se arredondada a ~1 km).`,
+      map: 'Ver no mapa',
+      confirm: 'Guardar esta localização',
+      cancel: 'Cancelar',
     },
     devices: {
       title: 'Dispositivos',

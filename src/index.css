@@ -597,6 +597,25 @@ h2 {
   flex: 1 1 14rem;
 }
 
+/* Something found, waiting for the user to confirm it. */
+.confirm {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.confirm .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* A short list of options to pick from, one button each. */
 .choices {
   display: grid;
