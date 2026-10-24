@@ -8,7 +8,9 @@ import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatLisbonTime, lisbonDate } from '../lib/time';
 import { formatKwh, formatPower, formatVolts } from '../lib/units';
-import { fetchNow, fetchTariffs, type Meter, type Now } from './api';
+import { fetchNow, type Meter, type Now } from './api';
+import { BillForecastCard } from './BillForecast';
+import { useHouseholdEnergy } from './household-energy';
 import { useSession } from './session';
 
 const REFRESH_MS = 60_000;
@@ -167,29 +169,12 @@ function useNow(): Now | null | 'unavailable' {
   return now;
 }
 
-/** The household's contracts; null when they cannot be read (the cost is then hidden). */
-function useTariffs(): Tariff[] | null | undefined {
-  const { signOut } = useSession();
-  const [tariffs, setTariffs] = useState<Tariff[] | null | undefined>(undefined);
-  useEffect(() => {
-    let active = true;
-    void fetchTariffs().then((outcome) => {
-      if (!active) return;
-      if (outcome.ok) setTariffs(outcome.tariffs);
-      else if (outcome.reason === 'unauthenticated') signOut();
-      else setTariffs(null);
-    });
-    return () => {
-      active = false;
-    };
-  }, [signOut]);
-  return tariffs;
-}
-
 export function Home() {
   const { me } = useSession();
   const now = useNow();
-  const tariffs = useTariffs();
+  const energy = useHouseholdEnergy();
+  // Null when they cannot be read (the cost is then hidden); undefined while loading.
+  const tariffs = energy.tariffs ?? (energy.tariffsFailed ? null : undefined);
 
   return (
     <>
@@ -222,6 +207,8 @@ export function Home() {
           )}
         </>
       )}
+
+      <BillForecastCard energy={energy} />
 
       <h2>{t.home.comingTitle}</h2>
       <ul className="coming">

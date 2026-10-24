@@ -76,6 +76,18 @@ export function formatCents(cents: Cents): string {
   return EUR_FORMAT.format(cents / 100);
 }
 
+const WHOLE_EUR_FORMAT = new Intl.NumberFormat('pt-PT', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+
+/** Rounded to whole euros, for estimates (e.g. 6249 → "62 €", 6250 → "63 €"). */
+export function formatWholeEuros(cents: Cents): string {
+  if (!Number.isInteger(cents)) throw new TypeError(`Not integer cents: ${cents}`);
+  return WHOLE_EUR_FORMAT.format(Math.round(cents / 100));
+}
+
 /**
  * Unit prices (€/kWh, €/day) need more precision than cents: integer
  * micro-euros, 1 € = 1 000 000 µ€ (e.g. 0,1665 €/kWh → 166 500).

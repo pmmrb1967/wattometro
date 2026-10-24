@@ -11,6 +11,7 @@ import type { Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatKwh, formatPower } from '../lib/units';
+import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
@@ -91,16 +92,8 @@ function Baseload({
 }
 
 export function Consumption() {
-  const {
-    window,
-    error,
-    tariff,
-    meters,
-    devices,
-    meter,
-    setMeter,
-    quarters: all,
-  } = useHouseholdEnergy();
+  const energy = useHouseholdEnergy();
+  const { window, error, tariff, meters, devices, meter, setMeter, quarters: all } = energy;
   // The last 365 days (the window starts earlier, for the monthly report).
   const quarters = useMemo(() => (all ? lastYear(all, window) : null), [all, window]);
   // Bars coloured by the tariff's periods (one colour with the simple option or no tariff).
@@ -169,6 +162,7 @@ export function Consumption() {
       {!quarters && <p className="hint">{t.loading}</p>}
       {quarters && (
         <>
+          <BillForecastDetail energy={energy} />
           <Baseload quarters={quarters} tariff={tariff ?? null} eredes={meter === 'eredes'} />
           <ConsumptionCharts quarters={quarters} periods={periods} />
         </>

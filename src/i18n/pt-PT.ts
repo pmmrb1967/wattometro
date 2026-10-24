@@ -67,7 +67,6 @@ export const t = {
       'A potência contratada certa para a tua casa',
       'O tarifário mais barato para o teu consumo real',
       'Quanto te custa o consumo fantasma',
-      'A fatura prevista do mês',
     ],
   },
   settings: {
@@ -366,6 +365,39 @@ export const t = {
       'NP EN 50160, características da tensão de alimentação em baixa tensão, conforme reproduzida pela ERSE (Formação ACE, 2021).',
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
+  },
+  forecast: {
+    title: (month: string) => `Fatura prevista de ${month}`,
+    titleShort: 'Fatura prevista do mês',
+    intro:
+      'Quanto vai custar a eletricidade deste mês: o que já gastaste mais uma previsão dos dias que faltam, com o teu tarifário.',
+    range: (low: string, high: string) => `Provavelmente entre ${low} e ${high}.`,
+    spent: (days: number) => `Já gasto (${days} ${days === 1 ? 'dia' : 'dias'})`,
+    energy: 'Energia prevista no mês',
+    details: 'Como é calculada',
+    notEnough:
+      'Ainda não há dados suficientes para prever a fatura: são precisas pelo menos 7 dias de consumo nas últimas 4 semanas.',
+    methodTemperature:
+      'Previsão a partir do teu consumo dos últimos 12 meses, do dia da semana, dos feriados e da temperatura, ajustada ao nível das últimas 4 semanas.',
+    methodType:
+      'Previsão a partir do teu consumo dos últimos 12 meses, do dia da semana e dos feriados, ajustada ao nível das últimas 4 semanas.',
+    methodNaive: 'Ainda há poucos dados: a previsão é a média diária das últimas 4 semanas.',
+    late: (from: string, to: string) =>
+      from === to
+        ? `O dia ${from} ainda não chegou da E-Redes: está previsto.`
+        : `Os dias de ${from} a ${to} ainda não chegaram da E-Redes: estão previstos.`,
+    temperature: (place: string, mean: string) =>
+      `Temperatura em ${place} nos próximos dias: ${mean} em média (previsão a 16 dias; depois, a média habitual dessa altura do ano).`,
+    noLocation: 'Sem localidade, a previsão não tem em conta a temperatura.',
+    toSettings: 'Definições',
+    weatherFailed: 'Não foi possível obter a temperatura agora: a previsão não a tem em conta.',
+    backtest: (count: number, model: string, naive: string) =>
+      `Nos meses anteriores (${count} previsões feitas aos dias 5, 10, 15, 20 e 25), o erro médio foi de ${model} % (a média simples das últimas 4 semanas: ${naive} %).`,
+    noRange: 'Ainda não há meses anteriores suficientes para indicar a margem de erro.',
+    costNote:
+      'Inclui potência, taxas e IVA, com o tarifário em vigor no fim do mês. Uma estimativa, não a fatura.',
+    noTariff: 'Para saberes o valor em euros, indica o teu tarifário.',
+    attribution: 'Dados meteorológicos:',
   },
   consumption: {
     title: 'Consumo',

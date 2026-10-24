@@ -2,16 +2,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   bpToPtInput,
-  parsePtPercent,
   centsToPtInput,
   divideRounded,
   eurosToMicro,
+  formatCents,
+  formatWholeEuros,
   microToPtInput,
   nanoToCents,
-  parsePtPrice,
-  formatCents,
   parseDotDecimalAmount,
   parsePtAmount,
+  parsePtPercent,
+  parsePtPrice,
   sumCents,
   wholeEurosUp,
 } from './money';
@@ -130,5 +131,14 @@ describe('parsePtPercent / bpToPtInput', () => {
     expect(bpToPtInput(400)).toBe('4');
     expect(bpToPtInput(450)).toBe('4,5');
     expect(bpToPtInput(25)).toBe('0,25');
+  });
+});
+
+describe('formatWholeEuros', () => {
+  it('rounds to whole euros for estimates', () => {
+    expect(formatWholeEuros(6249)).toBe('62 €');
+    expect(formatWholeEuros(6250)).toBe('63 €');
+    expect(formatWholeEuros(0)).toBe('0 €');
+    expect(() => formatWholeEuros(1.5)).toThrow(TypeError);
   });
 });

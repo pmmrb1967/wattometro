@@ -194,21 +194,27 @@ describe('the synthetic household', () => {
   });
 
   it('backtest: the model beats the naive baseline (the acceptance criterion)', () => {
-    const data = prepareForecast(quarters, SIMPLE);
+    // 13 months, as the app keeps: from September 2025 to the end of September 2026.
+    const from = startOfLisbonDay('2025-09-01');
+    const to = startOfLisbonDay('2026-10-01');
+    const data = prepareForecast(
+      quarters.filter(({ ts }) => ts >= from && ts < to),
+      SIMPLE,
+    );
     // The usual temperature: the sine without the weather.
     const normal = (date: LocalDate) => {
       const dayOfYear =
         (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${date.slice(0, 4)}-01-01`)) / 86_400_000;
       return Math.round(150 - 70 * Math.cos((2 * Math.PI * (dayOfYear - 15)) / 365));
     };
-    const result = backtest(data, '2027-01', measured, normal);
+    const result = backtest(data, '2026-10', measured, normal);
     expect(result.unit).toBe('cents');
-    // Months from February 2025 (28 training days) to December 2026, 5 days each.
-    expect(result.samples.length).toBeGreaterThan(80);
+    // October 2025 (from day 5: 28 training days) to September 2026, 5 days each.
+    expect(result.samples.length).toBeGreaterThanOrEqual(55);
     expect(result.modelErrorPct).not.toBeNull();
     expect(result.modelErrorPct!).toBeLessThan(result.naiveErrorPct!);
     expect(result.modelErrorPct!).toBeLessThan(5);
-  });
+  }, 20_000);
 
   it('a month of the past, forecast on day 15, lands near what it cost', () => {
     const data = prepareForecast(quarters, SIMPLE);
