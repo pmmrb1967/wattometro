@@ -585,6 +585,32 @@ h2 {
   font-weight: 400;
 }
 
+/* A field and its button on one line (wraps on narrow screens). */
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.inline-form label {
+  flex: 1 1 14rem;
+}
+
+/* A short list of options to pick from, one button each. */
+.choices {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choices button {
+  width: 100%;
+  text-align: left;
+}
+
 /* Field label with an (i): the note opens below the label, as wide as the field. */
 .form label:has(.info-tip) {
   position: relative;

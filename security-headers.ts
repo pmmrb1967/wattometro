@@ -15,7 +15,7 @@ export function contentSecurityPolicy(): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "worker-src 'self' blob:",
-    "connect-src 'self' https://api.anthropic.com https://api.open-meteo.com https://archive-api.open-meteo.com",
+    "connect-src 'self' https://api.anthropic.com https://api.open-meteo.com https://archive-api.open-meteo.com https://geocoding-api.open-meteo.com",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

@@ -302,6 +302,42 @@ describe('PUT /v1/household', () => {
   });
 });
 
+describe('/v1/household/location', () => {
+  const put = (cookie: string, body: unknown, origin = ORIGIN) =>
+    app.request(`${ORIGIN}/v1/household/location`, {
+      method: 'PUT',
+      headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const get = async (cookie: string) =>
+    (await app.request(`${ORIGIN}/v1/household/location`, { headers: { Cookie: cookie } })).json();
+  const COIMBRA = { name: 'Coimbra', latitudeCdeg: 4020, longitudeCdeg: -842 };
+
+  it('starts empty, then keeps and clears the locality', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect(await get(cookie)).toEqual({ location: null });
+    expect((await put(cookie, { location: COIMBRA })).status).toBe(204);
+    expect(await get(cookie)).toEqual({ location: COIMBRA });
+    expect((await put(cookie, { location: null })).status).toBe(204);
+    expect(await get(cookie)).toEqual({ location: null });
+  });
+
+  it('rejects fractional or out-of-range coordinates', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect((await put(cookie, { location: { ...COIMBRA, latitudeCdeg: 40.2 } })).status).toBe(400);
+    expect((await put(cookie, { location: { ...COIMBRA, longitudeCdeg: 18001 } })).status).toBe(
+      400,
+    );
+    expect((await put(cookie, { location: { ...COIMBRA, name: ' ' } })).status).toBe(400);
+  });
+
+  it('needs a session and the app origin', async () => {
+    const cookie = sessionFrom(await loginAs());
+    expect((await put(cookie, { location: COIMBRA }, 'https://evil.example')).status).toBe(403);
+    expect((await put('', { location: COIMBRA })).status).toBe(401);
+  });
+});
+
 describe('logout', () => {
   it('clears the cookie', async () => {
     const response = await post('/v1/auth/logout');

@@ -42,6 +42,51 @@ export async function renameHousehold(sql: Sql, id: string, name: string): Promi
   await sql.run('UPDATE households SET name = ? WHERE id = ?', name, id);
 }
 
+/** The locality of the house, for the weather (docs/open-meteo.md). */
+export interface HouseholdLocation {
+  name: string;
+  /** Hundredths of a degree (~1 km). */
+  latitudeCdeg: number;
+  longitudeCdeg: number;
+}
+
+export async function getHouseholdLocation(
+  sql: Sql,
+  householdId: string,
+): Promise<HouseholdLocation | null> {
+  const row = await sql.first<{
+    location_name: string | null;
+    latitude_cdeg: number | null;
+    longitude_cdeg: number | null;
+  }>(
+    'SELECT location_name, latitude_cdeg, longitude_cdeg FROM households WHERE id = ?',
+    householdId,
+  );
+  if (row?.location_name == null || row.latitude_cdeg == null || row.longitude_cdeg == null) {
+    return null;
+  }
+  return {
+    name: row.location_name,
+    latitudeCdeg: row.latitude_cdeg,
+    longitudeCdeg: row.longitude_cdeg,
+  };
+}
+
+/** Sets the locality, or clears it with null. */
+export async function setHouseholdLocation(
+  sql: Sql,
+  householdId: string,
+  location: HouseholdLocation | null,
+): Promise<void> {
+  await sql.run(
+    'UPDATE households SET location_name = ?, latitude_cdeg = ?, longitude_cdeg = ? WHERE id = ?',
+    location?.name ?? null,
+    location?.latitudeCdeg ?? null,
+    location?.longitudeCdeg ?? null,
+    householdId,
+  );
+}
+
 /** Every household's id, for the Cron jobs. */
 export async function listHouseholdIds(sql: Sql): Promise<string[]> {
   const rows = await sql.all<{ id: string }>('SELECT id FROM households ORDER BY id');

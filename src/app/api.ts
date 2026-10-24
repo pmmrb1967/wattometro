@@ -252,6 +252,36 @@ export async function saveQualityZone(
   return failure(response, [400]);
 }
 
+const HouseholdLocation = z.object({
+  name: z.string(),
+  /** Hundredths of a degree (docs/open-meteo.md). */
+  latitudeCdeg: int,
+  longitudeCdeg: int,
+});
+export type HouseholdLocation = z.infer<typeof HouseholdLocation>;
+
+/** The locality of the house, for the weather; null until one is chosen. */
+export async function fetchHouseholdLocation(): Promise<
+  { ok: true; location: HouseholdLocation | null } | Failure
+> {
+  const response = await send('GET', '/v1/household/location');
+  if (response?.ok) {
+    const parsed = z
+      .object({ location: HouseholdLocation.nullable() })
+      .parse(await response.json());
+    return { ok: true, location: parsed.location };
+  }
+  return failure(response, []);
+}
+
+export async function saveHouseholdLocation(
+  location: HouseholdLocation | null,
+): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', '/v1/household/location', { location });
+  if (response?.ok) return { ok: true };
+  return failure(response, [400]);
+}
+
 const Boot = z.object({
   deviceId: z.string(),
   bootAt: int,

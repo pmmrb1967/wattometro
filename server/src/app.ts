@@ -12,6 +12,9 @@
  *   POST /v1/account/password  {currentPassword, newPassword} → 204 + new cookie;
  *                              403 wrong_password, 429 locked; other devices are signed out
  *   PUT  /v1/household         {name} → Me
+ *   GET  /v1/household/location → {location: {name, latitudeCdeg, longitudeCdeg} | null}
+ *   PUT  /v1/household/location {location: … | null} → 204 (the locality, for the weather;
+ *                              hundredths of a degree, docs/open-meteo.md)
  *   GET  /v1/devices           → {devices: DeviceView[]} (not revoked)
  *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
  *   DELETE /v1/devices/:id     → 204, the device's token stops working
@@ -80,7 +83,12 @@ import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
 import { STATE } from './rollups';
-import { getHousehold, renameHousehold } from './repo/households';
+import {
+  getHousehold,
+  getHouseholdLocation,
+  renameHousehold,
+  setHouseholdLocation,
+} from './repo/households';
 import { eredesQuarters, peakMinutes, powerByMeter, topQuarters } from './repo/power';
 import {
   deleteEredes,
@@ -132,6 +140,17 @@ const PasswordBody = z.object({
 
 export const MAX_HOUSEHOLD_NAME = 60;
 const HouseholdBody = z.object({ name: z.string().trim().min(1).max(MAX_HOUSEHOLD_NAME) });
+
+export const MAX_LOCATION_NAME = 120;
+const LocationBody = z.object({
+  location: z
+    .object({
+      name: z.string().trim().min(1).max(MAX_LOCATION_NAME),
+      latitudeCdeg: z.number().int().min(-9000).max(9000),
+      longitudeCdeg: z.number().int().min(-18000).max(18000),
+    })
+    .nullable(),
+});
 
 export const MAX_DEVICE_NAME = 60;
 const DeviceBody = z.object({ name: z.string().trim().min(1).max(MAX_DEVICE_NAME) });
@@ -305,6 +324,17 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const user = c.get('user');
     await renameHousehold(config.sql, user.householdId, parsed.data.name);
     return c.json(await me(user));
+  });
+
+  app.get('/v1/household/location', requireUser, async (c) =>
+    c.json({ location: await getHouseholdLocation(config.sql, c.get('user').householdId) }),
+  );
+
+  app.put('/v1/household/location', requireUser, async (c) => {
+    const parsed = await body(c, LocationBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    await setHouseholdLocation(config.sql, c.get('user').householdId, parsed.data.location);
+    return c.body(null, 204);
   });
 
   app.get('/v1/devices', requireUser, async (c) => {

@@ -3,7 +3,7 @@
  * The API of the demonstration mode, answered in the browser from the
  * fictional household (model.ts): the same routes and response shapes as
  * server/src/app.ts, so the pages and src/app/api.ts work unchanged. Nothing is
- * sent to the server. Changes (tariff, zone, outages not counted) live in
+ * sent to the server. Changes (tariff, zone, locality, outages not counted) live in
  * memory until the demonstration ends; the account and devices cannot change
  * (409 {error: 'demo'}).
  */
@@ -30,8 +30,17 @@ interface DemoState {
   data: DemoData;
   tariffs: Tariff[];
   zone: 'A' | 'B' | 'C' | null;
+  location: DemoLocation | null;
   excluded: Set<number>;
 }
+
+interface DemoLocation {
+  name: string;
+  latitudeCdeg: number;
+  longitudeCdeg: number;
+}
+
+const DEMO_LOCATION: DemoLocation = { name: 'Lisboa', latitudeCdeg: 3872, longitudeCdeg: -914 };
 
 let state: DemoState | null = null;
 
@@ -64,7 +73,13 @@ function demoTariff(data: DemoData): Tariff {
 function current(): DemoState {
   if (!state) {
     const data = generateDemo(Math.floor(Date.now() / 1000));
-    state = { data, tariffs: [demoTariff(data)], zone: 'B', excluded: new Set() };
+    state = {
+      data,
+      tariffs: [demoTariff(data)],
+      zone: 'B',
+      location: DEMO_LOCATION,
+      excluded: new Set(),
+    };
   }
   return state;
 }
@@ -312,6 +327,17 @@ const numberParam = (url: URL, name: string) => {
   return Number.isInteger(value) ? value : null;
 };
 
+function isDemoLocation(value: unknown): value is DemoLocation {
+  if (typeof value !== 'object' || value === null) return false;
+  const { name, latitudeCdeg, longitudeCdeg } = value as Record<string, unknown>;
+  return (
+    typeof name === 'string' &&
+    name.trim() !== '' &&
+    Number.isInteger(latitudeCdeg) &&
+    Number.isInteger(longitudeCdeg)
+  );
+}
+
 /** Answers one API request of the demonstration. */
 export function demoResponse(method: string, path: string, body?: unknown): Response {
   const url = new URL(path, 'https://demo.invalid');
@@ -381,6 +407,15 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       const zone = (body as { zone?: unknown } | undefined)?.zone;
       if (zone !== null && zone !== 'A' && zone !== 'B' && zone !== 'C') return invalid();
       demo.zone = zone;
+      return empty();
+    }
+    case 'GET /v1/household/location':
+      return json({ location: demo.location });
+    case 'PUT /v1/household/location': {
+      const location = (body as { location?: unknown } | undefined)?.location;
+      if (location === null) demo.location = null;
+      else if (isDemoLocation(location)) demo.location = location;
+      else return invalid();
       return empty();
     }
     case 'GET /v1/outages':

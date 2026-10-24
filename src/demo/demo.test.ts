@@ -124,4 +124,19 @@ describe('demo API, through the app calculations', () => {
         .zone,
     ).toBe('B');
   });
+
+  it('has a locality that can change in memory', async () => {
+    expect(await get('/v1/household/location')).toEqual({
+      location: { name: 'Lisboa', latitudeCdeg: 3872, longitudeCdeg: -914 },
+    });
+    const porto = { name: 'Porto', latitudeCdeg: 4115, longitudeCdeg: -861 };
+    expect(demoResponse('PUT', '/v1/household/location', { location: porto }).status).toBe(204);
+    expect(await get('/v1/household/location')).toEqual({ location: porto });
+    expect(demoResponse('PUT', '/v1/household/location', { location: { name: 'X' } }).status).toBe(
+      400,
+    );
+    expect(demoResponse('PUT', '/v1/household/location', { location: null }).status).toBe(204);
+    expect(await get('/v1/household/location')).toEqual({ location: null });
+    resetDemo();
+  });
 });
