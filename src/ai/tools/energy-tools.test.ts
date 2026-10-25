@@ -89,6 +89,8 @@ const context: ToolContext = {
   tariffs: [tariff],
   daily: null,
   offers: async () => offers,
+  power: async () => null,
+  quality: async () => null,
 };
 
 async function call(name: string, input: unknown = {}) {

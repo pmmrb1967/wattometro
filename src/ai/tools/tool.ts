@@ -7,10 +7,37 @@
  * validated with zod; a bad input or a failure becomes an error the AI reads.
  */
 import { z } from 'zod';
+import type { PeakMinute } from '../../domain/contracted-power';
 import type { Offer } from '../../domain/erse';
 import type { Tariff } from '../../domain/tariff';
+import type { Interval, MinuteVoltage, Outage, QualityZone } from '../../domain/voltage';
 import type { EpochSeconds, LocalDate } from '../../lib/time';
 import type { TenthsCelsius, Wh } from '../../lib/units';
+
+/** What "Potência" works from: the Shelly with most minutes in the period. */
+export type PowerFacts =
+  | {
+      kind: 'shelly';
+      meterName: string;
+      periodDays: number;
+      /** Highest one-second power of the period (VA, or W where only active is known). */
+      peak: number;
+      fetchPeaks: (threshold: number) => Promise<{ minutes: PeakMinute[]; truncated: boolean }>;
+    }
+  /** No Shelly: only the E-Redes quarter hours (their highest average, W). */
+  | { kind: 'eredes'; maxQuarterW: number | null };
+
+/** What "Qualidade" works from, for its default period. */
+export interface QualityFacts {
+  zone: QualityZone | null;
+  year: number;
+  weeks: number;
+  /** All outages from the start of the year (and of the period). */
+  outages: Outage[];
+  meters: { name: string; intervals: Interval[]; outside: MinuteVoltage[] }[];
+  /** Too many minutes outside the band to list them all. */
+  truncated: boolean;
+}
 
 export interface ToolContext {
   /** Today in Lisbon. */
@@ -24,6 +51,9 @@ export interface ToolContext {
   daily: ReadonlyMap<LocalDate, TenthsCelsius> | null;
   /** The ERSE offers (public/data/erse-offers.json); null when they cannot be read. */
   offers: () => Promise<readonly Offer[] | null>;
+  /** Asked from the Worker only when a tool needs them; null when unavailable. */
+  power: () => Promise<PowerFacts | null>;
+  quality: () => Promise<QualityFacts | null>;
 }
 
 export interface AiTool<Input = unknown> {

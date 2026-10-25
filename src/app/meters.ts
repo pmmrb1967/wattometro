@@ -19,7 +19,7 @@ export function meterLabel(meter: string, devices: Device[], houseShelly?: strin
 }
 
 /** The Shelly's name, with its channel when not the first. */
-export function shellyName(meter: string, devices: Device[]): string {
+export function shellyName(meter: string, devices: readonly Pick<Device, 'id' | 'name'>[]): string {
   const [deviceId, channel] = meter.split(':');
   const name = devices.find((device) => device.id === deviceId)?.name ?? deviceId ?? meter;
   return channel && channel !== '0' ? `${name} · ${t.now.channel(Number(channel))}` : name;

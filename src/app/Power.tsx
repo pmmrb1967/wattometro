@@ -10,6 +10,7 @@ import { Link } from 'react-router';
 import {
   annualFixedCents,
   DEFAULT_MARGIN_PCT,
+  periodPeak,
   decodePeaks,
   nearTripEpisodes,
   offerFixedPerDay,
@@ -51,8 +52,7 @@ function meterName(meter: string, devices: PowerData['devices']): string {
   return channel && channel !== '0' ? `${name} · ${t.now.channel(Number(channel))}` : name;
 }
 
-/** Highest one-second power of the period: apparent where known, else active. */
-const peakOf = (meter: MeterData) => Math.max(meter.apparentMaxVa ?? 0, meter.activeOnlyMaxW ?? 0);
+const peakOf = (meter: MeterData) => periodPeak(meter);
 
 function tierResult(evaluation: TierEvaluation): string {
   const simulation = evaluation.simulation;

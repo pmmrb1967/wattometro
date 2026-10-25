@@ -34,6 +34,14 @@ export const SINGLE_PHASE: TripCurve = { q: trip.q, k: trip.kSinglePhase };
 export const TIERS_VA: readonly number[] = powerTiers.tiersVa;
 export const DEFAULT_MARGIN_PCT = 10;
 
+/** Highest one-second power of a period: apparent where known, else active (VA or W). */
+export function periodPeak(meter: {
+  apparentMaxVa: number | null;
+  activeOnlyMaxW: number | null;
+}): number {
+  return Math.max(meter.apparentMaxVa ?? 0, meter.activeOnlyMaxW ?? 0);
+}
+
 /** The limit the simulation uses for a tier: the tier less the margin (VA). */
 export function effectiveLimit(tierVa: number, marginPct: number): number {
   return Math.floor((tierVa * (100 - marginPct)) / 100);

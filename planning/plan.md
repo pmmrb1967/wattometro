@@ -186,7 +186,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 ## Fase 7 — IA (opcional)
 
 - [x] Copiar do Faturómetro a abstração `src/ai/` (provider, estimativa de custo, sessão) — chave, modelo e "envio automático" só no browser (localStorage, por conta), em Definições → Inteligência artificial; testada antes de guardar; gasto do mês estimado. Sonnet 5.5 por defeito (o chat encadeia ferramentas), Haiku e Opus à escolha; em Sonnet e Opus, *fallback* do lado do servidor (`fallbacks: "default"`) se um pedido for recusado
-- [ ] Ferramentas executadas no browser (ver `CLAUDE.md`), com contratos zod e respostas pequenas
+- [x] Ferramentas executadas no browser (ver `CLAUDE.md`), com contratos zod e respostas pequenas — `src/ai/tools/`: as oito, cada uma com as mesmas funções e predefinições da sua página (Consumo, Relatório, Tarifários, Potência, Qualidade, Agora), valores já formatados como a app os mostra; testes comparam cada ferramenta com a página. Potência e tensão pedem os seus dados ao Worker só quando a IA as chama (`src/app/ai-context.ts`)
 - [ ] Chat "Pergunta ao Wattómetro"
 - [ ] Relatório mensal narrado sobre números já calculados
 - [ ] Alertas explicados em linguagem simples
