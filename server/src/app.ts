@@ -61,10 +61,11 @@
  *                              meter ('eredes' or 'device:channel') as uint32 ts · uint32 Wh (≤ 430 days)
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
  *                              {stored, duplicates, rejected, now}; 400, 401, 413, 429 (Retry-After)
- *   GET  /v1/ingest/missing?c&from&to  Authorization: Bearer <device token> → {missing:
- *                              [[start, end)…], now}: the minutes of channel c in [from, to)
- *                              (whole minutes, ≤ 11 days) not stored, to fill from the
- *                              Shelly's own minute log (scripts/shelly-backfill.ts)
+ *   GET  /v1/ingest/missing?c&from&to&limit?  Authorization: Bearer <device token> →
+ *                              {missing: [[start, end)…], now}: the minutes of channel c in
+ *                              [from, to) (whole minutes, ≤ 11 days) not stored, the oldest
+ *                              `limit` gaps at most, to fill from the Shelly's own minute log
+ *                              (scripts/shelly-backfill.ts, shelly/wattometro.js 0.4.0+)
  *
  * Me = {email, householdId, householdName}. Every signed-in request renews an
  * older session cookie (sliding expiry, auth.ts). /v1/ingest is for devices:
@@ -227,6 +228,7 @@ const MissingQuery = z
     c: z.coerce.number().int().min(0).max(3),
     from: epoch.refine((ts) => ts % 60 === 0),
     to: epoch.refine((ts) => ts % 60 === 0),
+    limit: z.coerce.number().int().min(1).max(1000).optional(),
   })
   .refine(({ from, to }) => from < to && to - from <= MAX_MISSING_SPAN);
 const SignatureBody = z
@@ -759,7 +761,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     if (!parsed.success || parsed.data.to > now() + 120) {
       return c.json({ error: 'invalid_request' }, 400);
     }
-    const { c: channel, from, to } = parsed.data;
+    const { c: channel, from, to, limit } = parsed.data;
     const missing = await missingMinutes(
       config.sql,
       device.householdId,
@@ -768,7 +770,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       from,
       to,
     );
-    return c.json({ missing, now: now() });
+    return c.json({ missing: missing.slice(0, limit), now: now() });
   });
 
   app.post('/v1/ingest', async (c) => {

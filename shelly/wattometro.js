@@ -8,6 +8,13 @@
 // down, minutes wait in RAM; when memory runs low the per-second values of the
 // oldest minutes go first, then the oldest minutes.
 //
+// Minutes the server still lacks (an outage longer than the queue, the database
+// unavailable, a reboot) are filled from the Shelly's own minute log (EM1Data,
+// at least 10 days: docs/shelly.md, "Registo interno"), without per-second
+// values. The script asks the server for the oldest gap after the minutes it has
+// already checked (GET /v1/ingest/missing), reads the log and sends it
+// FILL_WINDOW minutes at a time, only while its own queue is empty.
+//
 // Configuration (KVS, set once; restart the script after changing it):
 //   wattometro.url      https://app.wattometro.workers.dev/v1/ingest
 //   wattometro.token    the device token from Definições → Dispositivos
@@ -19,7 +26,7 @@
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
 // Runs on a Shelly EM Gen3 since 2026-10-24 (docs/shelly.md).
 
-let SCRIPT_VERSION = '0.3.2';
+let SCRIPT_VERSION = '0.4.0';
 let FORMAT = 1;
 // A script has ~25 KB of memory in all (docs/shelly.md, measured on an EM Gen3).
 // Sending a request needs about SEND_OVERHEAD + SEND_FACTOR × body bytes at its
@@ -44,6 +51,20 @@ let COUNTER_SETTLE = 5;
 // clock jumps (it corrected itself), when it is trusted again.
 let CLOCK_TOLERANCE = 60;
 let CLOCK_JUMP = 30;
+let LOG_DAYS = 10;
+let FILL_EVERY = 3600; // seconds between asks for gaps, besides after a boot or an outage
+let FILL_WINDOW = 10; // log minutes per request
+let FILL_MEMORY = 15000; // free bytes needed to read the log and send it
+let FILL_KEYS = [
+  'total_act_energy',
+  'max_act_power',
+  'min_act_power',
+  'max_aprt_power',
+  'max_voltage',
+  'min_voltage',
+  'avg_voltage',
+  'avg_current'
+];
 
 let cfg = { url: null, token: null, channel: 0 };
 let INSTALLED = { url: '', token: '' };
@@ -62,6 +83,9 @@ let clockOffset = 0; // seconds added to the device's unixtime
 let lastRaw = null; // the device's unixtime at the last tick
 let sentRaw = 0; // and when the request in flight was sent
 let bootAt = null; // epoch s of the last boot (unixtime − uptime), for outages
+// Gaps: minutes before `cursor` are checked; `gap` is the one being filled, and
+// carry/prev the Wh decimals carried between its minutes.
+let fill = { cursor: null, nextAsk: 0, gap: null, carry: 0, prev: null };
 
 function clamp(value) {
   if (value > INT16) return INT16;
@@ -221,6 +245,13 @@ function onSent(result, errorCode, errorMessage) {
   let kept = [];
   for (let i = 0; i < queue.length; i++) if (queue[i].sent !== seq) kept.push(queue[i]);
   queue = kept;
+  // The first answer since the boot, or after an outage: look for gaps soon.
+  if (fill.cursor === null) {
+    fill.cursor = lastNow - (lastNow % 60) - LOG_DAYS * 86400;
+    fill.nextAsk = lastNow;
+  } else if (failures > 0) {
+    fill.nextAsk = lastNow;
+  }
   failures = 0;
   nextSend = lastNow + SEND_GAP;
 }
@@ -241,8 +272,186 @@ function followServerClock(body) {
   clockOffset = next;
 }
 
+// The oldest minute the script still holds itself: the log fills only before it.
+function ownedFrom() {
+  let to = cur === null ? lastNow - (lastNow % 60) : cur.t;
+  if (done !== null && done.a.t < to) to = done.a.t;
+  if (queue.length > 0 && queue[0].t < to) to = queue[0].t;
+  return to;
+}
+
+function askGap(now) {
+  let to = ownedFrom();
+  let from = Math.max(fill.cursor, now - (now % 60) - LOG_DAYS * 86400);
+  fill.nextAsk = now + FILL_EVERY;
+  if (to - from < 60) return;
+  sending = true;
+  Shelly.call(
+    'HTTP.Request',
+    {
+      method: 'GET',
+      url: cfg.url + '/missing?c=' + cfg.channel + '&from=' + from + '&to=' + to + '&limit=1',
+      headers: { Authorization: 'Bearer ' + cfg.token },
+      timeout: 10
+    },
+    function (result, errorCode) {
+      sending = false;
+      nextSend = lastNow + SEND_GAP;
+      // Not answered: asked again at nextAsk.
+      if (errorCode !== 0 || !result || result.code !== 200) return;
+      let answer = null;
+      try {
+        answer = JSON.parse(result.body);
+      } catch (e) {
+        return;
+      }
+      if (!answer || !answer.missing) return;
+      if (answer.missing.length === 0) {
+        fill.cursor = to;
+        return;
+      }
+      fill.gap = { from: answer.missing[0][0], to: answer.missing[0][1] };
+      fill.carry = 0;
+      fill.prev = null;
+      print('wattometro: filling', (fill.gap.to - fill.gap.from) / 60, 'minutes from the log');
+    }
+  );
+}
+
+function endGap() {
+  fill.cursor = fill.gap.to;
+  fill.gap = null;
+  // The next gap, if any.
+  fill.nextAsk = lastNow;
+}
+
+// One log record as an ingest minute (scripts/shelly/backfill.ts does the same).
+// `state` carries the Wh decimals; it is committed only when the request succeeds.
+function logMinute(t, row, k, state) {
+  let v = [];
+  for (let i = 0; i < FILL_KEYS.length; i++) {
+    let value = row[k[FILL_KEYS[i]]];
+    if (typeof value !== 'number') return null;
+    v.push(value);
+  }
+  if (state.prev === null || t !== state.prev + 60) state.carry = 0;
+  state.prev = t;
+  let before = Math.floor(state.carry);
+  state.carry += Math.max(0, v[0]);
+  let mean = clamp(Math.round(v[0] * 60));
+  let vn = Math.max(0, Math.min(INT16, Math.round(v[5] * 10)));
+  let vx = Math.max(vn, Math.min(INT16, Math.round(v[4] * 10)));
+  let apparent = v[6] * v[7];
+  return JSON.stringify({
+    t: t,
+    c: cfg.channel,
+    n: 60,
+    e: Math.min(1000, Math.floor(state.carry) - before),
+    pa: mean,
+    pn: Math.min(clamp(Math.round(v[2])), mean),
+    px: Math.max(clamp(Math.round(v[1])), mean),
+    va: Math.max(vn, Math.min(vx, Math.round(v[6] * 10))),
+    vn: vn,
+    vx: vx,
+    pf: apparent > 0 ? Math.max(-100, Math.min(100, Math.round((6000 * v[0]) / apparent))) : 100,
+    sx: Math.max(0, Math.min(INT16, Math.round(v[3])))
+  });
+}
+
+function onLog(result, errorCode, start, end) {
+  if (errorCode !== 0 || !result || !result.keys || !result.data) {
+    print('wattometro: log not read:', errorCode);
+    sending = false;
+    endGap();
+    return;
+  }
+  let k = {};
+  for (let i = 0; i < result.keys.length; i++) k[result.keys[i]] = i;
+  for (let i = 0; i < FILL_KEYS.length; i++) {
+    if (k[FILL_KEYS[i]] === undefined) {
+      print('wattometro: the log lacks', FILL_KEYS[i]);
+      sending = false;
+      endGap();
+      return;
+    }
+  }
+  // At most FILL_WINDOW records; `next` is where the following read starts: the
+  // first record left out, else where the device says its answer stopped, else the gap's end.
+  let next = null;
+  let taken = 0;
+  let state = { carry: fill.carry, prev: fill.prev };
+  let parts = [];
+  for (let b = 0; b < result.data.length; b++) {
+    let block = result.data[b];
+    if (block.period !== 60) continue;
+    for (let i = 0; i < block.values.length; i++) {
+      let t = block.ts + 60 * i;
+      if (t < start || t >= end || next !== null) continue;
+      if (taken === FILL_WINDOW) {
+        next = t;
+        continue;
+      }
+      taken++;
+      let json = logMinute(t, block.values[i], k, state);
+      if (json !== null) parts.push(json);
+    }
+  }
+  let more = result.next_record_ts;
+  if (next === null) next = typeof more === 'number' && more > start && more < end ? more : end;
+  result = null;
+  if (parts.length === 0) {
+    sending = false;
+    fill.gap.from = next;
+    if (next >= fill.gap.to) endGap();
+    return;
+  }
+  Shelly.call(
+    'HTTP.Request',
+    {
+      method: 'POST',
+      url: cfg.url,
+      body: '{"v":' + FORMAT + ',"sv":' + JSON.stringify(SCRIPT_VERSION) + ',"min":[' + parts.join(',') + ']}',
+      headers: { Authorization: 'Bearer ' + cfg.token, 'Content-Type': 'application/json' },
+      timeout: 10
+    },
+    function (answer, code) {
+      sending = false;
+      if (code !== 0 || !answer || answer.code === 401 || answer.code === 429 || answer.code >= 500) {
+        // Read again from the same minute later.
+        backoff(answer && answer.code === 429 ? 60 : 0);
+        return;
+      }
+      failures = 0;
+      nextSend = lastNow + SEND_GAP;
+      fill.carry = state.carry;
+      fill.prev = state.prev;
+      fill.gap.from = next;
+      if (next >= fill.gap.to) endGap();
+    }
+  );
+}
+
+function fillStep() {
+  let free = memoryFree();
+  if (free !== null && free < FILL_MEMORY) return;
+  let start = fill.gap.from;
+  let end = fill.gap.to;
+  sending = true;
+  Shelly.call('EM1Data.GetData', { id: cfg.channel, ts: start, end_ts: end - 60 }, function (result, errorCode) {
+    onLog(result, errorCode, start, end);
+  });
+}
+
+// With nothing of its own to send, and the clock right (the log keeps the device's own time).
+function maybeFill(now) {
+  if (fill.cursor === null || clockOffset !== 0) return;
+  if (fill.gap !== null) fillStep();
+  else if (now >= fill.nextAsk) askGap(now);
+}
+
 function maybeSend(now) {
-  if (sending || queue.length === 0 || now < nextSend || !cfg.url || !cfg.token) return;
+  if (sending || now < nextSend || !cfg.url || !cfg.token) return;
+  if (queue.length === 0) return maybeFill(now);
   let free = memoryFree();
   let budget = MAX_BODY;
   if (free !== null) budget = Math.min(MAX_BODY, Math.floor((free - SEND_OVERHEAD) / SEND_FACTOR));

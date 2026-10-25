@@ -413,6 +413,14 @@ describe('backfill from the Shelly’s minute log', () => {
       ((await (await missing(`c=1&from=${from}&to=${MINUTE}`)).json()) as { missing: unknown })
         .missing,
     ).toEqual([[from, MINUTE]]);
+    // Only the oldest gap, as the script asks.
+    expect(
+      (
+        (await (await missing(`c=0&from=${from}&to=${MINUTE}&limit=1`)).json()) as {
+          missing: unknown;
+        }
+      ).missing,
+    ).toEqual([[from, from + 120]]);
   });
 
   it('wants a device token, whole minutes and at most 11 days', async () => {
@@ -433,7 +441,9 @@ describe('backfill from the Shelly’s minute log', () => {
   });
 
   it('moves the rollups back for minutes older than they recompute', async () => {
-    const household = (db.prepare("SELECT id FROM households WHERE name = 'Casa'").get() as { id: string }).id;
+    const household = (
+      db.prepare("SELECT id FROM households WHERE name = 'Casa'").get() as { id: string }
+    ).id;
     const name = `rollup_until:${household}`;
     db.prepare('INSERT INTO maintenance_state (name, value) VALUES (?, ?)').run(name, clock);
     const old = MINUTE - 2 * 86_400;

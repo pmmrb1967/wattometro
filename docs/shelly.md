@@ -57,7 +57,10 @@ Visto no aparelho a 2026-10-25 (firmware 2.1.0):
 - ☑ Os minutos em que o relógio do Shelly estava errado (noite de 24 para 25/10) também faltam no registo.
 - ☐ Quantos dias cabem de facto: confirmar ao fim de 10 dias com `GetRecords` (o registo mais antigo).
 
-Uso: `pnpm shelly:backfill` (`scripts/shelly-backfill.ts`) preenche, a partir do PC em casa, os minutos que o servidor não tem (`GET /v1/ingest/missing`), sem valores ao segundo e com o pico aparente em `sx`. Cobre falhas do D1 ou da internet até ~10 dias; a fila em RAM do script só cobre ~30 min.
+Uso, sem valores ao segundo e com o pico aparente em `sx`; cobre falhas do D1 ou da internet até ~10 dias (a fila em RAM do script só cobre ~30 min):
+- **O script (0.4.0+)** preenche sozinho: depois do arranque, de uma falha de envio e de hora a hora, pede ao servidor a lacuna mais antiga desde onde já verificou (`GET /v1/ingest/missing?limit=1`; lê poucas linhas, salvo a primeira depois do arranque, que olha 10 dias para trás) e, só com a fila vazia e ≥ 15 KB livres, lê o registo (`EM1Data.GetData`) e envia 10 minutos por pedido. Minutos que nem o registo tem são saltados. Com o relógio do Shelly corrigido pelo do servidor (`clockOffset`), não preenche: o registo usa a hora do aparelho.
+- **`pnpm shelly:backfill`** (`scripts/shelly-backfill.ts`) faz o mesmo a partir do PC em casa, de uma vez (útil com um script anterior a 0.4.0).
+- ☐ Memória ao ler o registo no aparelho real: confirmar na consola (`Script.GetStatus`, `mem_peak`) no primeiro preenchimento.
 
 ## Hora — `Sys.GetStatus`
 

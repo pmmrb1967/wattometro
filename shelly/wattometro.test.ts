@@ -42,10 +42,31 @@ const BOOT = START - 3600;
 type Callback = (result: unknown, errorCode: number, errorMessage: string) => void;
 
 interface Request {
+  method: string;
   url: string;
   body: string;
   headers: Record<string, string>;
 }
+
+/** EM1Data.GetData keys and page size, as on the EM Gen3 (docs/shelly.md, "Registo interno"). */
+const LOG_KEYS = [
+  'total_act_energy',
+  'total_act_ret_energy',
+  'lag_react_energy',
+  'lead_react_energy',
+  'max_act_power',
+  'min_act_power',
+  'max_aprt_power',
+  'min_aprt_power',
+  'max_voltage',
+  'min_voltage',
+  'avg_voltage',
+  'max_current',
+  'min_current',
+  'avg_current',
+];
+const LOG_PAGE = 28;
+const VOLTAGE = 231.24;
 
 class FakeShelly {
   clock = START;
@@ -73,7 +94,13 @@ class FakeShelly {
   kvs: Record<string, string> = { 'wattometro.url': URL, 'wattometro.token': TOKEN };
   /** The script as uploaded (pnpm shelly:install embeds the URL and token). */
   source = SOURCE;
+  /** POST /v1/ingest requests; the GETs for gaps go in `gets`. */
   requests: Request[] = [];
+  gets: Request[] = [];
+  /** The device's own minute log (EM1Data), kept whether the script runs or not. */
+  log = new Map<number, number[]>();
+  logReads = 0;
+  private minute: { t: number; wh: number; powers: number[] } | null = null;
   logs: string[] = [];
   private tick: (() => void) | null = null;
   private context: Context | null = null;
@@ -117,17 +144,26 @@ class FakeShelly {
           else callback({ value, etag: 'e' }, 0, '');
           return;
         }
+        if (method === 'EM1Data.GetData') {
+          this.logReads++;
+          const answer = this.logData(Number(params.ts), Number(params.end_ts));
+          this.use(this.used() + 2 * JSON.stringify(answer).length);
+          this.pending = Promise.resolve().then(() => callback(answer, 0, ''));
+          return;
+        }
         if (method !== 'HTTP.Request') throw new Error(`unexpected ${method}`);
         const request = params as unknown as Request;
-        this.requests.push(request);
-        this.use(this.used() + SEND.overhead + SEND.perBodyByte * request.body.length);
+        const get = request.method === 'GET';
+        (get ? this.gets : this.requests).push(request);
+        this.use(this.used() + SEND.overhead + SEND.perBodyByte * (request.body ?? '').length);
         this.pending = this.online
           ? Promise.resolve(
-              this.app.request(request.url, {
-                method: 'POST',
-                headers: request.headers,
-                body: request.body,
-              }),
+              this.app.request(
+                request.url,
+                get
+                  ? { headers: request.headers }
+                  : { method: 'POST', headers: request.headers, body: request.body },
+              ),
             ).then(async (response) =>
               callback({ code: response.status, body: await response.text() }, 0, ''),
             )
@@ -163,15 +199,68 @@ class FakeShelly {
     }
   }
 
+  /** The script stops (a reboot, until run() again); the device keeps measuring and logging. */
+  stop() {
+    this.tick = null;
+  }
+
+  /** A GetData answer: the records from `ts` to `endTs`, one page at a time. */
+  private logData(ts: number, endTs: number) {
+    const times = [...this.log.keys()].filter((t) => t >= ts && t <= endTs).sort((a, b) => a - b);
+    const page = times.slice(0, LOG_PAGE);
+    const data: { ts: number; period: number; values: number[][] }[] = [];
+    for (const t of page) {
+      const last = data.at(-1);
+      if (last && last.ts + 60 * last.values.length === t) last.values.push(this.log.get(t) ?? []);
+      else data.push({ ts: t, period: 60, values: [this.log.get(t) ?? []] });
+    }
+    const next = times[LOG_PAGE];
+    return { keys: LOG_KEYS, data, ...(next !== undefined ? { next_record_ts: next } : {}) };
+  }
+
+  /** Closes the minute into the log, as the device does. */
+  private logMinute() {
+    const minute = this.minute;
+    if (!minute) return;
+    const max = Math.max(...minute.powers);
+    const min = Math.min(...minute.powers);
+    const mean = minute.powers.reduce((sum, p) => sum + p, 0) / minute.powers.length;
+    this.log.set(minute.t, [
+      minute.wh,
+      0,
+      0,
+      0,
+      max,
+      min,
+      max / 0.9,
+      min / 0.9,
+      VOLTAGE,
+      VOLTAGE,
+      VOLTAGE,
+      max / 0.9 / VOLTAGE,
+      min / 0.9 / VOLTAGE,
+      mean / 0.9 / VOLTAGE,
+    ]);
+  }
+
   /** Lets `seconds` pass, one timer tick per second (energy follows the power). */
   async advance(seconds: number) {
     for (let i = 0; i < seconds; i++) {
-      if (this.clock % 60 === 0) this.atMinute = this.counter;
+      if (this.clock % 60 === 0) {
+        this.atMinute = this.counter;
+        this.logMinute();
+        this.minute = { t: this.clock, wh: 0, powers: [] };
+      }
       if (this.clock % 60 === 2) this.reported = this.atMinute;
       this.tick?.();
       if (this.context) this.use(this.used());
       await this.pending;
-      this.counter += (this.power(this.clock) + 0.4) / 3600;
+      const power = this.power(this.clock) + 0.4;
+      this.counter += power / 3600;
+      if (this.minute) {
+        this.minute.wh += power / 3600;
+        this.minute.powers.push(power);
+      }
       this.clock += 1;
     }
   }
@@ -232,7 +321,7 @@ describe('shelly/wattometro.js', () => {
     expect(seconds.voltage.every((v) => v === 2312)).toBe(true);
 
     const device = db.prepare('SELECT model, firmware, script_version FROM devices').get();
-    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.3.2' });
+    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.4.0' });
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     // The boot time goes in every request; with no earlier minute it is not an outage.
     expect(shelly.requests.every((r) => (JSON.parse(r.body) as { b: number }).b === BOOT)).toBe(
@@ -391,5 +480,65 @@ describe('shelly/wattometro.js', () => {
     expect(after.length).toBeGreaterThanOrEqual(8);
     const logs = shelly.logs.join('\n');
     expect(logs).toContain('clock offset -3600 s');
+  });
+
+  describe('fills the gaps from the device log', () => {
+    const inARow = (rows: Record<string, number>[]) =>
+      rows.every((row, i) => i === 0 || (row.ts ?? 0) - (rows[i - 1]?.ts ?? 0) === 60);
+
+    it('after a 3-hour outage, every minute is back and the Wh still add up', async () => {
+      shelly.run();
+      await shelly.advance(10 + 60 + 10);
+      shelly.online = false;
+      await shelly.advance(3 * 3600);
+      shelly.online = true;
+      await shelly.advance(40 * 60);
+
+      expect(shelly.outOfMemory).toBe(false);
+      const rows = minutes();
+      expect(inARow(rows)).toBe(true);
+      expect(rows.length).toBeGreaterThan(3 * 60 + 40);
+      // Minutes from the log come without their per-second values.
+      const withSeconds = db.prepare('SELECT COUNT(*) AS n FROM readings_1s').get() as {
+        n: number;
+      };
+      expect(withSeconds.n).toBeLessThan(rows.length - 100);
+      // The carried decimals: within a Wh or two of the counter, over ~3 h 40 min.
+      const sum = rows.reduce((total, row) => total + (row.energy_wh ?? 0), 0);
+      const expected = Math.floor(shelly.counter) - Math.floor(firstCounter);
+      expect(Math.abs(sum - expected)).toBeLessThanOrEqual(3);
+      expect(shelly.logs.join(' ')).toContain('filling');
+    });
+
+    it('after the script was stopped for half an hour, fills that half hour', async () => {
+      shelly.run();
+      await shelly.advance(10 + 5 * 60);
+      shelly.stop();
+      await shelly.advance(30 * 60);
+      shelly.run();
+      await shelly.advance(5 * 60);
+
+      const rows = minutes();
+      expect(inARow(rows)).toBe(true);
+      expect(rows.length).toBe(1 + 5 + 30 + 4);
+    });
+
+    it('with nothing missing, asks once an hour from where it last checked', async () => {
+      shelly.run();
+      await shelly.advance(10 + 3 * 3600);
+
+      const from = shelly.gets.map((get) =>
+        Number(new globalThis.URL(get.url).searchParams.get('from')),
+      );
+      // The first ask after the boot, then one an hour.
+      expect(from.length).toBeGreaterThanOrEqual(3);
+      expect(from.length).toBeLessThanOrEqual(4);
+      // The first looks back 10 days; later ones start where the previous ended.
+      expect(from[0]).toBeLessThan(START - 9 * 86_400);
+      expect(from.slice(1).every((ts) => ts > START - 3600)).toBe(true);
+      // The minutes before the script started are in no log here: one read finds none.
+      expect(shelly.logReads).toBe(1);
+      expect(minutes().every((row) => row.ts !== undefined)).toBe(true);
+    });
   });
 });
