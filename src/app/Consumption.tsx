@@ -11,6 +11,7 @@ import type { Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatKwh, formatPower } from '../lib/units';
+import { AnomalyList } from './Anomalies';
 import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
@@ -161,6 +162,7 @@ export function Consumption() {
             tariff={tariff ?? null}
             eredes={meter === 'eredes' || meter === HOUSE_METER}
           />
+          <AnomalyList energy={energy} />
           <ConsumptionCharts
             quarters={quarters}
             today={energy.today}

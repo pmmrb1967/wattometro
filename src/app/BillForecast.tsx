@@ -6,84 +6,20 @@
  * household said nothing electric follows the weather (src/domain/
  * installation.ts), the forecast leaves the temperature out.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { addDays, monthDates } from '../domain/consumption';
-import { followsTemperature } from '../domain/installation';
+import { monthDates } from '../domain/consumption';
 import { tariffOn } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents, formatWholeEuros } from '../lib/money';
-import { formatLocalDate, lisbonToday, startOfLisbonDay, type LocalDate } from '../lib/time';
+import { formatLocalDate, lisbonToday, type LocalDate } from '../lib/time';
 import { formatCelsius, formatKwh } from '../lib/units';
 import { chooseForecast, prepareForecast, type ChosenForecast } from '../ml/bill-forecast';
-import {
-  CLIMATE_YEARS,
-  FORECAST_DAYS,
-  climateNormal,
-  dailyMeans,
-  loadHourlyTemperature,
-} from '../weather/weather';
-import { fetchHouseholdInstallation, fetchHouseholdLocation, type HouseholdLocation } from './api';
+import { climateNormal } from '../weather/weather';
 import type { HouseholdEnergy } from './household-energy';
-import { useSession } from './session';
+import { useWeather, type Weather } from './use-weather';
 
 const texts = t.forecast;
-
-/** The locality and the daily mean temperatures, observed and forecast. */
-interface Weather {
-  location: HouseholdLocation | null;
-  daily: Map<LocalDate, number> | null;
-  failed: boolean;
-  /** The installation says the temperature cannot matter: not even asked for. */
-  notNeeded: boolean;
-}
-
-function useWeather(today: LocalDate): Weather | undefined {
-  const { signOut } = useSession();
-  const [weather, setWeather] = useState<Weather | undefined>(undefined);
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      const [outcome, installation] = await Promise.all([
-        fetchHouseholdLocation(),
-        fetchHouseholdInstallation(),
-      ]);
-      if (!active) return;
-      if (!outcome.ok || !installation.ok) {
-        const unauthenticated = [outcome, installation].some(
-          (o) => !o.ok && o.reason === 'unauthenticated',
-        );
-        if (unauthenticated) {
-          signOut();
-          return;
-        }
-      }
-      const location = outcome.ok ? outcome.location : null;
-      // An unknown installation keeps the temperature: the backtest decides.
-      const notNeeded = installation.ok && !followsTemperature(installation.installation);
-      if (!location || notNeeded) {
-        setWeather({ location, daily: null, failed: false, notNeeded });
-        return;
-      }
-      const from = startOfLisbonDay(
-        `${Number(today.slice(0, 4)) - CLIMATE_YEARS}${today.slice(4)}`,
-      );
-      const to = startOfLisbonDay(addDays(today, FORECAST_DAYS + 1));
-      const hours = await loadHourlyTemperature(location, from, to);
-      if (!active) return;
-      setWeather({
-        location,
-        daily: hours ? dailyMeans(hours) : null,
-        failed: hours === null,
-        notNeeded: false,
-      });
-    })();
-    return () => {
-      active = false;
-    };
-  }, [today, signOut]);
-  return weather;
-}
 
 interface ForecastResult extends ChosenForecast {
   weather: Weather;

@@ -9,6 +9,7 @@ import { formatCents } from '../lib/money';
 import { formatLisbonTime, lisbonDate } from '../lib/time';
 import { formatKwh, formatPower, formatVolts } from '../lib/units';
 import { fetchNow, type Meter, type Now } from './api';
+import { AnomalyCard } from './Anomalies';
 import { BillForecastCard } from './BillForecast';
 import { useHouseholdEnergy } from './household-energy';
 import { useSession } from './session';
@@ -221,6 +222,7 @@ export function Home() {
       )}
 
       <BillForecastCard energy={energy} />
+      <AnomalyCard energy={energy} />
 
       <h2>{t.home.comingTitle}</h2>
       <ul className="coming">

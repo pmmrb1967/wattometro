@@ -69,6 +69,7 @@ export const t = {
       'A potência contratada certa para a tua casa',
       'O tarifário mais barato para o teu consumo real',
       'Quanto te custa o consumo fantasma',
+      'Os dias em que gastaste fora do habitual',
     ],
   },
   settings: {
@@ -439,6 +440,26 @@ export const t = {
       'NP EN 50160, características da tensão de alimentação em baixa tensão, conforme reproduzida pela ERSE (Formação ACE, 2021).',
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
+  },
+  anomalies: {
+    title: 'Dias fora do habitual',
+    intro: (days: number) =>
+      `Dias dos últimos ${days} em que a casa gastou muito mais (ou muito menos) do que é costume para esse tipo de dia.`,
+    none: (days: number) => `Nos últimos ${days} dias nenhum dia se afastou do habitual.`,
+    yesterdayTitle: 'Ontem, fora do habitual',
+    yesterday: 'Ontem',
+    sentence: (when: string, direction: 1 | -1, pct: number, actual: string, usual: string) =>
+      `${when}: ${pct} % ${direction > 0 ? 'mais' : 'menos'} do que o habitual (${actual} em vez de ${usual}).`,
+    span: (from: number, to: number | null) =>
+      to === null ? `das ${from} h à meia-noite` : `das ${from} h às ${to} h`,
+    mostly: (span: string) => `Sobretudo ${span}.`,
+    cost: (more: boolean, euros: string) =>
+      more ? `Custou cerca de ${euros} a mais.` : `Poupaste cerca de ${euros}.`,
+    more: 'Ver os dias fora do habitual',
+    method: (days: number) =>
+      `Cada dia é comparado com os ${days} dias mais recentes do mesmo tipo (dia útil, sábado, ou domingo e feriado), pela mediana e pelo desvio típico entre eles: só aparece quando se afasta claramente, não por uns poucos por cento. O custo é o da energia, com IEC e IVA, com o teu tarifário.`,
+    temperature:
+      'Como a tua casa aquece ou arrefece com eletricidade, cada dia é comparado só com dias de temperatura parecida (até 3 °C de diferença).',
   },
   forecast: {
     title: (month: string) => `Fatura prevista de ${month}`,
