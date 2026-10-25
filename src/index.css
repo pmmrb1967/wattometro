@@ -791,30 +791,47 @@ h2 {
   border-top: 1px solid var(--border);
 }
 
-/* The question and the send button side by side. */
+/* The question box: the text on top (one line growing to three, then it scrolls), the send
+   button inside, in the bottom right corner (as in claude.ai and Gemini). */
 .chat-input {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 8px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
 }
 
-.chat-input label {
-  flex: 1;
+.chat-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
-.chat-input textarea {
+.form .chat-input textarea {
+  display: block;
+  max-height: calc(3 * 1.5em);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  line-height: 1.5;
+  overflow-y: auto;
   resize: none;
 }
 
+.form .chat-input textarea:focus-visible {
+  outline: none;
+}
+
 .chat-send {
-  flex: none;
+  justify-self: end;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--accent);
   color: var(--surface);
   cursor: pointer;

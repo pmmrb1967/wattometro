@@ -8,7 +8,7 @@
  * told its name. Without a key the panel says how to add one; the rest of the
  * app does not need it.
  */
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { askWattometro, estimateChat, type ChatResult } from '../ai/chat';
 import { formatMicroUsd } from '../ai/models';
@@ -97,6 +97,13 @@ export function ChatPanel({
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
+  // The box follows the text up to three lines (index.css caps it; then it scrolls).
+  useLayoutEffect(() => {
+    const box = input.current;
+    if (!box) return;
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight}px`;
+  }, [question, open]);
   useEffect(() => {
     bottom.current?.scrollIntoView?.({ block: 'end' });
   }, [exchanges.length, pending, busy]);
@@ -217,6 +224,7 @@ export function ChatPanel({
                 </div>
               </div>
             )}
+            {/* One line that grows to three (then scrolls), with the send button inside. */}
             <div className="chat-input">
               <label>
                 <span className="visually-hidden">
@@ -224,7 +232,7 @@ export function ChatPanel({
                 </span>
                 <textarea
                   ref={input}
-                  rows={2}
+                  rows={1}
                   value={question}
                   maxLength={1000}
                   onChange={(event) => {
@@ -237,7 +245,7 @@ export function ChatPanel({
                       event.currentTarget.form?.requestSubmit();
                     }
                   }}
-                  placeholder={exchanges.length > 0 ? texts.followUp : texts.placeholder}
+                  placeholder={exchanges.length > 0 ? texts.placeholderFollowUp : texts.placeholder}
                 />
               </label>
               <button
@@ -247,7 +255,7 @@ export function ChatPanel({
                 aria-label={busy ? texts.thinking : !context ? t.loading : texts.ask}
                 title={texts.ask}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                   <path
                     d="M4 12 20 4l-4 16-4-7-8-1z"
                     fill="none"
