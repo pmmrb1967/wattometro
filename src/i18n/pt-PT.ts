@@ -85,6 +85,7 @@ export const t = {
     placeholder: 'Ex.: Porque é que a fatura de setembro foi mais alta?',
     open: 'Perguntar à IA',
     close: 'Fechar a conversa',
+    resize: 'Largura da conversa (arrasta, ou usa as setas)',
     /** As the AI is told (and as the prompt names the pages). */
     pages: {
       home: 'Início',

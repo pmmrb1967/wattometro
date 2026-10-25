@@ -694,6 +694,50 @@ h2 {
   display: none;
 }
 
+/* The left edge, dragged to change the width (wide screens only). */
+.chat-resize {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .chat-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    display: block;
+    width: 8px;
+    cursor: ew-resize;
+    touch-action: none;
+  }
+
+  .chat-resize::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 4px;
+    height: 40px;
+    border-radius: 999px;
+    background: var(--border);
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .chat-resize:hover::after,
+  .chat-resize:focus-visible::after,
+  .chat-resize:active::after {
+    opacity: 1;
+    background: var(--accent);
+  }
+
+  .chat-resize:focus-visible {
+    outline: none;
+  }
+}
+
 .chat-header {
   display: flex;
   align-items: center;
@@ -805,7 +849,7 @@ h2 {
 
   .chat-panel {
     inset: auto 24px 24px auto;
-    width: min(420px, calc(100vw - 48px));
+    width: min(var(--chat-width, 420px), calc(100vw - 48px));
     height: min(680px, calc(100vh - 48px));
     border: 1px solid var(--border);
     border-radius: 16px;
