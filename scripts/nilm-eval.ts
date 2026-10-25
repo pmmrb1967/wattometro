@@ -147,7 +147,7 @@ function evaluate(): void {
       const when =
         group.count === 1 ? formatLisbonTime(group.cycles[0]!.start) : `${group.count} times`;
       console.log(
-        `  ${formatPower(group.powerW).padStart(9)}  ${when.padEnd(9)} ${formatDuration(group.durationS).padEnd(14)} ${formatKwh(group.energyWh, 2)}`,
+        `  ${(group.statesW.length > 1 ? group.statesW.map((watts) => formatPower(watts)).join(' → ') : formatPower(group.powerW)).padStart(9)}  ${when.padEnd(9)} ${formatDuration(group.durationS).padEnd(14)} ${formatKwh(group.energyWh, 2)}`,
       );
     }
     const paired = new Set(cycles.flatMap((cycle) => [cycle.on, cycle.off]));

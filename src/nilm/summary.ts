@@ -20,6 +20,8 @@ export interface CycleGroup {
   /** Median duration, s. */
   durationS: number;
   energyWh: number;
+  /** The measured power of each state of the group's first cycle (one for most), W. */
+  statesW: number[];
   cycles: Cycle[];
 }
 
@@ -31,11 +33,25 @@ function median(values: readonly number[]): number {
     : Math.round(((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2);
 }
 
+/** The same number of states, each of a similar power (the kettle is not a washing machine). */
+function sameStates(a: Cycle, b: Cycle): boolean {
+  return (
+    a.states.length === b.states.length &&
+    a.states.every(
+      (state, index) =>
+        index === 0 ||
+        Math.abs(state.powerW - (b.states[index] as { powerW: number }).powerW) <=
+          groupToleranceW(state.powerW),
+    )
+  );
+}
+
 /** Groups, the most energy first. */
 export function groupCycles(cycles: readonly Cycle[]): CycleGroup[] {
   const groups: Cycle[][] = [];
   for (const cycle of [...cycles].sort((a, b) => a.powerW230 - b.powerW230)) {
-    const last = groups.at(-1);
+    // In power order, the group this cycle can join is the latest of its kind.
+    const last = groups.findLast((group) => sameStates(group[0] as Cycle, cycle));
     const level = last ? median(last.map((item) => item.powerW230)) : null;
     if (last && level !== null && cycle.powerW230 - level <= groupToleranceW(level)) {
       last.push(cycle);
@@ -50,6 +66,7 @@ export function groupCycles(cycles: readonly Cycle[]): CycleGroup[] {
       durationS: median(list.map((item) => item.durationS)),
       energyWh: list.reduce((sum, item) => sum + item.energyWh, 0),
       cycles: list.sort((a, b) => a.start - b.start),
+      statesW: (list[0] as Cycle).states.map((state) => state.powerW),
     }))
     .sort((a, b) => b.energyWh - a.energyWh);
 }

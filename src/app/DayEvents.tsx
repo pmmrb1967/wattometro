@@ -111,7 +111,11 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                 <tbody>
                   {result.groups.map((group) => (
                     <tr key={`${group.powerW}-${group.cycles[0]?.start}`}>
-                      <td>{formatPower(group.powerW)}</td>
+                      <td>
+                        {group.statesW.length > 1
+                          ? group.statesW.map((watts) => formatPower(watts)).join(' → ')
+                          : formatPower(group.powerW)}
+                      </td>
                       <td>
                         {group.count === 1
                           ? formatLisbonTime(group.cycles[0]!.start)

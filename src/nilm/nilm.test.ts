@@ -103,6 +103,40 @@ describe('pairCycles', () => {
     ]);
   });
 
+  it('follows an appliance that changes state in the same second', () => {
+    // Washing machine: heating 2000 W (100 var) for 20 min, then the motor 400 W (300 var)
+    // for 60 min. 2000 × 1200 / 3600 + 400 × 3600 / 3600 = 666,7 + 400 = 1067 Wh.
+    const power = [...flat(30, 160), ...flat(1200, 2160), ...flat(3600, 560), ...flat(30, 160)];
+    const nonActive = [...flat(30, 60), ...flat(1200, 160), ...flat(3600, 360), ...flat(30, 60)];
+    const events = detectEvents(series(power, 2300, nonActive));
+    expect(events.map((event) => [event.deltaW, event.deltaVar])).toEqual([
+      [2000, 100],
+      [-1600, 200],
+      [-400, -300],
+    ]);
+    expect(pairCycles(events)).toMatchObject([
+      {
+        start: START + 30,
+        durationS: 4800,
+        powerW: 2000,
+        energyWh: 1067,
+        states: [
+          { from: START + 30, powerW: 2000 },
+          { from: START + 1230, powerW: 400 },
+        ],
+      },
+    ]);
+  });
+
+  it('does not take a small step down for a phase of a large appliance', () => {
+    // The TV, switched on before the day began, goes off while the water heater is on.
+    const events = detectEvents(
+      series([...flat(30, 310), ...flat(600, 2110), ...flat(600, 1960), ...flat(30, 160)]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([1800, -150, -1800]);
+    expect(pairCycles(events)).toMatchObject([{ powerW: 1800, durationS: 1200, states: [{}] }]);
+  });
+
   it('leaves an off step without a matching on step alone', () => {
     const events = detectEvents(series([...flat(30, 2160), ...flat(30, 160)]));
     expect(events).toHaveLength(1);
@@ -185,6 +219,28 @@ describe('the demonstration house', () => {
     for (let index = 1; index < groups.length; index++) {
       expect(groups[index - 1]!.energyWh).toBeGreaterThanOrEqual(groups[index]!.energyWh);
     }
+  });
+
+  it('follows the washing machine on Saturday: heating, then the motor', () => {
+    const saturday = '2026-10-17';
+    const start = startOfLisbonDay(saturday);
+    const end = startOfLisbonDay('2026-10-18');
+    const offset = (start - data.start) / 60;
+    const day = Array.from({ length: (end - start) / 60 }, (_, index) => ({
+      ts: start + index * 60,
+      readings: data.seconds(offset + index),
+    }));
+    const saturdayCycles = pairCycles(detectEvents(toSeries(day, start, end)));
+    const washing = saturdayCycles.filter((cycle) => cycle.states.length > 1);
+    expect(washing).toHaveLength(1);
+    expect(washing[0]!.durationS).toBe(80 * 60);
+    expect(washing[0]!.states.map((state) => Math.round(state.powerW / 100) * 100)).toEqual([
+      2000, 400,
+    ]);
+    // Not in one group with a kettle of the same 2000 W.
+    const group = groupCycles(saturdayCycles).find((item) => item.cycles.includes(washing[0]!));
+    expect(group?.cycles).toHaveLength(1);
+    expect(group?.statesW).toHaveLength(2);
   });
 
   it('pairs nearly every step', () => {
