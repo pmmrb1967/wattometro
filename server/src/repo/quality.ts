@@ -6,6 +6,12 @@ import type { Sql, Statement } from '../db';
 export const BOOT_TOLERANCE_SECONDS = 10;
 
 /**
+ * How far back the minute before a boot is looked for. Longer without data is
+ * not a power cut (the Shelly was unplugged, or the device is new): no outage.
+ */
+export const OUTAGE_LOOKBACK_SECONDS = 7 * 86_400;
+
+/**
  * Records a boot of the device, once. The outage starts at the end of the last
  * minute stored before the boot; it must run before the payload's own minutes,
  * which may start before the boot (the minute in progress when it booted).
@@ -15,15 +21,23 @@ export function bootStatement(
   bootAt: number,
 ): Statement {
   return {
+    // The last minute before the boot, walking the (household_id, ts) index back from it:
+    // a few rows, and never more than OUTAGE_LOOKBACK_SECONDS of the house's minutes (a new
+    // device has none). MAX(ts) by device_id alone (the primary key starts with device_id,
+    // channel) read every minute the device ever sent.
     query: `INSERT INTO outages (device_id, boot_at, household_id, start_at)
-      SELECT ?, ?, ?, (SELECT MAX(ts) + 60 FROM readings_1m WHERE device_id = ? AND ts < ?)
+      SELECT ?, ?, ?, (SELECT ts + 60 FROM readings_1m
+        WHERE household_id = ? AND ts >= ? AND ts < ? AND device_id = ?
+        ORDER BY ts DESC LIMIT 1)
       WHERE NOT EXISTS (SELECT 1 FROM outages WHERE device_id = ? AND boot_at BETWEEN ? AND ?)`,
     params: [
       device.id,
       bootAt,
       device.householdId,
-      device.id,
+      device.householdId,
+      bootAt - OUTAGE_LOOKBACK_SECONDS,
       bootAt,
+      device.id,
       device.id,
       bootAt - BOOT_TOLERANCE_SECONDS,
       bootAt + BOOT_TOLERANCE_SECONDS,

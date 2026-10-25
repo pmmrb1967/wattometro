@@ -79,6 +79,16 @@ describe('POST /v1/import/eredes', () => {
 
     const summary = await (await request(cookie, 'GET', '/v1/import/eredes')).json();
     expect(summary).toEqual({ quarters: 196, estimated: 2, energyWh: 19_600, from, to });
+    // The summary adds up the days; days imported before they had counts are read in full.
+    expect(
+      await sql.all('SELECT day, quarters, estimated FROM daily WHERE household_id IS NOT NULL'),
+    ).toEqual([
+      { day: '2025-10-25', quarters: 96, estimated: 2 },
+      { day: '2025-10-26', quarters: 100, estimated: 0 },
+    ]);
+    await sql.run("UPDATE daily SET quarters = NULL, estimated = NULL WHERE day = '2025-10-26'");
+    const older = await (await request(cookie, 'GET', '/v1/import/eredes')).json();
+    expect(older).toEqual(summary);
   });
 
   it('is idempotent; a changed value replaces the old one and its day', async () => {

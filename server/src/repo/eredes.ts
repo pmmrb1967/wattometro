@@ -39,17 +39,25 @@ export async function importEredes(
       params: [householdId, JSON.stringify(rows)],
     },
     {
-      // One primary-key range per day (~96 rows read). A join here let SQLite scan every
-      // E-Redes quarter of the household once per day of the batch (~500 000 rows read).
-      query: `INSERT INTO daily (household_id, meter, day, source, energy_wh)
-        SELECT ?, '${EREDES_METER}', json_extract(d.value, '$[0]'), 'eredes',
-          (SELECT SUM(q.energy_wh) FROM readings_15m AS q
-            WHERE q.household_id = ? AND q.meter = '${EREDES_METER}'
-              AND q.ts >= json_extract(d.value, '$[1]') AND q.ts < json_extract(d.value, '$[2]'))
-        FROM json_each(?) AS d WHERE true
-        ON CONFLICT (household_id, meter, day) DO UPDATE SET energy_wh = excluded.energy_wh
-        WHERE energy_wh IS NOT excluded.energy_wh`,
-      params: [householdId, householdId, JSON.stringify(days)],
+      // One primary-key range per day (~96 rows read), for the energy, the quarters and the
+      // estimated ones together (materialized, so the range is read once). A join here let
+      // SQLite scan every E-Redes quarter of the household once per day of the batch
+      // (~500 000 rows read).
+      query: `WITH d AS MATERIALIZED (
+          SELECT json_extract(value, '$[0]') AS day,
+            (SELECT json_array(SUM(q.energy_wh), COUNT(*), SUM(q.estimated)) FROM readings_15m AS q
+              WHERE q.household_id = ? AND q.meter = '${EREDES_METER}'
+                AND q.ts >= json_extract(value, '$[1]') AND q.ts < json_extract(value, '$[2]'))
+              AS totals
+          FROM json_each(?))
+        INSERT INTO daily (household_id, meter, day, source, energy_wh, quarters, estimated)
+        SELECT ?, '${EREDES_METER}', day, 'eredes', totals ->> 0, totals ->> 1, totals ->> 2
+        FROM d WHERE true
+        ON CONFLICT (household_id, meter, day) DO UPDATE SET energy_wh = excluded.energy_wh,
+          quarters = excluded.quarters, estimated = excluded.estimated
+        WHERE energy_wh IS NOT excluded.energy_wh OR quarters IS NOT excluded.quarters
+          OR estimated IS NOT excluded.estimated`,
+      params: [householdId, JSON.stringify(days), householdId],
     },
   ]);
   return written;
@@ -64,7 +72,40 @@ export interface EredesSummary {
   to: number | null;
 }
 
+/**
+ * From the daily totals (~365 rows a year) and the first and last quarter
+ * hours (one primary-key row each); days imported before the daily counts
+ * existed (migration 0012) fall back to reading every quarter hour.
+ */
 export async function eredesSummary(sql: Sql, householdId: string): Promise<EredesSummary> {
+  const daily = await sql.first<{
+    quarters: number | null;
+    estimated: number | null;
+    energy_wh: number | null;
+    unknown: number | null;
+    first: number | null;
+    last: number | null;
+  }>(
+    `SELECT SUM(quarters) AS quarters, SUM(estimated) AS estimated, SUM(energy_wh) AS energy_wh,
+       SUM(quarters IS NULL) AS unknown,
+       (SELECT MIN(ts) FROM readings_15m WHERE household_id = ? AND meter = '${EREDES_METER}')
+         AS first,
+       (SELECT MAX(ts) FROM readings_15m WHERE household_id = ? AND meter = '${EREDES_METER}')
+         AS last
+     FROM daily WHERE household_id = ? AND meter = '${EREDES_METER}'`,
+    householdId,
+    householdId,
+    householdId,
+  );
+  if (daily && !daily.unknown) {
+    return {
+      quarters: daily.quarters ?? 0,
+      estimated: daily.estimated ?? 0,
+      energyWh: daily.energy_wh ?? 0,
+      from: daily.first,
+      to: daily.last === null ? null : daily.last + 900,
+    };
+  }
   const row = await sql.first<{
     quarters: number;
     estimated: number | null;

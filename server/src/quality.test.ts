@@ -7,7 +7,7 @@ import type { Sql } from './db';
 import { hashPassword } from './password';
 import { createDevice } from './repo/devices';
 import { createHousehold } from './repo/households';
-import { bootStatement } from './repo/quality';
+import { bootStatement, OUTAGE_LOOKBACK_SECONDS } from './repo/quality';
 import { minuteStatements } from './repo/readings';
 import { createUser } from './repo/users';
 import { runMaintenance } from './rollups';
@@ -132,6 +132,15 @@ describe('zone and outages', () => {
     expect((await request(cookie, 'PUT', '/v1/quality/zone', { zone: 'D' })).status).toBe(400);
     const quality = await request(cookie, 'GET', '/v1/quality?from=0&to=10&low=2070&high=2530');
     expect(((await quality.json()) as { zone: string }).zone).toBe('B');
+  });
+
+  it('does not take a week or more without minutes for a power cut', async () => {
+    const { id, deviceId } = households[0]!;
+    await minute(0, START, 2300, 2310);
+    await sql.batch([
+      bootStatement({ id: deviceId, householdId: id }, START + OUTAGE_LOOKBACK_SECONDS + 60),
+    ]);
+    expect(db.prepare('SELECT start_at FROM outages').all()).toEqual([{ start_at: null }]);
   });
 
   it('lists the outages and lets the user exclude one, in their household only', async () => {
