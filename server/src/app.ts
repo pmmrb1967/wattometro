@@ -47,7 +47,8 @@
  *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
  *   DELETE /v1/import/eredes   → 204, removes the imported E-Redes data
  *   GET  /v1/energy?from&to    → {meters: [{meter, days, energyWh}]} (≤ 430 days)
- *   GET  /v1/energy/days?meter&from&to → {days: [[date, Wh]]}, the daily totals of a meter (≤ 430 days)
+ *   GET  /v1/energy/days?meter&from&to → {days: [[date, Wh, minutes | null]]}, the daily totals
+ *                              of a meter (≤ 430 days); minutes with data for a Shelly
  *   GET  /v1/energy/quarters?meter&from&to → application/octet-stream, the quarter hours of a
  *                              meter ('eredes' or 'device:channel') as uint32 ts · uint32 Wh (≤ 430 days)
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →

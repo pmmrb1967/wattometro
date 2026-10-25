@@ -122,7 +122,8 @@ describe('POST /v1/import/eredes', () => {
     const days = await (
       await request(cookie, 'GET', `/v1/energy/days?meter=eredes&from=${from}&to=${from + 3600}`)
     ).json();
-    expect(days).toEqual({ days: [['2026-01-15', 333]] });
+    // E-Redes has no minutes (a Shelly's day has them, to tell whole days).
+    expect(days).toEqual({ days: [['2026-01-15', 333, null]] });
     // Another meter, or days without data: nothing.
     const none = await (
       await request(cookie, 'GET', `/v1/energy/days?meter=x:0&from=${from}&to=${from + 3600}`)

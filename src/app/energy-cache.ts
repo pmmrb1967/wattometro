@@ -15,7 +15,7 @@ import {
   type EpochSeconds,
   type LocalDate,
 } from '../lib/time';
-import { fetchDailyEnergy, fetchQuarterEnergy, type Failure } from './api';
+import { fetchDailyEnergy, fetchQuarterEnergy, type DayEnergy, type Failure } from './api';
 
 export type Quarter = { ts: EpochSeconds; energyWh: number };
 
@@ -48,7 +48,7 @@ export function daySums(quarters: readonly Quarter[]): Map<LocalDate, number> {
  */
 export function staleRanges(
   kept: ReadonlyMap<LocalDate, number>,
-  server: readonly [LocalDate, number][],
+  server: readonly (readonly [LocalDate, number, ...(number | null)[]])[],
 ): [LocalDate, LocalDate][] {
   const ranges: [LocalDate, LocalDate][] = [];
   let previousStale = false;
@@ -147,7 +147,7 @@ async function withStore<T>(
 
 const memory = new Map<
   string,
-  { checkedAt: number; from: number; to: number; quarters: Quarter[] }
+  { checkedAt: number; from: number; to: number; quarters: Quarter[]; days: DayEnergy[] }
 >();
 
 /** Forgets every kept quarter (sign-out). Changed data needs nothing: the daily check finds it. */
@@ -162,8 +162,16 @@ export async function loadQuarters(
   meter: string,
   from: EpochSeconds,
   to: EpochSeconds,
-): Promise<{ ok: true; quarters: Quarter[] } | Failure> {
-  if (isDemo()) return fetchQuarterEnergy(meter, from, to);
+): Promise<{ ok: true; quarters: Quarter[]; days: DayEnergy[] } | Failure> {
+  if (isDemo()) {
+    const [quarters, daily] = await Promise.all([
+      fetchQuarterEnergy(meter, from, to),
+      fetchDailyEnergy(meter, from, to),
+    ]);
+    if (!quarters.ok) return quarters;
+    if (!daily.ok) return daily;
+    return { ok: true, quarters: quarters.quarters, days: daily.days };
+  }
   const key = `${household}:${meter}`;
   const recent = memory.get(key);
   if (
@@ -172,7 +180,7 @@ export async function loadQuarters(
     recent.to === to &&
     Date.now() - recent.checkedAt < FRESH_MS
   ) {
-    return { ok: true, quarters: recent.quarters };
+    return { ok: true, quarters: recent.quarters, days: recent.days };
   }
 
   const [stored, daily] = await Promise.all([
@@ -200,9 +208,9 @@ export async function loadQuarters(
     from,
     to,
   );
-  memory.set(key, { checkedAt: Date.now(), from, to, quarters });
+  memory.set(key, { checkedAt: Date.now(), from, to, quarters, days: daily.days });
   if (fetched.length > 0 || quarters.length !== before.length) {
     await withStore('readwrite', (store) => store.put(encode(quarters), key));
   }
-  return { ok: true, quarters };
+  return { ok: true, quarters, days: daily.days };
 }

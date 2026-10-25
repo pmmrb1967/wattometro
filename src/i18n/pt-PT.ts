@@ -543,6 +543,30 @@ export const t = {
       cellTitle: (day: string, hour: number, kwh: string) =>
         `${day}, ${hour}–${hour + 1} h: ${kwh}`,
     },
+    reconcile: {
+      title: (shelly: string) => `${shelly} (Shelly) e E-Redes`,
+      intro:
+        'Os dois medem a mesma casa. A E-Redes é a referência da fatura; aqui vês quanto o Shelly se afasta dela nos dias que ambos mediram por inteiro.',
+      result: (direction: 1 | 0 | -1, pct: string) =>
+        direction === 0
+          ? 'O Shelly mede o mesmo que a E-Redes.'
+          : `O Shelly mede ${pct} ${direction > 0 ? 'mais' : 'menos'} do que a E-Redes.`,
+      totals: (days: number, eredes: string, shelly: string) =>
+        `Em ${days} ${days === 1 ? 'dia completo' : 'dias completos'}: E-Redes ${eredes}, Shelly ${shelly}.`,
+      incomplete: (days: number) =>
+        `${days} ${days === 1 ? 'dia em comum ficou' : 'dias em comum ficaram'} de fora porque o Shelly perdeu minutos (falha de luz, de rede ou do servidor).`,
+      unusualTitle: 'Dias fora do habitual',
+      unusualIntro:
+        'Afastam-se mais de 3 pontos da diferença habitual: costuma ser uma falha de um dos lados (por exemplo, valores estimados pela E-Redes).',
+      unusualDay: (date: string, pct: string) => `${date}: ${pct}`,
+      none: (from: string) =>
+        `Ainda não há dias medidos pelos dois. O Shelly mede desde ${from}: a comparação aparece quando importares um ficheiro da E-Redes que inclua dias desde então.`,
+      onlyIncomplete: (days: number) =>
+        `Há ${days} ${days === 1 ? 'dia' : 'dias'} com dados dos dois, mas o Shelly perdeu minutos ${days === 1 ? 'nesse dia' : 'em todos'}: ainda não dá para comparar.`,
+      rule: 'Nos totais, na previsão, no consumo base e nos tarifários conta a E-Redes até ao último dia importado e o Shelly a partir daí: os dois nunca se somam.',
+      normal:
+        'Uma diferença pequena e estável é normal: são aparelhos diferentes, com tolerâncias próprias.',
+    },
   },
   report: {
     title: 'Relatório do mês',

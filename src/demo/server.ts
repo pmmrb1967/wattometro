@@ -308,14 +308,21 @@ function meterQuarters(data: DemoData, meter: string, from: number, to: number) 
     : null;
 }
 
-/** Energy per Lisbon day of quarter hours (GET /v1/energy/days, server/src/repo/eredes.ts). */
-function dailyEnergy(quarters: [number, number][]): [string, number][] {
-  const days = new Map<string, number>();
+/**
+ * Energy per Lisbon day of quarter hours (GET /v1/energy/days, server/src/repo/eredes.ts),
+ * with the minutes of a Shelly (its quarters are whole) or null for E-Redes.
+ */
+function dailyEnergy(
+  quarters: [number, number][],
+  shelly = false,
+): [string, number, number | null][] {
+  const days = new Map<string, [number, number]>();
   for (const [ts, wh] of quarters) {
     const date = lisbonDate(ts);
-    days.set(date, (days.get(date) ?? 0) + wh);
+    const [energy, count] = days.get(date) ?? [0, 0];
+    days.set(date, [energy + wh, count + 1]);
   }
-  return [...days];
+  return [...days].map(([date, [wh, count]]) => [date, wh, shelly ? count * 15 : null]);
 }
 
 /** Records of GET /v1/energy/quarters (server/src/repo/eredes.ts): uint32 ts · uint32 Wh. */
@@ -417,7 +424,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
           : meterQuarters(data, url.searchParams.get('meter') ?? '', from, to);
       if (!quarters) return invalid();
       return route === 'GET /v1/energy/days'
-        ? json({ days: dailyEnergy(quarters) })
+        ? json({ days: dailyEnergy(quarters, url.searchParams.get('meter') !== 'eredes') })
         : energyRecords(quarters);
     }
     case 'GET /v1/import/eredes': {

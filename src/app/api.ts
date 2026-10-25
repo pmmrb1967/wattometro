@@ -456,14 +456,23 @@ export async function fetchEnergyMeters(
   return failure(response, []);
 }
 
-const DailyEnergy = z.object({ days: z.array(z.tuple([z.string(), int])) });
+import type { DayEnergy } from '../domain/reconciliation';
+export type { DayEnergy };
+const DailyEnergy = z.object({
+  days: z.array(
+    z
+      .tuple([z.string(), int])
+      .rest(int.nullable())
+      .transform(([date, wh, minutes]): DayEnergy => [date, wh, minutes ?? null]),
+  ),
+});
 
-/** Energy of a meter per Lisbon day of [from, to): [date, Wh], oldest first. */
+/** Energy of a meter per Lisbon day of [from, to), oldest first. */
 export async function fetchDailyEnergy(
   meter: string,
   from: number,
   to: number,
-): Promise<{ ok: true; days: [string, number][] } | Failure> {
+): Promise<{ ok: true; days: DayEnergy[] } | Failure> {
   const query = new URLSearchParams({ meter, from: String(from), to: String(to) });
   const response = await send('GET', `/v1/energy/days?${query}`);
   if (response?.ok) return { ok: true, ...DailyEnergy.parse(await response.json()) };

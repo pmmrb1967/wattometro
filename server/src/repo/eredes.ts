@@ -150,7 +150,8 @@ export async function energyMeters(
 
 /**
  * Energy of a meter per Lisbon day in [fromDay, toDay], oldest first: the sum of
- * its quarter hours, so the app can check the ones it keeps (src/app/energy-cache.ts).
+ * its quarter hours, so the app can check the ones it keeps (src/app/energy-cache.ts),
+ * and the minutes with data (a Shelly; null for E-Redes), to tell whole days.
  */
 export async function dailyEnergy(
   sql: Sql,
@@ -158,14 +159,14 @@ export async function dailyEnergy(
   meter: string,
   fromDay: string,
   toDay: string,
-): Promise<[string, number][]> {
-  const rows = await sql.all<{ day: string; energy_wh: number }>(
-    `SELECT day, energy_wh FROM daily
+): Promise<[string, number, number | null][]> {
+  const rows = await sql.all<{ day: string; energy_wh: number; minutes: number | null }>(
+    `SELECT day, energy_wh, minutes FROM daily
      WHERE household_id = ? AND meter = ? AND day >= ? AND day <= ? ORDER BY day`,
     householdId,
     meter,
     fromDay,
     toDay,
   );
-  return rows.map((row) => [row.day, row.energy_wh]);
+  return rows.map((row) => [row.day, row.energy_wh, row.minutes]);
 }

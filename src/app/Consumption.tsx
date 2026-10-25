@@ -16,6 +16,7 @@ import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { HOUSE_METER, shellyName } from './meters';
 import { MeterSelect } from './MeterSelect';
+import { Reconciliation } from './Reconciliation';
 
 const texts = t.consumption;
 
@@ -170,6 +171,14 @@ export function Consumption() {
             }
             periods={periods}
           />
+          {energy.compare && (
+            <Reconciliation
+              compare={energy.compare}
+              shellyName={
+                energy.houseShelly ? shellyName(energy.houseShelly, energy.devices) : 'Shelly'
+              }
+            />
+          )}
         </>
       )}
     </>

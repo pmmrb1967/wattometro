@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 import { addMonths, houseQuarters } from '../domain/consumption';
+import type { DayEnergy } from '../domain/reconciliation';
 import { tariffOn, type Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import {
@@ -76,8 +77,13 @@ export interface HouseholdEnergy {
   shellyFrom: LocalDate | null;
   /** Today's quarters so far, from a Shelly; null for E-Redes or when unknown. */
   today: Quarter[] | null;
-  /** The house: each system's whole days, for the charts; null for a single meter. */
-  compare: { eredes: Quarter[]; shelly: Quarter[] } | null;
+  /** The house: each system's quarters and daily totals, to show both; null for a single meter. */
+  compare: {
+    eredes: Quarter[];
+    shelly: Quarter[];
+    eredesDays: readonly DayEnergy[];
+    shellyDays: readonly DayEnergy[];
+  } | null;
   /** The Shelly measuring the house (its meter id); null without one. */
   houseShelly: string | null;
 }
@@ -161,11 +167,16 @@ export function useHouseholdEnergy(): HouseholdEnergy {
     const load = (id: string | null) =>
       id && withDays.split(',').includes(id)
         ? loadQuarters(me.householdId, id, window.from, window.to)
-        : Promise.resolve({ ok: true as const, quarters: [] as Quarter[] });
+        : Promise.resolve({
+            ok: true as const,
+            quarters: [] as Quarter[],
+            days: [] as DayEnergy[],
+          });
     const parts = meter === HOUSE_METER ? [load('eredes'), load(shelly)] : [load(meter)];
     void Promise.all(parts).then((outcomes) => {
       if (!active) return;
       const quarters: Quarter[][] = [];
+      const days: (readonly DayEnergy[])[] = [];
       for (const outcome of outcomes) {
         if (!outcome.ok) {
           if (outcome.reason === 'unauthenticated') signOut();
@@ -173,11 +184,21 @@ export function useHouseholdEnergy(): HouseholdEnergy {
           return;
         }
         quarters.push(outcome.quarters);
+        days.push(outcome.days);
       }
       const [first = [], second = []] = quarters;
       setLoaded(
         meter === HOUSE_METER
-          ? { meter, ...houseQuarters(first, second), compare: { eredes: first, shelly: second } }
+          ? {
+              meter,
+              ...houseQuarters(first, second),
+              compare: {
+                eredes: first,
+                shelly: second,
+                eredesDays: days[0] ?? [],
+                shellyDays: days[1] ?? [],
+              },
+            }
           : { meter, quarters: first, shellyFrom: null, compare: null },
       );
     });
