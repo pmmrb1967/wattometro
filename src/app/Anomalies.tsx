@@ -11,14 +11,17 @@ import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { lisbonToday, type LocalDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
-import { findAnomalies, REFERENCE_DAYS, type Anomaly } from '../ml/anomalies';
-import { prepareForecast } from '../ml/bill-forecast';
+import {
+  RECENT_ANOMALY_DAYS,
+  recentAnomalies,
+  REFERENCE_DAYS,
+  type Anomaly,
+} from '../ml/anomalies';
 import { useWeather } from './use-weather';
 import type { HouseholdEnergy } from './household-energy';
 
 const texts = t.anomalies;
-/** How far back "Consumo" lists them. */
-const LIST_DAYS = 90;
+const LIST_DAYS = RECENT_ANOMALY_DAYS;
 const MAX_LISTED = 10;
 
 const DAY = new Intl.DateTimeFormat('pt-PT', {
@@ -36,13 +39,7 @@ function useAnomalies(energy: HouseholdEnergy): Anomaly[] | undefined {
   const { quarters, tariff } = energy;
   return useMemo(() => {
     if (!quarters || !weather || tariff === undefined) return undefined;
-    const daily = weather.daily;
-    const temperatureOf = daily ? (date: LocalDate) => daily.get(date) ?? null : null;
-    return findAnomalies(
-      prepareForecast(quarters, tariff),
-      addDays(today, -LIST_DAYS),
-      temperatureOf,
-    ).reverse();
+    return recentAnomalies(quarters, tariff, weather.daily, today);
   }, [quarters, tariff, weather, today]);
 }
 

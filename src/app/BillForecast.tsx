@@ -8,14 +8,12 @@
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { monthDates } from '../domain/consumption';
-import { tariffOn } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents, formatWholeEuros } from '../lib/money';
-import { formatLocalDate, lisbonToday, type LocalDate } from '../lib/time';
+import { formatLocalDate, lisbonToday } from '../lib/time';
 import { formatCelsius, formatKwh } from '../lib/units';
-import { chooseForecast, prepareForecast, type ChosenForecast } from '../ml/bill-forecast';
-import { climateNormal } from '../weather/weather';
+import type { ChosenForecast } from '../ml/bill-forecast';
+import { currentMonthForecast } from '../ml/month-forecast';
 import type { HouseholdEnergy } from './household-energy';
 import { useWeather, type Weather } from './use-weather';
 
@@ -32,22 +30,7 @@ function useBillForecast(energy: HouseholdEnergy): ForecastResult | null | undef
   const { quarters, tariffs, tariffsFailed } = energy;
   return useMemo(() => {
     if (!quarters || !weather || (tariffs === null && !tariffsFailed)) return undefined;
-    const month = today.slice(0, 7);
-    // The tariff in force at the end of the month, as on the bill.
-    const tariff = tariffs ? tariffOn(tariffs, monthDates(month).at(-1)!) : null;
-    const data = prepareForecast(quarters, tariff);
-    const daily = weather.daily;
-    const measured = new Map([...(daily ?? [])].filter(([date]) => date < today));
-    const normal = climateNormal(measured);
-    const temperatureOf = (date: LocalDate) => (daily ? (daily.get(date) ?? normal(date)) : null);
-    const chosen = chooseForecast(
-      data,
-      month,
-      today,
-      temperatureOf,
-      (date) => measured.get(date) ?? null,
-      daily ? normal : () => null,
-    );
+    const chosen = currentMonthForecast(quarters, tariffs, weather.daily, today);
     return chosen ? { ...chosen, weather } : null;
   }, [quarters, tariffs, tariffsFailed, weather, today]);
 }

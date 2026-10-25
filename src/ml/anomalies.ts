@@ -27,7 +27,15 @@ import {
   type LocalDate,
 } from '../lib/time';
 import type { TenthsCelsius, Wh } from '../lib/units';
-import { dayKind, type DayKind, type ForecastData, type TemperatureOf } from './bill-forecast';
+import { addDays } from '../domain/consumption';
+import type { TariffInput } from '../domain/tariff';
+import {
+  dayKind,
+  prepareForecast,
+  type DayKind,
+  type ForecastData,
+  type TemperatureOf,
+} from './bill-forecast';
 
 /** Days of the same kind compared with, at most, the most recent first. */
 export const REFERENCE_DAYS = 12;
@@ -168,6 +176,27 @@ function excessCost(
   return (
     electricityCost(actual, 1, tariff).totalCents - electricityCost(usual, 1, tariff).totalCents
   );
+}
+
+/** How far back the app lists them ("Consumo", and the AI's get_anomalies). */
+export const RECENT_ANOMALY_DAYS = 90;
+
+/**
+ * The unusual days of the last RECENT_ANOMALY_DAYS, newest first, as the app
+ * shows them. `daily`: mean temperature per day, or null when it does not matter.
+ */
+export function recentAnomalies(
+  quarters: readonly { ts: EpochSeconds; energyWh: Wh }[],
+  tariff: TariffInput | null,
+  daily: ReadonlyMap<LocalDate, TenthsCelsius> | null,
+  today: LocalDate,
+): Anomaly[] {
+  const temperatureOf = daily ? (date: LocalDate) => daily.get(date) ?? null : null;
+  return findAnomalies(
+    prepareForecast(quarters, tariff),
+    addDays(today, -RECENT_ANOMALY_DAYS),
+    temperatureOf,
+  ).reverse();
 }
 
 /**

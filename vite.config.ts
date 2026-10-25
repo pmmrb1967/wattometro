@@ -80,6 +80,10 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: 'node',
+    // Several tests compute over months of quarter hours (Lisbon dates are slow to
+    // derive); in parallel with the rest they can pass 5 s on a busy machine.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     include: [
       'src/**/*.test.ts',
       'server/**/*.test.ts',
