@@ -11,7 +11,12 @@
  *    0.2.0+, for outages: docs/voltage.md), min: [Minute, …]}
  *   Minute = {t: start (epoch s, multiple of 60), c: channel, n: seconds with a reading,
  *             e: Wh, pa/pn/px: W avg/min/max, va/vn/vx: dV avg/min/max, pf: ΣP/ΣS %,
- *             p?, q?, u?: 60 × (int | null), active W, non-active var, dV}
+ *             p?, q?, u?: 60 × (int | null), active W, non-active var, dV,
+ *             sx?: highest apparent power VA, for a minute without p/q/u (taken from the
+ *             Shelly's own minute log, docs/shelly.md "Registo interno")}
+ *
+ * Minutes older than the rollups' LATE_SECONDS (a backfill from the Shelly's log)
+ * move the rollups back, so the next Cron run recomputes their quarter hours and days.
  */
 import { z } from 'zod';
 import { encodeSeconds, MAX_INT16, SECONDS_PER_MINUTE } from '../../src/lib/readings-1s';
@@ -19,6 +24,15 @@ import type { Sql } from './db';
 import { deviceSeenStatement, type IngestDevice } from './repo/devices';
 import { bootStatement } from './repo/quality';
 import { minuteStatements, type MinuteReading } from './repo/readings';
+import { getState, setState } from './repo/rollups';
+import { LATE_SECONDS, STATE } from './rollups';
+
+/** The next rollup starts at or before `ts` (it starts LATE_SECONDS before its state). */
+async function rollBackTo(sql: Sql, householdId: string, ts: number): Promise<void> {
+  const name = STATE.rolledUpUntil(householdId);
+  const until = await getState(sql, name);
+  if (until !== null && until - LATE_SECONDS > ts) await setState(sql, name, ts + LATE_SECONDS);
+}
 
 export const INGEST_FORMAT = 1;
 export const MAX_INGEST_BYTES = 16_384;
@@ -26,7 +40,7 @@ export const MAX_MINUTES_PER_REQUEST = 20;
 export const DEFAULT_REQUESTS_PER_MINUTE = 20;
 /** The Shelly's clock may run slightly ahead. */
 export const FUTURE_TOLERANCE_SECONDS = 120;
-/** The script's queue lives in RAM: older minutes are not expected. */
+/** The script's queue lives in RAM; older minutes come from the Shelly's log (scripts/shelly-backfill.ts). */
 export const MAX_AGE_SECONDS = 30 * 24 * 3600;
 /** 16 kW for a minute is 267 Wh; anything far above is a broken counter. */
 export const MAX_MINUTE_WH = 1000;
@@ -56,6 +70,7 @@ const Minute = z
     p: series.optional(),
     q: series.optional(),
     u: series.optional(),
+    sx: z.number().int().min(0).max(MAX_INT16).optional(),
   })
   .refine((m) => m.pn <= m.pa && m.pa <= m.px && m.vn <= m.va && m.va <= m.vx)
   .refine(
@@ -109,7 +124,7 @@ function toReading(minute: z.infer<typeof Minute>): MinuteReading {
     voltageAvgDv: minute.va,
     voltageMaxDv: minute.vx,
     pfAvgPct: minute.pf,
-    apparentMaxVa: minute.p && minute.q ? apparentMax(minute.p, minute.q) : null,
+    apparentMaxVa: minute.p && minute.q ? apparentMax(minute.p, minute.q) : (minute.sx ?? null),
     seconds:
       minute.p && minute.q && minute.u
         ? encodeSeconds({ power: minute.p, nonActive: minute.q, voltage: minute.u })
@@ -178,6 +193,11 @@ export async function ingest(
   );
   const changes = await sql.batch(statements);
   const stored = minuteIndexes.filter((index) => changes[index] === 1).length;
+
+  const oldest = Math.min(
+    ...readings.filter((_, i) => changes[minuteIndexes[i] as number] === 1).map((r) => r.ts),
+  );
+  if (oldest < now - LATE_SECONDS) await rollBackTo(sql, device.householdId, oldest);
 
   return {
     ok: true,

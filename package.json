@@ -24,7 +24,8 @@
     "ml:anomalies": "tsx scripts/ml-anomalies.ts",
     "ai:eval": "tsx scripts/ai-eval.ts",
     "nilm:eval": "tsx scripts/nilm-eval.ts",
-    "shelly:install": "tsx scripts/shelly-install.ts"
+    "shelly:install": "tsx scripts/shelly-install.ts",
+    "shelly:backfill": "tsx scripts/shelly-backfill.ts"
   },
   "packageManager": "pnpm@12.11.2",
   "license": "AGPL-3.0-or-later",

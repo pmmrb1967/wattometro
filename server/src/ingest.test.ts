@@ -382,3 +382,72 @@ describe('POST /v1/ingest', () => {
     expect(count('readings_1s')).toBe(0);
   });
 });
+
+describe('backfill from the Shelly’s minute log', () => {
+  let token: string;
+
+  beforeEach(async () => {
+    token = (await register(await signIn())).token;
+  });
+
+  const missing = (query: string, bearer = token) =>
+    app.request(`${ORIGIN}/v1/ingest/missing?${query}`, {
+      headers: { Authorization: `Bearer ${bearer}` },
+    });
+
+  it('says which minutes of a channel are not stored', async () => {
+    const from = MINUTE - 600;
+    clock = MINUTE + 75;
+    await send(token, payload([minute(from + 120), minute(from + 180), minute(from + 420)]));
+    const response = await missing(`c=0&from=${from}&to=${MINUTE}`);
+    expect(await response.json()).toEqual({
+      missing: [
+        [from, from + 120],
+        [from + 240, from + 420],
+        [from + 480, MINUTE],
+      ],
+      now: clock,
+    });
+    // Another channel: all of it.
+    expect(
+      ((await (await missing(`c=1&from=${from}&to=${MINUTE}`)).json()) as { missing: unknown })
+        .missing,
+    ).toEqual([[from, MINUTE]]);
+  });
+
+  it('wants a device token, whole minutes and at most 11 days', async () => {
+    expect((await missing(`c=0&from=${MINUTE - 600}&to=${MINUTE}`, 'wm_dev_wrong')).status).toBe(
+      401,
+    );
+    expect((await missing(`c=0&from=${MINUTE - 590}&to=${MINUTE}`)).status).toBe(400);
+    expect((await missing(`c=0&from=${MINUTE - 12 * 86_400}&to=${MINUTE}`)).status).toBe(400);
+    expect((await missing(`c=0&from=${MINUTE}&to=${MINUTE + 3600}`)).status).toBe(400);
+  });
+
+  it('keeps the apparent peak of a minute without per-second values', async () => {
+    await send(token, payload([{ ...aggregate(MINUTE), sx: 640 }]));
+    const row = db.prepare('SELECT apparent_max_va FROM readings_1m').get() as {
+      apparent_max_va: number | null;
+    };
+    expect(row.apparent_max_va).toBe(640);
+  });
+
+  it('moves the rollups back for minutes older than they recompute', async () => {
+    const household = (db.prepare("SELECT id FROM households WHERE name = 'Casa'").get() as { id: string }).id;
+    const name = `rollup_until:${household}`;
+    db.prepare('INSERT INTO maintenance_state (name, value) VALUES (?, ?)').run(name, clock);
+    const old = MINUTE - 2 * 86_400;
+    await send(token, payload([aggregate(old)]));
+    const state = () =>
+      (
+        db.prepare('SELECT value FROM maintenance_state WHERE name = ?').get(name) as {
+          value: number;
+        }
+      ).value;
+    // The next run starts LATE_SECONDS (6 h) before the state: at the old minute.
+    expect(state()).toBe(old + 6 * 3600);
+    // A recent minute leaves it alone; so does the same old minute again.
+    await send(token, payload([aggregate(MINUTE), aggregate(old)]));
+    expect(state()).toBe(old + 6 * 3600);
+  });
+});

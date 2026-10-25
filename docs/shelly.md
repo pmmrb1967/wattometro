@@ -43,6 +43,22 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM1Data>
 - ☑ Resolução: duas casas decimais (ex.: `467.01`).
 - ☑ **O total só muda uma vez por minuto**, cerca de **1,2 s depois** do minuto certo do relógio do aparelho (medido a 2026-10-24, firmware 2.1.0: lido a cada 0,5 s, mudou às hh:mm:01,2–01,3). Com o script 0.2.0, que lia o total ao segundo :00, a leitura apanhava às vezes o valor antes da mudança e às vezes depois, e a energia saltava entre minutos (0, 12 e 6 Wh a ~345 W constantes). O total do dia estava certo, mas o de cada minuto não. A partir do **0.2.1**, o script fecha o minuto ao :00 e só lê a energia dele 5 s depois (`COUNTER_SETTLE`).
 
+## Registo interno — `EM1Data.GetRecords` / `GetData`
+
+Fontes, consultadas a 2026-10-25:
+- <https://kb.shelly.cloud/knowledge-base/shelly-em-gen3>: "Data logs stored on device for up to 10 days of minute data records" (características) e "At least 10 days of 1 min data resolution" (especificações); "JSON format export through RPC"; flash de 8 MB.
+- <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM1Data>: `GetRecords {id, ts}` lista os blocos guardados (`ts`, `period`, `records`); `GetData {id, ts, end_ts}` devolve os registos por partes (`keys`, `data[{ts, period, values}]`, `next_record_ts` quando há mais); CSV em `http://<ip>/em1data/<id>/data.csv?ts&end_ts`. A API não diz quanto tempo fica guardado.
+
+Visto no aparelho a 2026-10-25 (firmware 2.1.0):
+- ☑ Um registo por minuto (`period` 60) e por canal, guardado pelo próprio Shelly, mesmo sem script e sem internet. Desde a instalação (24/10, 14:38 UTC) estão lá todos os minutos.
+- ☑ Chaves: `total_act_energy` (Wh do minuto, 4 casas decimais), `total_act_ret_energy`, `lag_react_energy`, `lead_react_energy`, `max/min_act_power` (W), `max/min_aprt_power` (VA), `max/min/avg_voltage` (V), `max/min/avg_current` (A).
+- ☑ Não tem os valores ao segundo nem o fator de potência; o Wattómetro estima-o com `P / (V × I)` médios.
+- ☑ Cada `GetData` devolve ~28 minutos: 10 dias são ~500 pedidos.
+- ☑ Os minutos em que o relógio do Shelly estava errado (noite de 24 para 25/10) também faltam no registo.
+- ☐ Quantos dias cabem de facto: confirmar ao fim de 10 dias com `GetRecords` (o registo mais antigo).
+
+Uso: `pnpm shelly:backfill` (`scripts/shelly-backfill.ts`) preenche, a partir do PC em casa, os minutos que o servidor não tem (`GET /v1/ingest/missing`), sem valores ao segundo e com o pico aparente em `sx`. Cobre falhas do D1 ou da internet até ~10 dias; a fila em RAM do script só cobre ~30 min.
+
 ## Hora — `Sys.GetStatus`
 
 Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Sys/>

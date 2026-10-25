@@ -60,7 +60,11 @@
  *   GET  /v1/energy/quarters?meter&from&to → application/octet-stream, the quarter hours of a
  *                              meter ('eredes' or 'device:channel') as uint32 ts · uint32 Wh (≤ 430 days)
  *   POST /v1/ingest            Authorization: Bearer <device token>; payload in ingest.ts →
- *                              {stored, duplicates, rejected}; 400, 401, 413, 429 (Retry-After)
+ *                              {stored, duplicates, rejected, now}; 400, 401, 413, 429 (Retry-After)
+ *   GET  /v1/ingest/missing?c&from&to  Authorization: Bearer <device token> → {missing:
+ *                              [[start, end)…], now}: the minutes of channel c in [from, to)
+ *                              (whole minutes, ≤ 11 days) not stored, to fill from the
+ *                              Shelly's own minute log (scripts/shelly-backfill.ts)
  *
  * Me = {email, householdId, householdName}. Every signed-in request renews an
  * older session cookie (sliding expiry, auth.ts). /v1/ingest is for devices:
@@ -95,6 +99,7 @@ import { databaseState } from './repo/health';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { missingMinutes } from './repo/readings';
 import { secondsRecords } from './repo/seconds';
 import {
   createSignature,
@@ -215,6 +220,15 @@ export const MAX_SECONDS_SPAN = 25 * 3600;
 const SecondsQuery = z
   .object({ meter: z.string().regex(/^[^:]{1,64}:[0-3]$/), from: epoch, to: epoch })
   .refine(({ from, to }) => from < to && to - from <= MAX_SECONDS_SPAN);
+/** The Shelly keeps "at least 10 days" of minutes (docs/shelly.md, "Registo interno"). */
+export const MAX_MISSING_SPAN = 11 * 86_400;
+const MissingQuery = z
+  .object({
+    c: z.coerce.number().int().min(0).max(3),
+    from: epoch.refine((ts) => ts % 60 === 0),
+    to: epoch.refine((ts) => ts % 60 === 0),
+  })
+  .refine(({ from, to }) => from < to && to - from <= MAX_MISSING_SPAN);
 const SignatureBody = z
   .object({
     meter: z.string().regex(/^[^:]{1,64}:[0-3]$/),
@@ -733,6 +747,28 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const records = await quarterEnergy(config.sql, c.get('user').householdId, meter, from, to);
     c.header('Content-Type', 'application/octet-stream');
     return c.body(records.buffer as ArrayBuffer);
+  });
+
+  app.get('/v1/ingest/missing', async (c) => {
+    const token = BEARER.exec(c.req.header('Authorization') ?? '')?.[1];
+    const device = token
+      ? await findActiveDeviceByTokenHash(config.sql, await hashDeviceToken(token))
+      : null;
+    if (!device) return c.json({ error: 'unauthenticated' }, 401);
+    const parsed = MissingQuery.safeParse(c.req.query());
+    if (!parsed.success || parsed.data.to > now() + 120) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const { c: channel, from, to } = parsed.data;
+    const missing = await missingMinutes(
+      config.sql,
+      device.householdId,
+      device.id,
+      channel,
+      from,
+      to,
+    );
+    return c.json({ missing, now: now() });
   });
 
   app.post('/v1/ingest', async (c) => {

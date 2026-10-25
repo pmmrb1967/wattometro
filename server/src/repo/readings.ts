@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Shelly readings: readings_1m (aggregates) and readings_1s (per-second BLOB). */
-import type { Statement } from '../db';
+import type { Sql, Statement } from '../db';
 
 export interface MinuteReading {
   /** Start of the minute, epoch seconds (multiple of 60). */
@@ -70,4 +70,36 @@ export function minuteStatements(
     });
   }
   return statements;
+}
+
+/**
+ * The minutes of [from, to) a device's channel has no row for, as [start, end)
+ * ranges: what to fill from the Shelly's own minute log. Reads the rows it
+ * has, by primary key: at most one per minute of the span.
+ */
+export async function missingMinutes(
+  sql: Sql,
+  householdId: string,
+  deviceId: string,
+  channel: number,
+  from: number,
+  to: number,
+): Promise<[number, number][]> {
+  const rows = await sql.all<{ ts: number }>(
+    `SELECT ts FROM readings_1m
+     WHERE device_id = ? AND channel = ? AND ts >= ? AND ts < ? AND household_id = ?
+     ORDER BY ts`,
+    deviceId,
+    channel,
+    from,
+    to,
+    householdId,
+  );
+  const ranges: [number, number][] = [];
+  let next = from;
+  for (const { ts } of [...rows, { ts: to }]) {
+    if (ts > next) ranges.push([next, ts]);
+    next = Math.max(next, ts + 60);
+  }
+  return ranges;
 }
