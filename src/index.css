@@ -610,7 +610,8 @@ h2 {
   margin: 0;
 }
 
-.confirm .actions {
+.confirm .actions,
+.form .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

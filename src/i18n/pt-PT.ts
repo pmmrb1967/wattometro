@@ -72,7 +72,43 @@ export const t = {
       'Os dias em que gastaste fora do habitual',
     ],
   },
+  ai: {
+    errors: {
+      no_key: 'Falta a chave da API da Anthropic (Definições → Inteligência artificial).',
+      invalid_key: 'A chave da API não é válida ou foi revogada.',
+      no_credit: 'A conta da Anthropic não tem crédito. Carrega-a em console.anthropic.com.',
+      rate_limited: 'A Anthropic pediu para esperar um pouco. Tenta daqui a um minuto.',
+      unavailable: 'A Anthropic não respondeu. Tenta mais tarde.',
+      offline: 'Sem ligação à internet.',
+      invalid_output: 'A resposta da IA veio incompleta. Tenta outra vez.',
+      refused: 'A IA não quis responder a este pedido.',
+      too_large: 'O pedido é demasiado grande para enviar.',
+    },
+  },
   settings: {
+    ai: {
+      title: 'Inteligência artificial',
+      intro:
+        'Opcional: com uma chave da API da Anthropic tua, podes fazer perguntas sobre o teu consumo e pedir explicações em linguagem simples. Os números vêm sempre da app; a IA só os explica. Tudo funciona sem ela.',
+      key: 'Chave da API da Anthropic',
+      model: 'Modelo',
+      modelOption: (label: string, id: string) =>
+        id === 'claude-sonnet-5-5'
+          ? `${label} (recomendado)`
+          : id === 'claude-haiku-5-5'
+            ? `${label} (mais barato)`
+            : `${label} (mais caro)`,
+      autoSend: 'Enviar sem mostrar primeiro o custo estimado',
+      keyNote:
+        'A chave fica só neste browser, nunca no servidor do Wattómetro. O que perguntas vai diretamente deste browser para a Anthropic, com resumos já calculados (nunca as medições ao minuto). O custo é cobrado pela Anthropic na tua conta.',
+      save: 'Testar e guardar',
+      testing: 'A testar a chave…',
+      saved: 'Chave testada e guardada neste browser.',
+      forget: 'Esquecer a chave',
+      forgotten: 'A chave foi apagada deste browser.',
+      spent: (cost: string, requests: number) =>
+        `Este mês: ${requests} ${requests === 1 ? 'pedido' : 'pedidos'}, cerca de ${cost} (estimativa a preços de tabela).`,
+    },
     title: 'Definições',
     account: {
       title: 'Conta',

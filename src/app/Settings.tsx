@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { AiSection } from './AiSettings';
 import { useState, type FormEvent } from 'react';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
@@ -138,6 +139,7 @@ export function Settings() {
       <EredesImportSection />
       <DevicesSection />
       <InstallSection />
+      <AiSection />
       <PasswordForm />
     </>
   );
