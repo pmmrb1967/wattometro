@@ -55,6 +55,12 @@ export interface TextRequest {
   maxOutputTokens: number;
 }
 
+/** A text answered in a JSON schema and checked with zod; one retry at most. */
+export interface StructuredRequest<T> extends TextRequest {
+  schema: Record<string, unknown>;
+  validator: { safeParse(value: unknown): { success: true; data: T } | { success: false } };
+}
+
 /** A tool as the model sees it (src/ai/tools/). */
 export interface ToolSpec {
   name: string;
@@ -96,6 +102,8 @@ export interface AiProvider {
   testConnection(): Promise<AiUsage>;
   /** A short text from facts already computed (no tools). */
   writeText(request: TextRequest): Promise<{ text: string; usage: AiUsage }>;
+  /** The same, as validated JSON. */
+  writeStructured<T>(request: StructuredRequest<T>): Promise<{ data: T; usage: AiUsage[] }>;
   /** A question answered with the tools, run in the browser. */
   chat(request: ChatRequest): Promise<ChatAnswer>;
 }

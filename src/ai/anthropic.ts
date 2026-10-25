@@ -16,6 +16,7 @@ import {
   type AiUsage,
   type ChatAnswer,
   type ChatRequest,
+  type StructuredRequest,
   type TextRequest,
   type ToolCall,
 } from './provider';
@@ -141,6 +142,36 @@ export class AnthropicProvider implements AiProvider {
       text: answerText(response.content),
       usage: this.usage(request.task, request.promptVersion, response),
     };
+  }
+
+  async writeStructured<T>(request: StructuredRequest<T>): Promise<{ data: T; usage: AiUsage[] }> {
+    const usage: AiUsage[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let response: Anthropic.Beta.BetaMessage;
+      try {
+        response = await this.client.beta.messages.create({
+          ...this.base(),
+          output_config: {
+            effort: this.effort,
+            format: { type: 'json_schema', schema: request.schema },
+          },
+          max_tokens: request.maxOutputTokens,
+          system: request.system,
+          messages: [{ role: 'user', content: request.user }],
+        });
+      } catch (error) {
+        throw new AiError(toAiError(error).code, usage);
+      }
+      usage.push(this.usage(request.task, request.promptVersion, response));
+      if (response.stop_reason === 'refusal') throw new AiError('refused', usage);
+      try {
+        const parsed = request.validator.safeParse(JSON.parse(answerText(response.content)));
+        if (parsed.success) return { data: parsed.data, usage };
+      } catch {
+        // Not JSON (e.g. cut by max_tokens): one more attempt.
+      }
+    }
+    throw new AiError('invalid_output', usage);
   }
 
   async chat(request: ChatRequest): Promise<ChatAnswer> {

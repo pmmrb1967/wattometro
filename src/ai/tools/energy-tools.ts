@@ -22,7 +22,7 @@ import { t } from '../../i18n/pt-PT';
 import { formatCents } from '../../lib/money';
 import { lisbonDate, lisbonParts, startOfLisbonDay, type LocalDate } from '../../lib/time';
 import { formatKva, formatKwh, formatPower, type Wh } from '../../lib/units';
-import { recentAnomalies } from '../../ml/anomalies';
+import { recentAnomalies, type Anomaly } from '../../ml/anomalies';
 import { currentMonthForecast } from '../../ml/month-forecast';
 import { defineTool, type ToolContext } from './tool';
 
@@ -127,42 +127,50 @@ const costBreakdown = defineTool({
     'A month as on the "Relatório" page: energy, estimated cost (energy, power term, taxes, total, with VAT) with the tariff in force at the end of the month, the change per day against the month before and the same month a year before, baseload, highest quarter hour, and the app\'s suggestions. An estimate from the consumption, not the invoice. Use it for "quanto gastei em <mês>?".',
   input: z.strictObject({ month }),
   run({ month: wanted }, context) {
-    const lastDay = monthDates(wanted).at(-1) as LocalDate;
-    const tariff = context.tariffs ? tariffOn(context.tariffs, lastDay) : null;
-    const report = monthlyReport(context.quarters, wanted, tariff);
-    if (!report) return { month: wanted, note: 'No data in this month.' };
-    const partial = wanted === context.today.slice(0, 7);
-    return {
-      month: wanted,
-      ...(partial ? { note: 'The month is still going: up to yesterday or today.' } : {}),
-      daysWithData: report.usage.daysWithData,
-      daysInMonth: report.usage.days,
-      energy: kwh(report.usage.totalWh),
-      perDay: kwh(report.usage.perDayWh),
-      vsPreviousMonthPerDayPct: report.vsPrevious,
-      vsSameMonthLastYearPerDayPct: report.vsLastYear,
-      byPeriod: periodsText(report.byPeriod),
-      cost: report.cost ? costText(report.cost) : NO_TARIFF,
-      ...(report.cost && report.usage.daysWithData < report.usage.days
-        ? { costCovers: `Only the ${report.usage.daysWithData} days with data.` }
-        : {}),
-      tariff: tariff ? tariffText(tariff) : null,
-      baseload: report.baseload
-        ? {
-            power: formatPower(report.baseload.watts),
-            cost: report.baseload.cents !== null ? formatCents(report.baseload.cents) : null,
-          }
-        : null,
-      highestQuarter: report.peak
-        ? {
-            at: `${lisbonDate(report.peak.ts)} ${String(lisbonParts(report.peak.ts).hour).padStart(2, '0')}:${String(lisbonParts(report.peak.ts).minute).padStart(2, '0')}`,
-            averagePower: formatPower(report.peak.watts),
-          }
-        : null,
-      suggestions: report.suggestions,
-    };
+    return monthFacts(context, wanted);
   },
 });
+
+/** A month as get_cost_breakdown gives it (also what "Explicar" sends for the report). */
+export function monthFacts(
+  context: Pick<ToolContext, 'quarters' | 'tariffs' | 'today'>,
+  wanted: string,
+): Record<string, unknown> {
+  const lastDay = monthDates(wanted).at(-1) as LocalDate;
+  const tariff = context.tariffs ? tariffOn(context.tariffs, lastDay) : null;
+  const report = monthlyReport(context.quarters, wanted, tariff);
+  if (!report) return { month: wanted, note: 'No data in this month.' };
+  const partial = wanted === context.today.slice(0, 7);
+  return {
+    month: wanted,
+    ...(partial ? { note: 'The month is still going: up to yesterday or today.' } : {}),
+    daysWithData: report.usage.daysWithData,
+    daysInMonth: report.usage.days,
+    energy: kwh(report.usage.totalWh),
+    perDay: kwh(report.usage.perDayWh),
+    vsPreviousMonthPerDayPct: report.vsPrevious,
+    vsSameMonthLastYearPerDayPct: report.vsLastYear,
+    byPeriod: periodsText(report.byPeriod),
+    cost: report.cost ? costText(report.cost) : NO_TARIFF,
+    ...(report.cost && report.usage.daysWithData < report.usage.days
+      ? { costCovers: `Only the ${report.usage.daysWithData} days with data.` }
+      : {}),
+    tariff: tariff ? tariffText(tariff) : null,
+    baseload: report.baseload
+      ? {
+          power: formatPower(report.baseload.watts),
+          cost: report.baseload.cents !== null ? formatCents(report.baseload.cents) : null,
+        }
+      : null,
+    highestQuarter: report.peak
+      ? {
+          at: `${lisbonDate(report.peak.ts)} ${String(lisbonParts(report.peak.ts).hour).padStart(2, '0')}:${String(lisbonParts(report.peak.ts).minute).padStart(2, '0')}`,
+          averagePower: formatPower(report.peak.watts),
+        }
+      : null,
+    suggestions: report.suggestions,
+  };
+}
 
 function offerText(result: OfferResult) {
   return {
@@ -263,20 +271,26 @@ const anomalies = defineTool({
     const found = recentAnomalies(context.quarters, tariff, context.daily, context.today);
     return {
       days: found.length,
-      list: found.slice(0, MAX_ANOMALIES).map((anomaly) => ({
-        date: anomaly.date,
-        kind: anomaly.kind,
-        used: kwh(anomaly.actualWh),
-        usual: kwh(anomaly.expectedWh),
-        changePct: Math.round(((anomaly.actualWh - anomaly.expectedWh) * 100) / anomaly.expectedWh),
-        mostlyBetween: anomaly.span
-          ? `${anomaly.span.from} h–${anomaly.span.to} h (${kwh(anomaly.span.excessWh)})`
-          : null,
-        cost: anomaly.excessCents !== null ? formatCents(anomaly.excessCents) : null,
-      })),
+      list: found.slice(0, MAX_ANOMALIES).map(anomalyFacts),
     };
   },
 });
+
+/** An unusual day as get_anomalies gives it (also what "Explicar" sends for one). */
+export function anomalyFacts(anomaly: Anomaly) {
+  return {
+    date: anomaly.date,
+    kind: anomaly.kind,
+    used: kwh(anomaly.actualWh),
+    usual: kwh(anomaly.expectedWh),
+    comparedWith: `${anomaly.references} recent days of the same kind${anomaly.temperatureMatched ? ', of a similar temperature' : ''}`,
+    changePct: Math.round(((anomaly.actualWh - anomaly.expectedWh) * 100) / anomaly.expectedWh),
+    mostlyBetween: anomaly.span
+      ? `${anomaly.span.from} h–${anomaly.span.to} h (${kwh(anomaly.span.excessWh)})`
+      : null,
+    cost: anomaly.excessCents !== null ? formatCents(anomaly.excessCents) : null,
+  };
+}
 
 const forecast = defineTool({
   name: 'forecast_month_bill',

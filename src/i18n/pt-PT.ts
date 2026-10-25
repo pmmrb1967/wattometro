@@ -114,6 +114,15 @@ export const t = {
       get_voltage_events: 'qualidade da energia',
     } as Record<string, string>,
   },
+  explain: {
+    button: 'Explicar com IA',
+    title: 'Em palavras simples',
+    actions: 'O que podes fazer:',
+    estimate: (cost: string) =>
+      `Custo estimado: até cerca de ${cost}. Seguem para a Anthropic só os números desta página. Confirmas?`,
+    note: (cost: string) =>
+      `Explicação escrita pela IA a partir dos números da app; as causas são hipóteses. Custou cerca de ${cost}.`,
+  },
   ai: {
     errors: {
       no_key: 'Falta a chave da API da Anthropic (Definições → Inteligência artificial).',

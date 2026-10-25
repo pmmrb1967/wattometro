@@ -619,6 +619,21 @@ h2 {
   gap: 8px;
 }
 
+/* "Explicar": the AI's plain-words reading of a card. */
+.explanation {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.explanation > * {
+  margin: 0;
+}
+
+.explanation > button {
+  justify-self: start;
+}
+
 /* "Perguntar": the conversation. */
 .form textarea {
   width: 100%;

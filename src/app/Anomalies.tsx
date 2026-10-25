@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { addDays } from '../domain/consumption';
+import { anomalyFacts } from '../ai/tools/energy-tools';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { lisbonToday, type LocalDate } from '../lib/time';
@@ -17,6 +18,7 @@ import {
   REFERENCE_DAYS,
   type Anomaly,
 } from '../ml/anomalies';
+import { ExplainButton } from './Explain';
 import { useWeather } from './use-weather';
 import type { HouseholdEnergy } from './household-energy';
 
@@ -84,6 +86,7 @@ export function AnomalyCard({ energy }: { energy: HouseholdEnergy }) {
       <p>
         <Link to="/consumo#fora-do-habitual">{texts.more}</Link>
       </p>
+      <ExplainButton subject="unusualDay" facts={() => anomalyFacts(latest)} />
     </section>
   );
 }
@@ -103,6 +106,7 @@ export function AnomalyList({ energy }: { energy: HouseholdEnergy }) {
           {anomalies.slice(0, MAX_LISTED).map((anomaly) => (
             <li key={anomaly.date}>
               <Sentence anomaly={anomaly} when={dayLabel(anomaly.date)} />
+              <ExplainButton subject="unusualDay" facts={() => anomalyFacts(anomaly)} />
             </li>
           ))}
         </ul>

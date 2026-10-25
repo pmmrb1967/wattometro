@@ -4,6 +4,7 @@
  * hour and suggestions, printed (or saved as PDF) by the browser.
  * Calculation: src/domain/monthly-report.ts.
  */
+import { monthFacts } from '../ai/tools/energy-tools';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { BarChart } from '../components/Charts';
@@ -30,6 +31,7 @@ import { dayBars, usedPeriods } from './chart-bars';
 import { useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
 import { MeterSelect } from './MeterSelect';
+import { ExplainButton } from './Explain';
 import { useSession } from './session';
 
 const texts = t.report;
@@ -303,6 +305,15 @@ export function Report() {
             })}
           </ul>
         )}
+        <div className="no-print">
+          <ExplainButton
+            key={month}
+            subject="month"
+            facts={() =>
+              monthFacts({ quarters: quarters ?? [], tariffs, today: lisbonToday() }, month!)
+            }
+          />
+        </div>
       </section>
 
       <section className="card">
