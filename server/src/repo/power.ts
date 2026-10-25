@@ -94,7 +94,7 @@ export async function eredesQuarters(
 ): Promise<{ quarters: number; maxEnergyWh: number | null }> {
   const row = await sql.first<{ quarters: number; max_energy_wh: number | null }>(
     `SELECT COUNT(*) AS quarters, MAX(energy_wh) AS max_energy_wh FROM readings_15m
-     WHERE household_id = ? AND source = 'eredes' AND ts >= ? AND ts < ?`,
+     WHERE household_id = ? AND meter = 'eredes' AND ts >= ? AND ts < ?`,
     householdId,
     from,
     to,

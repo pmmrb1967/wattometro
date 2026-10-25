@@ -66,13 +66,20 @@ export async function rollUpVoltage10m(
   );
 }
 
-/** Recomputes one Lisbon day ([start, end) in epoch seconds) from its quarter hours. */
+/**
+ * Recomputes one Lisbon day ([start, end) in epoch seconds) from its quarter
+ * hours, for the meters with minutes in [from, to) (the ones just rolled up).
+ * Naming the meters keeps the search on the primary key; without them it reads
+ * every quarter of the household, E-Redes included.
+ */
 export async function rollUpDay(
   sql: Sql,
   householdId: string,
   day: string,
   start: number,
   end: number,
+  from: number,
+  to: number,
 ): Promise<void> {
   await sql.run(
     `INSERT INTO daily (household_id, meter, day, source, minutes, energy_wh, power_max_w,
@@ -81,12 +88,17 @@ export async function rollUpDay(
        MIN(voltage_min_dv), MAX(voltage_max_dv)
      FROM readings_15m
      WHERE household_id = ? AND source = 'shelly' AND ts >= ? AND ts < ?
+       AND meter IN (SELECT DISTINCT device_id || ':' || channel FROM readings_1m
+         WHERE household_id = ? AND ts >= ? AND ts < ?)
      GROUP BY meter
      ON CONFLICT (household_id, meter, day) DO UPDATE SET ${UPDATE_ALL} ${UNLESS_UNCHANGED}`,
     day,
     householdId,
     start,
     end,
+    householdId,
+    from,
+    to,
   );
 }
 

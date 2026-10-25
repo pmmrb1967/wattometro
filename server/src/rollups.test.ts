@@ -314,3 +314,26 @@ it('records the database size', async () => {
   await runMaintenance(sql, at('2026-01-15T12:00:00Z'));
   expect(await getState(sql, STATE.databaseBytes)).toBeGreaterThan(0);
 });
+
+describe('rows read', () => {
+  it('searches the quarter hours by meter and time, never all of the household', async () => {
+    const plans: string[] = [];
+    const run = sql.run.bind(sql);
+    const watched: Sql = {
+      ...sql,
+      run: async (query, ...params) => {
+        const plan = db.prepare(`EXPLAIN QUERY PLAN ${query}`).all(...params) as {
+          detail: string;
+        }[];
+        plans.push(...plan.map((row) => row.detail));
+        await run(query, ...params);
+      },
+    };
+    await minute(at('2026-10-24T10:00:00Z'));
+    await runMaintenance(watched, at('2026-10-24T12:00:00Z'));
+    const quarterSearches = plans.filter((detail) => detail.includes('readings_15m'));
+    expect(quarterSearches.length).toBeGreaterThan(0);
+    for (const detail of quarterSearches) expect(detail).toContain('ts>?');
+    expect(days()).toMatchObject([{ day: '2026-10-24', energy_wh: 1 }]);
+  });
+});

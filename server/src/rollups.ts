@@ -61,7 +61,15 @@ async function rollUpHousehold(sql: Sql, householdId: string, now: number): Prom
   // 10-minute intervals that touch [from, to): whole intervals, recomputed from all their minutes.
   await rollUpVoltage10m(sql, householdId, floorTo(from, TEN_MINUTES), ceilTo(to, TEN_MINUTES));
   for (let day = lisbonDate(from); startOfLisbonDay(day) < to; day = nextDate(day)) {
-    await rollUpDay(sql, householdId, day, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
+    await rollUpDay(
+      sql,
+      householdId,
+      day,
+      startOfLisbonDay(day),
+      startOfLisbonDay(nextDate(day)),
+      from,
+      to,
+    );
   }
   await setState(sql, STATE.rolledUpUntil(householdId), Math.min(to, now));
 }
