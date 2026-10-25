@@ -638,12 +638,14 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     if (Number(c.req.header('Content-Length') ?? 0) > MAX_INGEST_BYTES) {
       return c.json({ error: 'payload_too_large' }, 413);
     }
-    const outcome = await ingest(config.sql, device, await c.req.text(), now(), {
+    const at = now();
+    const outcome = await ingest(config.sql, device, await c.req.text(), at, {
       requestsPerMinute: config.ingestRequestsPerMinute ?? DEFAULT_REQUESTS_PER_MINUTE,
     });
     if (outcome.ok) {
       const { stored, duplicates, rejected } = outcome;
-      return c.json({ stored, duplicates, rejected });
+      // The server's clock: the script corrects its own when it is off (shelly/wattometro.js).
+      return c.json({ stored, duplicates, rejected, now: at });
     }
     if (outcome.status === 429) {
       c.header('Retry-After', String(outcome.retryAfter));

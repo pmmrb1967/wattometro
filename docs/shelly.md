@@ -50,6 +50,7 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Sys/>
 - `unixtime`: segundos UTC, **`null` até sincronizar por NTP**. O script não regista nada sem hora.
 - `uptime`: "Time in seconds since last reboot". A partir da versão 0.2.0 o script envia `b = unixtime − uptime` (hora do arranque), calculada uma vez; o servidor usa-a para detetar falhas de energia (`docs/voltage.md`).
 - `ram_size`, `ram_free`: memória do aparelho.
+- **Mudança da hora (2026-10-25, firmware 2.1.0):** entre as 00:00 e as 02:04 UTC (a hora repetida, 01:00–02:00 em Lisboa, duas vezes) chegaram só 4 dos ~124 minutos, sem reinício e com o script sempre a correr. A explicação mais provável, por confirmar em março: durante a hora ambígua o `unixtime` ficou uma hora adiantado e o servidor descartou os minutos como "do futuro" (tolerância de 120 s, `server/src/ingest.ts`). A partir do script 0.3.2, cada resposta de `/v1/ingest` leva a hora do servidor (`now`); se o relógio do Shelly estiver desviado mais de 60 s, o script soma o desvio até o relógio do aparelho saltar (acertou-se sozinho) ou a resposta seguinte dizer que já está certo. Também escreve na consola os minutos rejeitados pelo servidor. A verificar em 2026-03-29 (hora de verão).
 
 ## Scripts
 

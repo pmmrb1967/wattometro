@@ -50,7 +50,7 @@ Com um computador e o repositório, `pnpm shelly:install` faz estes passos (ver 
 
 ## 5. Confirmar
 
-- Na consola do script deve aparecer `wattometro 0.3.1 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
+- Na consola do script deve aparecer `wattometro 0.3.2 channel 0 …`. Se aparecer `set wattometro.url and wattometro.token in KVS`, repete o passo 3 e reinicia o script.
 - Ao fim de 1–2 minutos, em **Definições → Dispositivos** no Wattómetro, o dispositivo mostra **Último envio** com a hora.
 - Mensagens `send failed` ou `server answered 401` indicam falta de internet ou token errado.
 

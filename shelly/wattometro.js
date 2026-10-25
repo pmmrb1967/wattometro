@@ -19,7 +19,7 @@
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
 // Runs on a Shelly EM Gen3 since 2026-10-24 (docs/shelly.md).
 
-let SCRIPT_VERSION = '0.3.1';
+let SCRIPT_VERSION = '0.3.2';
 let FORMAT = 1;
 // A script has ~25 KB of memory in all (docs/shelly.md, measured on an EM Gen3).
 // Sending a request needs about SEND_OVERHEAD + SEND_FACTOR × body bytes at its
@@ -37,6 +37,13 @@ let INT16 = 32767;
 // The energy total moves once a minute, ~1.2 s after it (docs/shelly.md): a
 // minute's energy is read this many seconds into the next one.
 let COUNTER_SETTLE = 5;
+// On 2026-10-25 the EM Gen3 (firmware 2.1.0) lost the hour the clocks went back:
+// its unixtime seemed an hour ahead and the server dropped the minutes as from
+// the future (docs/shelly.md, "Hora"). Each answer carries the server's time; a
+// clock further off than CLOCK_TOLERANCE follows it until the device's own
+// clock jumps (it corrected itself), when it is trusted again.
+let CLOCK_TOLERANCE = 60;
+let CLOCK_JUMP = 30;
 
 let cfg = { url: null, token: null, channel: 0 };
 let INSTALLED = { url: '', token: '' };
@@ -51,6 +58,9 @@ let sendSeq = 0;
 let nextSend = 0;
 let failures = 0;
 let lastNow = 0;
+let clockOffset = 0; // seconds added to the device's unixtime
+let lastRaw = null; // the device's unixtime at the last tick
+let sentRaw = 0; // and when the request in flight was sent
 let bootAt = null; // epoch s of the last boot (unixtime − uptime), for outages
 
 function clamp(value) {
@@ -207,11 +217,28 @@ function onSent(result, errorCode, errorMessage) {
   }
   // 2xx stored them (or they were duplicates); another 4xx would fail again.
   if (code >= 300) print('wattometro: dropped minutes, server answered', code);
+  else followServerClock(result.body);
   let kept = [];
   for (let i = 0; i < queue.length; i++) if (queue[i].sent !== seq) kept.push(queue[i]);
   queue = kept;
   failures = 0;
   nextSend = lastNow + SEND_GAP;
+}
+
+function followServerClock(body) {
+  let answer = null;
+  try {
+    answer = JSON.parse(body);
+  } catch (e) {
+    return;
+  }
+  if (!answer) return;
+  if (answer.rejected > 0) print('wattometro: server rejected', answer.rejected, 'minutes');
+  if (typeof answer.now !== 'number') return;
+  let off = answer.now - sentRaw;
+  let next = Math.abs(off) > CLOCK_TOLERANCE ? off : 0;
+  if (next !== clockOffset) print('wattometro: clock offset', next, 's');
+  clockOffset = next;
 }
 
 function maybeSend(now) {
@@ -248,6 +275,7 @@ function maybeSend(now) {
   sendSeq++;
   for (let i = 0; i < parts.length; i++) queue[i].sent = sendSeq;
   sending = true;
+  sentRaw = lastRaw;
   Shelly.call(
     'HTTP.Request',
     {
@@ -264,7 +292,13 @@ function maybeSend(now) {
 function tick() {
   let sys = Shelly.getComponentStatus('sys');
   if (!sys || typeof sys.unixtime !== 'number') return; // no time before NTP sync
-  let now = Math.floor(sys.unixtime);
+  let raw = Math.floor(sys.unixtime);
+  // The device's clock jumped (it set itself again): trust it until the server says otherwise.
+  if (lastRaw !== null && Math.abs(raw - lastRaw - 1) > CLOCK_JUMP) clockOffset = 0;
+  lastRaw = raw;
+  let now = raw + clockOffset;
+  // Time that went back would hold the next request until it caught up again.
+  if (now + CLOCK_JUMP < lastNow) nextSend = now;
   lastNow = now;
   // Once, after the clock is set: the same value in every request until the next boot.
   if (bootAt === null && typeof sys.uptime === 'number') bootAt = Math.round(sys.unixtime - sys.uptime);

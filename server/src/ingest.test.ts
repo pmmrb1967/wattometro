@@ -187,7 +187,7 @@ describe('POST /v1/ingest', () => {
     const response = await send(token, payload([minute(MINUTE)]));
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
-    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, rejected: 0 });
+    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, rejected: 0, now: clock });
 
     const row = db.prepare('SELECT * FROM readings_1m').get() as Record<string, unknown>;
     expect(row).toMatchObject({
@@ -257,7 +257,7 @@ describe('POST /v1/ingest', () => {
   it('treats a resend as duplicates, never as new rows', async () => {
     await send(token, payload([minute(MINUTE - 60), minute(MINUTE)]));
     const again = await send(token, payload([minute(MINUTE), minute(MINUTE - 60, { e: 99 })]));
-    expect(await again.json()).toEqual({ stored: 0, duplicates: 2, rejected: 0 });
+    expect(await again.json()).toEqual({ stored: 0, duplicates: 2, rejected: 0, now: clock });
     expect(count('readings_1m')).toBe(2);
     expect(count('readings_1s')).toBe(2);
     // The first value stays.
@@ -276,7 +276,7 @@ describe('POST /v1/ingest', () => {
         minute(MINUTE - 120),
       ]),
     );
-    expect(await response.json()).toEqual({ stored: 4, duplicates: 0, rejected: 0 });
+    expect(await response.json()).toEqual({ stored: 4, duplicates: 0, rejected: 0, now: clock });
   });
 
   it('adds the per-second values later if the first send had the aggregate only', async () => {
@@ -284,6 +284,7 @@ describe('POST /v1/ingest', () => {
       stored: 1,
       duplicates: 0,
       rejected: 0,
+      now: clock,
     });
     expect(count('readings_1s')).toBe(0);
     expect(db.prepare('SELECT apparent_max_va FROM readings_1m').get()).toEqual({
@@ -310,13 +311,18 @@ describe('POST /v1/ingest', () => {
       'nonsense',
     ];
     const response = await send(token, payload([...bad, minute(MINUTE + 60)]));
-    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, rejected: bad.length });
+    expect(await response.json()).toEqual({
+      stored: 1,
+      duplicates: 0,
+      rejected: bad.length,
+      now: clock,
+    });
     expect(count('readings_1m')).toBe(1);
   });
 
   it('accepts a minute slightly ahead of the server clock', async () => {
     const response = await send(token, payload([minute(MINUTE + 120)]));
-    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, rejected: 0 });
+    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, rejected: 0, now: clock });
   });
 
   it('refuses an invalid envelope', async () => {

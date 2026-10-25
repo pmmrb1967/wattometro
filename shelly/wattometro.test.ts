@@ -68,6 +68,8 @@ class FakeShelly {
   /** Seconds when free memory dips to 5 KB, as transient allocations do. */
   dip: (clock: number) => boolean = () => false;
   timeSynced = true;
+  /** Seconds the device's unixtime is off by (an hour ahead on 2026-10-25). */
+  skew = 0;
   kvs: Record<string, string> = { 'wattometro.url': URL, 'wattometro.token': TOKEN };
   /** The script as uploaded (pnpm shelly:install embeds the URL and token). */
   source = SOURCE;
@@ -91,7 +93,7 @@ class FakeShelly {
         switch (type) {
           case 'sys':
             return {
-              unixtime: this.timeSynced ? this.clock : null,
+              unixtime: this.timeSynced ? this.clock + this.skew : null,
               uptime: this.clock - BOOT + 0.4,
             };
           case 'em1': {
@@ -230,7 +232,7 @@ describe('shelly/wattometro.js', () => {
     expect(seconds.voltage.every((v) => v === 2312)).toBe(true);
 
     const device = db.prepare('SELECT model, firmware, script_version FROM devices').get();
-    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.3.1' });
+    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.3.2' });
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     // The boot time goes in every request; with no earlier minute it is not an outage.
     expect(shelly.requests.every((r) => (JSON.parse(r.body) as { b: number }).b === BOOT)).toBe(
@@ -367,5 +369,27 @@ describe('shelly/wattometro.js', () => {
     await shelly.advance(10 + 60 + 10);
     expect(minutes().length).toBeGreaterThan(0);
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it('follows the server clock while its own runs an hour ahead, and its own once it is right', async () => {
+    shelly.run();
+    await shelly.advance(10 + 5 * 60);
+    const skewFrom = shelly.clock;
+    shelly.skew = 3600;
+    await shelly.advance(60 * 60);
+    const skewTo = shelly.clock;
+    shelly.skew = 0;
+    await shelly.advance(10 * 60);
+
+    const rows = minutes();
+    // Every minute stored at its real time, none from the future.
+    expect(rows.every((row) => (row.ts ?? 0) < shelly.clock)).toBe(true);
+    const during = rows.filter((row) => (row.ts ?? 0) >= skewFrom && (row.ts ?? 0) < skewTo);
+    // The first answer after the jump sets the offset: at most the minute open then is lost.
+    expect(during.length).toBeGreaterThanOrEqual(59);
+    const after = rows.filter((row) => (row.ts ?? 0) >= skewTo);
+    expect(after.length).toBeGreaterThanOrEqual(8);
+    const logs = shelly.logs.join('\n');
+    expect(logs).toContain('clock offset -3600 s');
   });
 });
