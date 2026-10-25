@@ -9,7 +9,16 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { costMicroUsd, findModel } from './models';
-import { AiError, type AiProvider, type AiTask, type AiUsage, type TextRequest } from './provider';
+import {
+  AiError,
+  type AiProvider,
+  type AiTask,
+  type AiUsage,
+  type ChatAnswer,
+  type ChatRequest,
+  type TextRequest,
+  type ToolCall,
+} from './provider';
 
 export type Effort = 'low' | 'medium' | 'high';
 
@@ -24,6 +33,10 @@ export interface AnthropicOptions {
 }
 
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+/** Room for thinking and a few tool calls per round. */
+const CHAT_MAX_TOKENS = 16_000;
+/** Rounds of tool calls before giving up (a question needs one to three). */
+export const CHAT_MAX_ROUNDS = 6;
 
 export function toAiError(error: unknown): AiError {
   if (error instanceof AiError) return error;
@@ -128,5 +141,65 @@ export class AnthropicProvider implements AiProvider {
       text: answerText(response.content),
       usage: this.usage(request.task, request.promptVersion, response),
     };
+  }
+
+  async chat(request: ChatRequest): Promise<ChatAnswer> {
+    // Append-only: earlier turns go back exactly as they came (thinking blocks included).
+    const messages = [
+      ...(request.history as Anthropic.Beta.BetaMessageParam[]),
+      { role: 'user' as const, content: request.question },
+    ];
+    const tools = request.tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema as Anthropic.Beta.BetaTool.InputSchema,
+    }));
+    const usage: AiUsage[] = [];
+    const calls: ToolCall[] = [];
+    for (let round = 0; round < CHAT_MAX_ROUNDS; round++) {
+      let response: Anthropic.Beta.BetaMessage;
+      try {
+        response = await this.client.beta.messages.create({
+          ...this.base('medium'),
+          max_tokens: CHAT_MAX_TOKENS,
+          // The tools and the prompt are the same on every request: cached.
+          cache_control: { type: 'ephemeral' },
+          system: request.system,
+          tools,
+          messages,
+        });
+      } catch (error) {
+        const failure = toAiError(error);
+        throw new AiError(failure.code, usage);
+      }
+      usage.push(this.usage('chat', request.promptVersion, response));
+      if (response.stop_reason === 'refusal') throw new AiError('refused', usage);
+      messages.push({ role: 'assistant', content: response.content });
+      if (response.stop_reason === 'max_tokens') throw new AiError('invalid_output', usage);
+      const uses = response.content.filter(
+        (block): block is Anthropic.Beta.BetaToolUseBlock => block.type === 'tool_use',
+      );
+      if (response.stop_reason !== 'tool_use' || uses.length === 0) {
+        return { text: answerText(response.content), calls, usage, history: messages };
+      }
+      const outcomes = await Promise.all(uses.map((use) => request.runTool(use.name, use.input)));
+      uses.forEach((use, i) =>
+        calls.push({ name: use.name, input: use.input, outcome: outcomes[i]! }),
+      );
+      // Every result in one message, so the model keeps calling tools in parallel.
+      messages.push({
+        role: 'user',
+        content: uses.map((use, i) => {
+          const outcome = outcomes[i]!;
+          return {
+            type: 'tool_result' as const,
+            tool_use_id: use.id,
+            content: JSON.stringify(outcome.ok ? outcome.result : { error: outcome.error }),
+            ...(outcome.ok ? {} : { is_error: true }),
+          };
+        }),
+      });
+    }
+    throw new AiError('invalid_output', usage);
   }
 }

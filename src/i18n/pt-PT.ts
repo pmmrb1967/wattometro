@@ -19,6 +19,7 @@ export const t = {
     consumption: 'Consumo',
     tariffs: 'Tarifários',
     quality: 'Qualidade',
+    ask: 'Perguntar',
     settings: 'Definições',
   },
   errors: {
@@ -71,6 +72,47 @@ export const t = {
       'Quanto te custa o consumo fantasma',
       'Os dias em que gastaste fora do habitual',
     ],
+  },
+  ask: {
+    title: 'Pergunta ao Wattómetro',
+    intro:
+      'Pergunta o que quiseres sobre o consumo da tua casa. A IA vai buscar os números às contas da app e explica-os: não inventa nem calcula valores.',
+    noKey:
+      'Para fazer perguntas precisas de uma chave da API da Anthropic tua. Sem ela, tudo o resto da app funciona na mesma.',
+    toSettings: 'Adicionar a chave em Definições',
+    question: 'A tua pergunta',
+    followUp: 'Outra pergunta (a IA lembra-se desta conversa)',
+    placeholder: 'Ex.: Porque é que a fatura de setembro foi mais alta?',
+    examples: [
+      'Quanto gastei em setembro?',
+      'Compensa-me o bi-horário?',
+      'Que potência devo contratar?',
+      'Quanto me custa o consumo fantasma?',
+      'Quanto vou pagar este mês?',
+    ],
+    ask: 'Perguntar',
+    thinking: 'A pensar…',
+    estimate: (cost: string, model: string) =>
+      `Custo estimado: até cerca de ${cost} (${model}). Confirmas o envio?`,
+    send: 'Enviar',
+    cancel: 'Cancelar',
+    restart: 'Nova conversa',
+    used: (tools: string) => `Números da app usados: ${tools}`,
+    unconfirmed: (values: string) =>
+      `Atenção: estes valores não vêm das contas da app e podem estar errados: ${values}. Confirma na página indicada.`,
+    cost: (cost: string) => `Custo desta resposta: cerca de ${cost}.`,
+    privacy:
+      'Só seguem para a Anthropic a tua pergunta e os resumos que a IA pede (totais, custos, médias), nunca as medições ao minuto nem dados da conta.',
+    tools: {
+      get_consumption_summary: 'consumo',
+      get_cost_breakdown: 'relatório do mês',
+      simulate_tariffs: 'comparação de tarifários',
+      recommend_contracted_power: 'potência contratada',
+      get_baseload: 'consumo base',
+      get_anomalies: 'dias fora do habitual',
+      forecast_month_bill: 'previsão da fatura',
+      get_voltage_events: 'qualidade da energia',
+    } as Record<string, string>,
   },
   ai: {
     errors: {

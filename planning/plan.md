@@ -187,7 +187,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 
 - [x] Copiar do Faturómetro a abstração `src/ai/` (provider, estimativa de custo, sessão) — chave, modelo e "envio automático" só no browser (localStorage, por conta), em Definições → Inteligência artificial; testada antes de guardar; gasto do mês estimado. Sonnet 5.5 por defeito (o chat encadeia ferramentas), Haiku e Opus à escolha; em Sonnet e Opus, *fallback* do lado do servidor (`fallbacks: "default"`) se um pedido for recusado
 - [x] Ferramentas executadas no browser (ver `CLAUDE.md`), com contratos zod e respostas pequenas — `src/ai/tools/`: as oito, cada uma com as mesmas funções e predefinições da sua página (Consumo, Relatório, Tarifários, Potência, Qualidade, Agora), valores já formatados como a app os mostra; testes comparam cada ferramenta com a página. Potência e tensão pedem os seus dados ao Worker só quando a IA as chama (`src/app/ai-context.ts`)
-- [ ] Chat "Pergunta ao Wattómetro"
+- [x] Chat "Pergunta ao Wattómetro" — página Perguntar (`/perguntar`): custo estimado antes de enviar (salvo envio automático), conversa com seguimento, ferramentas usadas e os seus resultados à vista; cada valor com unidade (€, kWh, W, kVA, V, %) da resposta é procurado nos resultados das ferramentas e os que não estiverem são assinalados como não confirmados pela app (`src/ai/verify.ts`). Esforço `medium`, prompt e ferramentas em cache, no máximo 6 voltas de ferramentas
 - [ ] Relatório mensal narrado sobre números já calculados
 - [ ] Alertas explicados em linguagem simples
 - [ ] `pnpm ai:eval`: perguntas com respostas esperadas; os números têm de bater com o motor de cálculo

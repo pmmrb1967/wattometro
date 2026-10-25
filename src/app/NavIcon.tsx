@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Adapted from Faturómetro (src/app/NavIcon.tsx).
-export type SectionId = 'home' | 'consumption' | 'power' | 'tariffs' | 'quality' | 'settings';
+export type SectionId =
+  'home' | 'consumption' | 'power' | 'tariffs' | 'quality' | 'ask' | 'settings';
 
 /** Outline icons for the main sections (24×24, stroke follows the text colour). */
 const PATHS: Record<SectionId, string[]> = {
@@ -18,6 +19,11 @@ const PATHS: Record<SectionId, string[]> = {
   ],
   // Sine wave over a baseline
   quality: ['M2 12c2.5-7 5.5-7 8 0s5.5 7 8 0', 'M18 12c1-2.8 2-4 4-4', 'M2 21h20'],
+  // Speech bubble
+  ask: [
+    'M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z',
+    'M8.5 12h.01M12 12h.01M15.5 12h.01',
+  ],
   // Gear
   settings: [
     'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',

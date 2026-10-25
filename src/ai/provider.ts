@@ -19,10 +19,13 @@ export type AiErrorCode =
 
 export class AiError extends Error {
   readonly code: AiErrorCode;
-  constructor(code: AiErrorCode) {
+  /** What was spent before it failed (to record it anyway). */
+  readonly usage: AiUsage[];
+  constructor(code: AiErrorCode, usage: AiUsage[] = []) {
     super(code);
     this.name = 'AiError';
     this.code = code;
+    this.usage = usage;
   }
 }
 
@@ -52,10 +55,47 @@ export interface TextRequest {
   maxOutputTokens: number;
 }
 
+/** A tool as the model sees it (src/ai/tools/). */
+export interface ToolSpec {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export type ToolCallOutcome = { ok: true; result: unknown } | { ok: false; error: string };
+
+export interface ToolCall {
+  name: string;
+  input: unknown;
+  outcome: ToolCallOutcome;
+}
+
+/** The conversation so far, in the provider's own format: passed back as it came. */
+export type ChatHistory = readonly unknown[];
+
+export interface ChatRequest {
+  promptVersion: string;
+  system: string;
+  history: ChatHistory;
+  question: string;
+  tools: readonly ToolSpec[];
+  runTool: (name: string, input: unknown) => Promise<ToolCallOutcome>;
+}
+
+export interface ChatAnswer {
+  text: string;
+  /** Every tool the model called, with what it got back. */
+  calls: ToolCall[];
+  usage: AiUsage[];
+  history: ChatHistory;
+}
+
 export interface AiProvider {
   readonly model: string;
   /** A tiny request to check the key and the model. */
   testConnection(): Promise<AiUsage>;
   /** A short text from facts already computed (no tools). */
   writeText(request: TextRequest): Promise<{ text: string; usage: AiUsage }>;
+  /** A question answered with the tools, run in the browser. */
+  chat(request: ChatRequest): Promise<ChatAnswer>;
 }

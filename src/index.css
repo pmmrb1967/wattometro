@@ -121,7 +121,9 @@ a {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* One column per section, however many there are. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   min-height: var(--nav-height);
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--surface);
@@ -135,9 +137,9 @@ a {
   justify-content: center;
   gap: 2px;
   min-width: 0;
-  padding: 6px 2px;
+  padding: 6px 1px;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   text-decoration: none;
 }
 
@@ -151,7 +153,7 @@ a {
 .nav-icon {
   flex: none;
   box-sizing: content-box;
-  padding: 3px 12px;
+  padding: 3px 10px;
   border-radius: 999px;
 }
 
@@ -615,6 +617,57 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* "Perguntar": the conversation. */
+.form textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.chat {
+  display: grid;
+  gap: 16px;
+}
+
+.chat-answer {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-answer p {
+  margin: 0;
+}
+
+.chat-question {
+  justify-self: end;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+
+.chat-text {
+  white-space: pre-wrap;
+}
+
+.chat-tool {
+  max-height: 240px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
 }
 
 /* A short list of options to pick from, one button each. */

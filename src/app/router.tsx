@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from './AppShell';
+import { Ask } from './Ask';
 import { Consumption } from './Consumption';
 import { Home } from './Home';
 import { Power } from './Power';
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
       { path: 'potencia', element: <Power /> },
       { path: 'tarifarios', element: <Tariffs /> },
       { path: 'qualidade', element: <Quality /> },
+      { path: 'perguntar', element: <Ask /> },
       { path: 'definicoes', element: <Settings /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
