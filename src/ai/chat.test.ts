@@ -6,7 +6,7 @@ import { fakeApi, message } from './fake-api';
 import { CHAT_PROMPT_VERSION } from './prompts/chat';
 import type { ToolCall } from './provider';
 import type { ToolContext } from './tools/tool';
-import { unconfirmedQuantities } from './verify';
+import { canonicalNumbers, unconfirmedQuantities } from './verify';
 
 const context: ToolContext = {
   today: '2026-10-25',
@@ -147,6 +147,10 @@ describe('unconfirmedQuantities', () => {
       '2,07 €',
       '62 €',
     ]);
+  });
+
+  it('writes numbers the same way however they are spaced', () => {
+    expect(canonicalNumbers('12 345,50 € e -3 kWh, 0,40')).toEqual(['12345,5', '3', '0,4']);
   });
 
   it('ignores numbers without a unit (dates, hours, days)', () => {

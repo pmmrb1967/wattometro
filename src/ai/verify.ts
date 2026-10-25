@@ -34,6 +34,11 @@ function numbersIn(value: unknown, into: Set<string>): void {
   }
 }
 
+/** Every number in `text`, written the same way however it was spaced. */
+export function canonicalNumbers(text: string): string[] {
+  return [...text.matchAll(ANY_NUMBER)].map((match) => canonical(match[0]));
+}
+
 /** The quantities in `text` that no tool returned, as written. */
 export function unconfirmedQuantities(text: string, calls: readonly ToolCall[]): string[] {
   const known = new Set<string>();

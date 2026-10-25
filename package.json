@@ -22,6 +22,7 @@
     "erse:sync": "tsx scripts/erse-sync.ts",
     "ml:backtest": "tsx scripts/ml-backtest.ts",
     "ml:anomalies": "tsx scripts/ml-anomalies.ts",
+    "ai:eval": "tsx scripts/ai-eval.ts",
     "shelly:install": "tsx scripts/shelly-install.ts"
   },
   "packageManager": "pnpm@12.11.2",
