@@ -63,7 +63,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] **Confirmar modelo do Shelly** e firmware; registar em `docs/shelly.md` — EM Gen3 (`S3EM-002CXCEU`), firmware 2.1.0, a funcionar desde 2026-10-24
 - [x] Capturar respostas reais de `EM1.GetStatus` e `EM1Data` → `fixtures/private/shelly/`; equivalentes sintéticas em `fixtures/shelly/`
 - [x] Confirmar suporte de scripts, `Timer`, `HTTP.POST` com HTTPS e limites de memória do script (~25 KB por script; um envio precisa de ~3,3 KB + 4 × o corpo — `docs/shelly.md`)
-- [ ] Confirmar **como o script obtém medições a cada segundo** e **que grandezas existem ao segundo** — `Timer` a 1 s com `Shelly.getComponentStatus('em1')`; o valor muda 1×/s (☑); potência ativa, aparente e FP, reativa derivada (☑); falta saber se cada valor é a média do segundo ou instantâneo (precisa de uma carga grande ligada/desligada durante a medição)
+- [x] Confirmar **como o script obtém medições a cada segundo** e **que grandezas existem ao segundo** — `Timer` a 1 s com `Shelly.getComponentStatus('em1')`; o valor muda 1×/s (☑); potência ativa, aparente e FP, reativa derivada (☑); cada valor é a média de ~1 s, não instantâneo (☑ teste da chaleira, 2026-10-25, `docs/shelly.md`)
 - [x] Medir o tamanho real do pedido por minuto (agregado + arrays) e confirmar que o Shelly o envia sem problemas — ~1 KB por minuto com os valores ao segundo, ~100 bytes só com o resumo
 
 ### 1.2 Servidor

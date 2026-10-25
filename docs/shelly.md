@@ -31,7 +31,7 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM1>
 Todos os valores podem ser `null`. Exemplo da documentação: `{"id":0,"voltage":236.1,"current":4.029,"act_power":951.2,"aprt_power":951.9,"pf":1,"freq":50,"calibration":"factory"}`.
 
 - **A potência reativa não vem diretamente.** A grandeza derivada `sqrt(S² − P²)` é a potência *não ativa* (reativa + distorção), **sem sinal**: não distingue cargas indutivas de capacitivas.
-- ☐ **Cada valor é a média do último segundo ou um valor instantâneo?** Determina se os picos de arranque aparecem.
+- ☑ **Cada valor é uma medição sobre uma janela de ~1 s (média/RMS), não uma amostra instantânea.** Teste de 2026-10-25 (firmware 2.1.0): uma chaleira de ~1600 W ligada e desligada 3 vezes, com `EM1.GetStatus` lido durante 4 min (só ~1 leitura a cada 1–2 s nesse dia). Em 2 das 6 transições apareceu um valor intermédio: ao ligar `act_power` 684 W com `aprt_power` 1249 VA e 5,47 A (antes ~150 W / 1,1 A, depois ~1610 W / 7,1 A); ao desligar 392 W com 1,98 A. Uma amostra instantânea daria um salto limpo; as frações diferentes de P, S e I no mesmo valor mostram que cada grandeza é calculada sobre a janela (P médio, I RMS). Nas outras 4 transições o segundo intermédio caiu entre leituras. Consequência: um pico mais curto do que 1 s (arranque de um motor) aparece diluído na média do segundo; `power_max_w` e `apparent_max_va` são máximos de médias de 1 s, não picos instantâneos.
 - ☑ **O valor muda uma vez por segundo**, a meio do segundo do relógio do aparelho: medido a 2026-10-24, firmware 2.1.0, com `EM1.GetStatus` lido ~8×/s durante 60 s. Houve 57 mudanças; o intervalo entre mudanças teve mediana de 1,004 s (p10 0,91 s, p90 1,07 s) e as mudanças caíram entre 0,42 e 0,59 s depois do segundo certo. O script lê a cada segundo, por isso cada valor ao segundo é uma leitura nova (salvo alguma repetição ou falha quando o temporizador e a atualização coincidem).
 
 ## Energia — `EM1Data.GetStatus`
@@ -103,6 +103,6 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/General/Authentication> (consu
 - [x] Modelo e firmware
 - [x] Resposta real de `EM1.GetStatus`, `EM1Data.GetStatus`, `Sys.GetStatus` → `fixtures/private/`, e equivalentes sintéticas em `fixtures/shelly/`
 - [x] Ritmo de atualização dos valores ao segundo
-- [ ] Natureza (média vs instantâneo) dos valores ao segundo
+- [x] Natureza (média vs instantâneo) dos valores ao segundo: média de ~1 s (2026-10-25)
 - [x] HTTPS para `app.wattometro.workers.dev` com o `ca.pem` incluído
 - [x] Memória do script com a fila cheia; tamanho real do pedido por minuto
