@@ -190,7 +190,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] Chat "Pergunta ao Wattómetro" — página Perguntar (`/perguntar`): custo estimado antes de enviar (salvo envio automático), conversa com seguimento, ferramentas usadas e os seus resultados à vista; cada valor com unidade (€, kWh, W, kVA, V, %) da resposta é procurado nos resultados das ferramentas e os que não estiverem são assinalados como não confirmados pela app (`src/ai/verify.ts`). Esforço `medium`, prompt e ferramentas em cache, no máximo 6 voltas de ferramentas
 - [x] Relatório mensal narrado sobre números já calculados — botão "Explicar com IA" no Relatório: envia os mesmos factos que a ferramenta `get_cost_breakdown`; resposta em JSON (`output_config.format`, esquema sem limites de tamanho, que a API não aceita; o zod verifica-os), uma nova tentativa no máximo, valores não confirmados assinalados
 - [x] Alertas explicados em linguagem simples — o mesmo botão em cada dia fora do habitual (Início e Consumo), com os factos de `get_anomalies`; as causas são apresentadas como hipóteses
-- [ ] `pnpm ai:eval`: perguntas com respostas esperadas; os números têm de bater com o motor de cálculo
+- [x] `pnpm ai:eval`: perguntas com respostas esperadas; os números têm de bater com o motor de cálculo — 6 perguntas sobre o export real (fixtures/private): ferramenta certa, números principais citados, nenhum valor fora das ferramentas. 2026-10-25, claude-sonnet-5-5: 6/6, ≈ 0,08 US$ (`--dry` corre as ferramentas sem a API)
 
 **Aceitação:** "quanto gastei em setembro?" e "compensa-me o bi-horário?" respondidos com números idênticos aos da app.
 

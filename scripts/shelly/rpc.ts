@@ -38,11 +38,11 @@ export function digestAuth(challenge: Challenge, password: string, cnonce: numbe
   };
 }
 
-/** SHELLY_* lines of a .env file (no quotes, no expansion). */
+/** The variables of a .env file (no quotes, no expansion). */
 export function parseEnv(text: string): Record<string, string> {
   const env: Record<string, string> = {};
   for (const line of text.split(/\r?\n/)) {
-    const match = /^(SHELLY_[A-Z_]+)=(.*)$/.exec(line);
+    const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
     if (match) env[match[1]!] = match[2]!.trim();
   }
   return env;

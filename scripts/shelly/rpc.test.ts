@@ -30,9 +30,9 @@ describe('parseChallenge', () => {
 });
 
 describe('parseEnv', () => {
-  it('keeps only SHELLY_ lines, as written, with Windows line ends', () => {
+  it('reads the variables as written, with Windows line ends, skipping comments', () => {
     expect(
       parseEnv('# comment\r\nSHELLY_HOST=192.168.1.50\r\nSHELLY_PASSWORD=a=b c\r\nOTHER=x\r\n'),
-    ).toEqual({ SHELLY_HOST: '192.168.1.50', SHELLY_PASSWORD: 'a=b c' });
+    ).toEqual({ SHELLY_HOST: '192.168.1.50', SHELLY_PASSWORD: 'a=b c', OTHER: 'x' });
   });
 });
