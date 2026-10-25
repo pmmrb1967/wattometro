@@ -67,7 +67,6 @@ const SECTIONS: { id: SectionId; path: string }[] = [
   { id: 'power', path: '/potencia' },
   { id: 'tariffs', path: '/tarifarios' },
   { id: 'quality', path: '/qualidade' },
-  { id: 'ask', path: '/perguntar' },
   { id: 'settings', path: '/definicoes' },
 ];
 

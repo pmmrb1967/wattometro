@@ -46,7 +46,13 @@ describe('askWattometro', () => {
       model: 'claude-sonnet-5-5',
       fetch: api.fetch,
     });
-    const result = await askWattometro(provider, context, [], 'Quanto gastei em setembro?');
+    const result = await askWattometro(
+      provider,
+      context,
+      [],
+      'Quanto gastei em setembro?',
+      'Consumo',
+    );
 
     expect(result.text).toBe('Não há dados de setembro.');
     expect(result.calls.map((call) => call.name)).toEqual(['get_cost_breakdown', 'get_baseload']);
@@ -66,7 +72,9 @@ describe('askWattometro', () => {
     expect((first?.body.tools as unknown[]).length).toBe(8);
     const messages = second?.body.messages as { role: string; content: unknown }[];
     expect(messages.map((item) => item.role)).toEqual(['user', 'assistant', 'user']);
-    expect(String(messages[0]?.content)).toContain('Hoje é 2026-10-25');
+    expect(String(messages[0]?.content)).toContain(
+      'Hoje é 2026-10-25 (hora de Lisboa). A pessoa está na página Consumo.',
+    );
     expect(messages[2]?.content).toEqual([
       expect.objectContaining({ type: 'tool_result', tool_use_id: 't1' }),
       expect.objectContaining({ type: 'tool_result', tool_use_id: 't2' }),

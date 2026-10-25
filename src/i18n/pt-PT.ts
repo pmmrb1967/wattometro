@@ -83,13 +83,49 @@ export const t = {
     question: 'A tua pergunta',
     followUp: 'Outra pergunta (a IA lembra-se desta conversa)',
     placeholder: 'Ex.: Porque é que a fatura de setembro foi mais alta?',
-    examples: [
-      'Quanto gastei em setembro?',
-      'Compensa-me o bi-horário?',
-      'Que potência devo contratar?',
-      'Quanto me custa o consumo fantasma?',
-      'Quanto vou pagar este mês?',
-    ],
+    open: 'Perguntar à IA',
+    close: 'Fechar a conversa',
+    /** As the AI is told (and as the prompt names the pages). */
+    pages: {
+      home: 'Início',
+      consumption: 'Consumo',
+      report: 'Relatório',
+      power: 'Potência',
+      tariffs: 'Tarifários',
+      quality: 'Qualidade',
+    },
+    suggestions: {
+      home: [
+        'Quanto vou pagar este mês?',
+        'Quanto me custa o consumo fantasma?',
+        'Houve dias fora do habitual?',
+      ],
+      consumption: [
+        'Quanto gastei em setembro?',
+        'Quanto me custa o consumo fantasma?',
+        'Houve dias fora do habitual este mês?',
+      ],
+      report: [
+        'De onde vem o custo deste mês?',
+        'Quanto vou pagar este mês?',
+        'Houve dias fora do habitual este mês?',
+      ],
+      power: [
+        'Que potência devo contratar?',
+        'Posso baixar a potência contratada?',
+        'Quanto poupo se mudar de potência?',
+      ],
+      tariffs: [
+        'Compensa-me o bi-horário?',
+        'Qual é o tarifário mais barato para mim?',
+        'Quanto poupo se mudar de tarifário?',
+      ],
+      quality: [
+        'A tensão esteve dentro dos limites?',
+        'Houve cortes de energia?',
+        'Tenho motivo para reclamar à E-Redes?',
+      ],
+    },
     ask: 'Perguntar',
     thinking: 'A pensar…',
     estimate: (cost: string, model: string) =>

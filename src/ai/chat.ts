@@ -33,12 +33,14 @@ export async function askWattometro(
   context: ToolContext,
   history: ChatHistory,
   question: string,
+  /** The page the question is asked on (its name only), or none. */
+  page?: string,
 ): Promise<ChatResult> {
   const answer = await provider.chat({
     promptVersion: CHAT_PROMPT_VERSION,
     system: CHAT_SYSTEM,
     history,
-    question: chatQuestion(context.today, question),
+    question: chatQuestion(context.today, question, page),
     tools: CHAT_TOOLS,
     runTool: (name, input) => runTool(AI_TOOLS, name, input, context),
   });
