@@ -28,6 +28,11 @@ export async function secondsRecords(
     to,
     householdId,
   );
+  return packRecords(rows);
+}
+
+/** Rows of (ts, readings_1s bytes) as records; rows of another length are left out. */
+export function packRecords(rows: readonly { ts: number; data: ArrayBuffer | Uint8Array }[]) {
   const kept = rows
     .map((row) => ({ ts: row.ts, data: new Uint8Array(row.data) }))
     .filter((row) => row.data.byteLength === READINGS_1S_BYTES);

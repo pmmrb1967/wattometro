@@ -6,6 +6,7 @@
  * the appliances is Phase 8.3. Only with a Shelly, for the last days.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { addDays } from '../domain/consumption';
 import {
@@ -81,6 +82,9 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
     <section className="card form" id="ao-segundo">
       <h2>{texts.title}</h2>
       <p className="lead">{texts.intro}</p>
+      <p>
+        <Link to="/consumo/calibrar">{t.calibrate.open}</Link>
+      </p>
       <label>
         {texts.day}
         <select value={day} onChange={(event) => setDay(event.target.value)}>

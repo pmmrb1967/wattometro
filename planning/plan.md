@@ -210,9 +210,9 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - [ ] Migração `events` (resultado sincronizado) e reprocessamento idempotente por intervalo de datas
 
 ### 8.2 Modo de calibração
-- [ ] Ecrã "Calibrar": o utilizador indica o aparelho, liga-o e desliga-o com a app aberta
-- [ ] Os minutos correspondentes são copiados para `signatures` (sem expiração) com o rótulo
-- [ ] Biblioteca de assinaturas da casa, usada para classificar eventos futuros e passados
+- [x] Ecrã "Calibrar": o utilizador indica o aparelho, liga-o e desliga-o com a app aberta — `/consumo/calibrar` (link no cartão "Ao segundo"): "Liguei agora" / "Desliguei agora" (guardado no browser se a app fechar; envia quando o Shelly já mandou os minutos: 75 s depois, e cada minuto até 15 min) ou as horas à mão (últimos 90 dias); até 4 h
+- [x] Os minutos correspondentes são copiados para `signatures` (sem expiração) com o rótulo — migração 0013 (`signatures` + `signature_seconds`, um minuto a mais de cada lado), `POST/GET/DELETE /v1/signatures`; cada assinatura mostra o ciclo que a deteção encontra nela (`src/nilm/signature.ts`)
+- [ ] Biblioteca de assinaturas da casa, usada para classificar eventos futuros e passados — a lista e o descritor de cada uma já existem; falta classificar com eles (8.3)
 
 ### 8.3 Agrupamento e rotulagem
 - [ ] Agrupamento de eventos por descritor (ΔP, transitório, duração, hora do dia)

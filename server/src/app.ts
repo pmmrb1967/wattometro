@@ -44,6 +44,12 @@
  *                              (repo/power.ts); X-Truncated: 1 when there were more
  *   GET  /v1/seconds?meter&from&to → application/octet-stream, the per-second values of meter
  *                              'device:channel' in [from, to) (≤ 25 h) as records (repo/seconds.ts)
+ *   POST /v1/signatures        {meter, label, from, to} → 201 {signature}: the per-second values
+ *                              of [from, to) (≤ 4 h, a minute beyond each side) copied to stay
+ *                              (repo/signatures.ts); 404 unknown meter, 409 no_seconds yet
+ *   GET  /v1/signatures        → {signatures: [{id, meter, label, from, to, minutes, createdAt}]}
+ *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
+ *   DELETE /v1/signatures/:id  → 204
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
  *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
@@ -90,6 +96,13 @@ import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
 import { secondsRecords } from './repo/seconds';
+import {
+  createSignature,
+  deleteSignature,
+  listSignatures,
+  MAX_SIGNATURE_SECONDS,
+  signatureRecords,
+} from './repo/signatures';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
 import { rowsReadOn, utcDay } from './repo/usage';
@@ -202,6 +215,14 @@ export const MAX_SECONDS_SPAN = 25 * 3600;
 const SecondsQuery = z
   .object({ meter: z.string().regex(/^[^:]{1,64}:[0-3]$/), from: epoch, to: epoch })
   .refine(({ from, to }) => from < to && to - from <= MAX_SECONDS_SPAN);
+const SignatureBody = z
+  .object({
+    meter: z.string().regex(/^[^:]{1,64}:[0-3]$/),
+    label: z.string().trim().min(1).max(60),
+    from: z.number().int().min(0),
+    to: z.number().int().min(0),
+  })
+  .refine(({ from, to }) => from < to && to - from <= MAX_SIGNATURE_SECONDS);
 export const MAX_IMPORT_QUARTERS = 3000;
 export const MAX_IMPORT_BYTES = 256 * 1024;
 // 13 months before the current one, plus the current one (src/app/household-energy.ts).
@@ -601,6 +622,46 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     );
     c.header('Content-Type', 'application/octet-stream');
     return c.body(records.buffer as ArrayBuffer);
+  });
+
+  app.post('/v1/signatures', requireUser, async (c) => {
+    const parsed = await body(c, SignatureBody);
+    if (!parsed.success || parsed.data.to > now()) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const { meter, label, from, to } = parsed.data;
+    const [deviceId = '', channel] = meter.split(':');
+    const { householdId } = c.get('user');
+    const known = (await listDevices(config.sql, householdId)).some((d) => d.id === deviceId);
+    if (!known) return c.json({ error: 'not_found' }, 404);
+    const signature = await createSignature(
+      config.sql,
+      householdId,
+      { deviceId, channel: Number(channel), label, from, to },
+      now(),
+    );
+    if (!signature) return c.json({ error: 'no_seconds' }, 409);
+    return c.json({ signature }, 201);
+  });
+
+  app.get('/v1/signatures', requireUser, async (c) =>
+    c.json({ signatures: await listSignatures(config.sql, c.get('user').householdId) }),
+  );
+
+  app.get('/v1/signatures/:id/seconds', requireUser, async (c) => {
+    const records = await signatureRecords(
+      config.sql,
+      c.get('user').householdId,
+      c.req.param('id'),
+    );
+    if (!records) return c.json({ error: 'not_found' }, 404);
+    c.header('Content-Type', 'application/octet-stream');
+    return c.body(records.buffer as ArrayBuffer);
+  });
+
+  app.delete('/v1/signatures/:id', requireUser, async (c) => {
+    await deleteSignature(config.sql, c.get('user').householdId, c.req.param('id'));
+    return c.body(null, 204);
   });
 
   app.post('/v1/import/eredes', requireUser, async (c) => {

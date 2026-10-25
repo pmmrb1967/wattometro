@@ -570,7 +570,7 @@ export const t = {
   dayEvents: {
     title: 'Ao segundo: o que ligou e desligou',
     intro:
-      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Ainda não diz que aparelho é: isso vem a seguir.',
+      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Ainda não diz que aparelho é: para isso, calibra os teus aparelhos.',
     day: 'Dia',
     today: 'Hoje (até agora)',
     error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
@@ -585,6 +585,46 @@ export const t = {
     how: 'Cada mudança é uma subida ou descida de pelo menos 30 W entre dois momentos estáveis. Um ciclo junta uma subida à descida do mesmo tamanho que vem depois.',
     limits:
       'Um aparelho que muda de fase sem desligar (máquina de lavar: aquecimento, depois motor) aparece com as potências de cada fase (2,00 kW → 400 W). Os que pulsam (placa de indução) ainda aparecem como vários ciclos, e os ciclos que passam a meia-noite não entram.',
+  },
+  calibrate: {
+    title: 'Calibrar aparelhos',
+    open: 'Calibrar um aparelho',
+    back: '← Consumo',
+    intro:
+      'Ensina a app a reconhecer os teus aparelhos: diz qual vais ligar, carrega em "Liguei" quando o ligares e em "Desliguei" quando o desligares. A app guarda os valores ao segundo desse intervalo, que de outra forma se apagam ao fim de 90 dias.',
+    tip: 'Resulta melhor com o aparelho sozinho: evita ligar outros ao mesmo tempo. O frigorífico pode trabalhar à vontade.',
+    noShelly: 'A calibração precisa dos valores ao segundo de um Shelly.',
+    appliance: 'Aparelho',
+    appliancePlaceholder: 'Ex.: chaleira, forno, máquina de lavar',
+    start: 'Liguei agora',
+    stop: 'Desliguei agora',
+    cancel: 'Cancelar',
+    running: (label: string, since: string, elapsed: string) =>
+      `A registar "${label}" desde as ${since} (${elapsed}).`,
+    tooLong: 'Mais de 4 horas: cancela e indica as horas à mão, só com a parte que interessa.',
+    waiting: (label: string) =>
+      `"${label}" marcado. À espera dos valores ao segundo: o Shelly envia cada minuto depois de ele acabar.`,
+    late: 'Os valores ao segundo desse intervalo ainda não chegaram. O Shelly pode estar sem ligação.',
+    retry: 'Tentar outra vez',
+    saved: (label: string) => `"${label}" guardado.`,
+    manual: 'Já o ligaste? Indica as horas',
+    manualIntro:
+      'O dia e as horas a que ligou e desligou, nos últimos 90 dias (vês as horas no cartão "Ao segundo").',
+    day: 'Dia',
+    from: 'Ligou às',
+    to: 'Desligou às',
+    save: 'Guardar',
+    invalidRun: 'Indica um intervalo que já acabou, com menos de 4 horas.',
+    noSeconds: 'Ainda não há valores ao segundo para esse intervalo.',
+    library: 'Aparelhos calibrados',
+    empty: 'Ainda não calibraste nenhum aparelho.',
+    loading: 'A analisar…',
+    cycle: (power: string, duration: string, energy: string) =>
+      `${power} durante ${duration} (${energy})`,
+    noCycle: 'Nenhum ligar e desligar claro. Repete com o aparelho sozinho.',
+    remove: 'Apagar',
+    confirmRemove: (label: string) => `Apagar a calibração "${label}"?`,
+    error: 'Não foi possível guardar. Tenta outra vez.',
   },
   anomalies: {
     title: 'Dias fora do habitual',

@@ -875,6 +875,34 @@ h2 {
   }
 }
 
+/* "Calibrar aparelhos": the two times side by side; the kept runs as a list. */
+.calibrate-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.signature-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signature-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.signature-list li > div {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

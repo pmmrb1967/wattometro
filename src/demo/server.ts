@@ -14,7 +14,7 @@ import { addDays } from '../domain/consumption';
 import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
-import { lisbonDate, lisbonToday, startOfLisbonDay } from '../lib/time';
+import { lisbonDate, lisbonLocalTime, lisbonToday, startOfLisbonDay } from '../lib/time';
 import { DEMO_DAYS, generateDemo, type DemoData } from './model';
 
 const MINUTE = 60;
@@ -39,6 +39,15 @@ interface DemoState {
   location: DemoLocation | null;
   installation: Installation;
   excluded: Set<number>;
+  signatures: DemoSignature[];
+}
+
+interface DemoSignature {
+  id: string;
+  label: string;
+  from: number;
+  to: number;
+  createdAt: number;
 }
 
 interface DemoLocation {
@@ -97,9 +106,49 @@ function current(): DemoState {
       location: DEMO_LOCATION,
       installation: DEMO_INSTALLATION,
       excluded: new Set(),
+      signatures: demoSignatures(),
     };
   }
   return state;
+}
+
+/** One calibration already made: the dishwasher of yesterday evening (src/demo/model.ts). */
+function demoSignatures(): DemoSignature[] {
+  const yesterday = addDays(lisbonToday(), -1);
+  const from = lisbonLocalTime(yesterday, 22, 30);
+  if (from === null) return [];
+  return [
+    {
+      id: 'demo-dishwasher',
+      label: 'Máquina da loiça',
+      from,
+      to: from + 25 * MINUTE,
+      createdAt: from + 30 * MINUTE,
+    },
+  ];
+}
+
+/** The minutes a signature keeps, as on the server: whole minutes, one more on each side. */
+function signatureRange(signature: { from: number; to: number }): [number, number] {
+  return [
+    Math.floor(signature.from / MINUTE) * MINUTE - MINUTE,
+    Math.ceil(signature.to / MINUTE) * MINUTE + MINUTE,
+  ];
+}
+
+function presentMinutes(data: DemoData, from: number, to: number): number {
+  const [first, last] = minuteRange(data, from, to);
+  let count = 0;
+  for (let index = first; index < last; index++) if (data.present[index]) count++;
+  return count;
+}
+
+function signatureView(data: DemoData, signature: DemoSignature) {
+  return {
+    ...signature,
+    meter: METER,
+    minutes: presentMinutes(data, ...signatureRange(signature)),
+  };
 }
 
 /** Forgets the household and its changes (when the demonstration ends). */
@@ -507,6 +556,39 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         return invalid();
       }
       return secondsRecords(data, from, to);
+    case 'GET /v1/signatures':
+      return json({
+        signatures: [...demo.signatures]
+          .sort((a, b) => b.from - a.from)
+          .map((signature) => signatureView(data, signature)),
+      });
+    case 'POST /v1/signatures': {
+      const input = body as Partial<Record<'meter' | 'label' | 'from' | 'to', unknown>> | undefined;
+      const label = typeof input?.label === 'string' ? input.label.trim() : '';
+      const { from: start, to: end } = input ?? {};
+      if (
+        input?.meter !== METER ||
+        label === '' ||
+        label.length > 60 ||
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
+        (start as number) >= (end as number) ||
+        (end as number) - (start as number) > 4 * 3600
+      ) {
+        return invalid();
+      }
+      const signature: DemoSignature = {
+        id: `demo-${demo.signatures.length + 1}-${start as number}`,
+        label,
+        from: start as number,
+        to: end as number,
+        createdAt: Math.floor(Date.now() / 1000),
+      };
+      const view = signatureView(data, signature);
+      if (view.minutes === 0) return invalid();
+      demo.signatures.push(signature);
+      return json({ signature: view }, 201);
+    }
     case 'GET /v1/power/peaks': {
       const threshold = numberParam(url, 'threshold');
       if (!range || threshold === null || url.searchParams.get('meter') !== METER) {
@@ -516,6 +598,20 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     }
   }
 
+  const signature = /^\/v1\/signatures\/([^/]+)(\/seconds)?$/.exec(url.pathname);
+  if (signature) {
+    const id = decodeURIComponent(signature[1] as string);
+    const found = demo.signatures.find((item) => item.id === id);
+    if (method === 'GET' && signature[2]) {
+      return found
+        ? secondsRecords(data, ...signatureRange(found))
+        : json({ error: 'not_found' }, 404);
+    }
+    if (method === 'DELETE' && !signature[2]) {
+      demo.signatures = demo.signatures.filter((item) => item.id !== id);
+      return empty();
+    }
+  }
   if (method === 'DELETE' && url.pathname.startsWith('/v1/tariffs/')) {
     const id = decodeURIComponent(url.pathname.slice('/v1/tariffs/'.length));
     demo.tariffs = demo.tariffs.filter((tariff) => tariff.id !== id);
