@@ -15,6 +15,8 @@ export interface Env {
   RETENTION_1S_DAYS?: string;
   /** D1 size limit in MB, for the app's warning (500 on the free plan). */
   DATABASE_LIMIT_MB?: string;
+  /** Rows D1 may read per UTC day, for the app's warning (5 000 000 on the free plan). */
+  ROWS_READ_LIMIT?: string;
 }
 
 export function allowedOrigins(env: Env): string[] {

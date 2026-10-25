@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memorySql } from '../../test/sqlite';
 import type { Sql } from '../db';
 import { createDevice, findActiveDeviceByTokenHash, listDevices, revokeDevice } from './devices';
-import { databaseReachable } from './health';
+import { databaseState } from './health';
 import {
   createHousehold,
   getHousehold,
   getHouseholdInstallation,
   setHouseholdInstallation,
 } from './households';
+import { addRowsRead, purgeRowsRead, rowsReadOn, utcDay } from './usage';
 import { UNKNOWN_INSTALLATION } from '../../../src/domain/installation';
 
 const NOW = 1_792_000_000;
@@ -113,15 +114,34 @@ describe('devices', () => {
   });
 });
 
-describe('databaseReachable', () => {
-  it('is true for a working database and false when queries fail', async () => {
-    expect(await databaseReachable(sql)).toBe(true);
-    const broken: Sql = {
-      first: () => Promise.reject(new Error('down')),
-      all: () => Promise.reject(new Error('down')),
-      run: () => Promise.reject(new Error('down')),
-      batch: () => Promise.reject(new Error('down')),
-    };
-    expect(await databaseReachable(broken)).toBe(false);
+describe('databaseState', () => {
+  const failing = (message: string): Sql => ({
+    first: () => Promise.reject(new Error(message)),
+    all: () => Promise.reject(new Error(message)),
+    run: () => Promise.reject(new Error(message)),
+    batch: () => Promise.reject(new Error(message)),
+  });
+
+  it("is ok for a working database, limit past D1's daily limit, down otherwise", async () => {
+    expect(await databaseState(sql)).toBe('ok');
+    expect(
+      await databaseState(failing("D1_ERROR: exceeded D1's free tier daily row read limit")),
+    ).toBe('limit');
+    expect(await databaseState(failing('down'))).toBe('down');
+  });
+});
+
+describe('rows read per UTC day', () => {
+  it('adds up per day and forgets the old days', async () => {
+    await addRowsRead(sql, '2026-10-24', 100);
+    await addRowsRead(sql, '2026-10-25', 30);
+    await addRowsRead(sql, '2026-10-25', 12);
+    await addRowsRead(sql, '2026-10-25', 0);
+    expect(await rowsReadOn(sql, '2026-10-25')).toBe(42);
+    await purgeRowsRead(sql, '2026-10-25');
+    expect(await rowsReadOn(sql, '2026-10-24')).toBe(0);
+    expect(await rowsReadOn(sql, '2026-10-25')).toBe(42);
+    // Lisbon's 00:30 on the 26th in summer time is still the 25th in UTC.
+    expect(utcDay(Date.parse('2026-10-25T23:30:00Z') / 1000)).toBe('2026-10-25');
   });
 });

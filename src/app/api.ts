@@ -7,7 +7,12 @@ import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
 import { installationSchema, type Installation } from '../domain/installation';
 
-const Health = z.object({ status: z.enum(['ok', 'degraded']), database: z.boolean() });
+const Health = z.object({
+  status: z.enum(['ok', 'degraded']),
+  database: z.boolean(),
+  /** Past D1's daily limit: when it resets (midnight UTC). */
+  limit: z.object({ resetsAt: z.number().int() }).optional(),
+});
 export type Health = z.infer<typeof Health>;
 
 const Device = z.object({
@@ -50,7 +55,13 @@ const Now = z.object({
       }),
     }),
   ),
-  database: z.object({ sizeBytes: z.number().int().nullable(), limitBytes: z.number().int() }),
+  database: z.object({
+    sizeBytes: z.number().int().nullable(),
+    limitBytes: z.number().int(),
+    // Absent from a server older than the app.
+    rowsReadToday: z.number().int().default(0),
+    rowsReadLimit: z.number().int().default(5_000_000),
+  }),
 });
 export type Now = z.infer<typeof Now>;
 export type Meter = Now['meters'][number];

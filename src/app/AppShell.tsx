@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { t } from '../i18n/pt-PT';
+import { formatLisbonTime } from '../lib/time';
 import { fetchHealth, fetchMe, logout, type Me } from './api';
 import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
@@ -14,7 +15,7 @@ import { clearEnergyCache } from './energy-cache';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
 
-type ServerState = 'checking' | 'ok' | 'unavailable';
+type ServerState = 'checking' | 'ok' | 'unavailable' | 'limit';
 
 /** Per-device choice: side menu reduced to its icons (wide screens only). As in Faturómetro. */
 const NAV_COLLAPSED_KEY = 'wattometro.nav.collapsed';
@@ -30,14 +31,19 @@ function savedCollapsed(): boolean {
 /** Checked again while the page is visible, so the status in the top bar stays true. */
 const HEALTH_EVERY_MS = 120_000;
 
-function useServerState(): ServerState {
+/** The server's state, and when D1's daily limit resets if that is what stops it. */
+function useServerState(): [ServerState, number | null] {
   const [state, setState] = useState<ServerState>('checking');
+  const [resetsAt, setResetsAt] = useState<number | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const check = () => {
       if (document.visibilityState !== 'visible') return;
       fetchHealth(controller.signal)
-        .then((health) => setState(health.status === 'ok' ? 'ok' : 'unavailable'))
+        .then((health) => {
+          setState(health.status === 'ok' ? 'ok' : health.limit ? 'limit' : 'unavailable');
+          setResetsAt(health.limit?.resetsAt ?? null);
+        })
         .catch(() => {
           if (!controller.signal.aborted) setState('unavailable');
         });
@@ -51,7 +57,7 @@ function useServerState(): ServerState {
       document.removeEventListener('visibilitychange', check);
     };
   }, []);
-  return state;
+  return [state, resetsAt];
 }
 
 const SECTIONS: { id: SectionId; path: string }[] = [
@@ -85,7 +91,7 @@ function pageClass(signedIn: boolean, collapsed: boolean): string {
 
 /** Brand, navigation, the login gate and the footer around every page. */
 export function AppShell() {
-  const server = useServerState();
+  const [server, resetsAt] = useServerState();
   const { pathname } = useLocation();
   const [me, setMe] = useMe();
 
@@ -146,6 +152,11 @@ export function AppShell() {
       {server === 'unavailable' && (
         <p className="server-banner" role="alert">
           {t.server.banner}
+        </p>
+      )}
+      {server === 'limit' && (
+        <p className="server-banner" role="alert">
+          {t.server.limitBanner(resetsAt === null ? null : formatLisbonTime(resetsAt))}
         </p>
       )}
 

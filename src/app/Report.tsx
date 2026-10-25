@@ -25,6 +25,7 @@ import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatLisbonDateTime, lisbonToday, type LocalDate } from '../lib/time';
 import { formatKva, formatKwh, formatPower } from '../lib/units';
+import { energyAxis } from './chart-axis';
 import { dayBars, usedPeriods } from './chart-bars';
 import { useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
@@ -209,7 +210,8 @@ export function Report() {
           <BarChart
             bars={chart.bars}
             ticks={chart.ticks}
-            maxLabel={(max) => t.consumption.charts.perDay(formatKwh(max, 2))}
+            axis={energyAxis}
+            caption={t.consumption.charts.axisPerDay}
             label={texts.chartLabel(monthName(month))}
           />
         )}

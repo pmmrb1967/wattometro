@@ -18,6 +18,7 @@ import {
 } from '../../src/lib/time';
 import type { Sql } from './db';
 import { listHouseholdIds } from './repo/households';
+import { purgeRowsRead, utcDay } from './repo/usage';
 import {
   firstMinute,
   getState,
@@ -89,6 +90,7 @@ export async function runMaintenance(
     for (const householdId of households) {
       await purgeReadings(sql, householdId, minutesBefore, secondsBefore);
     }
+    await purgeRowsRead(sql, utcDay(now - 7 * DAY));
     await setState(sql, STATE.purgedAt, now);
   }
 

@@ -4,7 +4,8 @@
  * Routes never write SQL (CLAUDE.md, rule 5); the API is versioned (/v1).
  * It is same-origin with the app (gateway.ts), so there is no CORS.
  *
- *   GET  /v1/health            → {status: 'ok' | 'degraded', database: boolean}
+ *   GET  /v1/health            → {status: 'ok' | 'degraded', database: boolean}; past D1's
+ *                              daily limit also limit: {resetsAt} (503)
  *   POST /v1/auth/login        {email, password} → Me + session cookie;
  *                              401 invalid_credentials, 429 locked (Retry-After)
  *   POST /v1/auth/logout       → 204, clears the cookie
@@ -23,7 +24,8 @@
  *   DELETE /v1/devices/:id     → 204, the device's token stops working
  *   GET  /v1/now               → {now, dayStart, meters: [{deviceId, deviceName, channel, lastSeenAt,
  *                              latest: minute | null, today: {minutes, energyWh, powerMaxW,
- *                              quarters: [{ts, energyWh}]}}], database: {sizeBytes, limitBytes}}
+ *                              quarters: [{ts, energyWh}]}}], database: {sizeBytes, limitBytes,
+ *                              rowsReadToday, rowsReadLimit}}
  *                              (today = since Lisbon midnight)
  *   GET  /v1/tariffs           → {tariffs: Tariff[]} (oldest first; src/domain/tariff.ts)
  *   POST /v1/tariffs           TariffInput → 201 {tariff}; same validFrom replaces that contract
@@ -69,7 +71,7 @@ import {
   SESSION_SECONDS,
   signSession,
 } from './auth';
-import type { Sql } from './db';
+import { isDatabaseLimit, type Sql } from './db';
 import { lisbonDate, nextDate, startOfLisbonDay } from '../../src/lib/time';
 import { DEFAULT_REQUESTS_PER_MINUTE, ingest, MAX_INGEST_BYTES } from './ingest';
 import { MIN_PASSWORD_LENGTH } from './password';
@@ -80,12 +82,13 @@ import {
   revokeDevice,
   type Device,
 } from './repo/devices';
-import { databaseReachable } from './repo/health';
+import { databaseState } from './repo/health';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
+import { rowsReadOn, utcDay } from './repo/usage';
 import { STATE } from './rollups';
 import {
   getHousehold,
@@ -128,9 +131,15 @@ export interface AppConfig {
   ingestRequestsPerMinute?: number;
   /** Size limit of the D1 database (500 MB on the free plan). */
   databaseLimitBytes?: number;
+  /** Rows D1 may read per UTC day (5 000 000 on the free plan). */
+  rowsReadLimit?: number;
 }
 
 export const DEFAULT_DATABASE_LIMIT_BYTES = 500 * 1000 * 1000;
+export const DEFAULT_ROWS_READ_LIMIT = 5_000_000;
+const DAY = 86_400;
+/** D1's daily limits reset at midnight UTC. */
+const nextUtcMidnight = (ts: number) => (Math.floor(ts / DAY) + 1) * DAY;
 
 type AppEnv = { Variables: { user: User } };
 
@@ -275,8 +284,16 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   });
 
   app.get('/v1/health', async (c) => {
-    const database = await databaseReachable(config.sql);
-    return c.json({ status: database ? 'ok' : 'degraded', database }, database ? 200 : 503);
+    const state = await databaseState(config.sql);
+    if (state === 'ok') return c.json({ status: 'ok', database: true });
+    return c.json(
+      {
+        status: 'degraded',
+        database: false,
+        ...(state === 'limit' ? { limit: { resetsAt: nextUtcMidnight(now()) } } : {}),
+      },
+      503,
+    );
   });
 
   app.post('/v1/auth/login', async (c) => {
@@ -425,6 +442,8 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       database: {
         sizeBytes: await getState(config.sql, STATE.databaseBytes),
         limitBytes: config.databaseLimitBytes ?? DEFAULT_DATABASE_LIMIT_BYTES,
+        rowsReadToday: await rowsReadOn(config.sql, utcDay(at)),
+        rowsReadLimit: config.rowsReadLimit ?? DEFAULT_ROWS_READ_LIMIT,
       },
     });
   });
@@ -655,7 +674,13 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   });
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
-  app.onError((_error, c) => c.json({ error: 'internal' }, 500));
+  app.onError((error, c) => {
+    if (!isDatabaseLimit(error)) return c.json({ error: 'internal' }, 500);
+    // The Shelly retries a 5xx later (shelly/wattometro.js); the app explains it.
+    const resetsAt = nextUtcMidnight(now());
+    c.header('Retry-After', String(resetsAt - now()));
+    return c.json({ error: 'database_limit', resetsAt }, 503);
+  });
 
   return app;
 }

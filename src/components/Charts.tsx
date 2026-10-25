@@ -8,7 +8,69 @@ import type { BillingPeriod } from '../domain/tariff';
 const WIDTH = 320;
 const PLOT = 140;
 const AXIS = 16;
-const TOP = 14;
+const TOP = 22;
+/** Room for the value labels left of the plot. */
+const LEFT = 26;
+const PLOT_WIDTH = WIDTH - LEFT;
+
+/** A value axis from zero: round values (the last one is the top) and the unit. */
+export interface Axis {
+  ticks: readonly { value: number; label: string }[];
+  unit: string;
+}
+
+/** Hairline grid at each value, labels on the left, and what the values are above them. */
+function ValueAxis({ axis, caption }: { axis: Axis; caption: string }) {
+  const top = axis.ticks.at(-1)?.value ?? 1;
+  return (
+    <>
+      <text className="chart-text" x={0} y={TOP - 5}>
+        {caption}
+      </text>
+      {axis.ticks.map((tick) => {
+        const y = TOP + PLOT - (tick.value * PLOT) / top;
+        return (
+          <g key={tick.value}>
+            <line
+              className={tick.value === 0 ? 'chart-axis' : 'chart-grid'}
+              x1={LEFT}
+              x2={WIDTH}
+              y1={y}
+              y2={y}
+            />
+            <text className="chart-text" x={LEFT - 4} y={y + 3} textAnchor="end">
+              {tick.label}
+            </text>
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
+/** Labels under the slots (hours, days); the first starts at the plot's edge, so it is not cut. */
+function SlotTicks({
+  ticks,
+  step,
+}: {
+  ticks: readonly { index: number; label: string }[];
+  step: number;
+}) {
+  return ticks.map((tick) => {
+    const atEdge = tick.index * step < 12;
+    return (
+      <text
+        key={tick.index}
+        className="chart-text"
+        x={LEFT + tick.index * step + (atEdge ? 0 : step / 2)}
+        y={TOP + PLOT + AXIS - 3}
+        textAnchor={atEdge ? 'start' : 'middle'}
+      >
+        {tick.label}
+      </text>
+    );
+  });
+}
 
 export interface Bar {
   key: string;
@@ -19,24 +81,28 @@ export interface Bar {
   partial?: boolean;
 }
 
-/** Stacked bars from zero, with axis labels under some of them. */
+/** Stacked bars from zero, on a value axis, with labels under some of them. */
 export function BarChart({
   bars,
   ticks,
-  maxLabel,
+  axis,
+  caption,
   label,
 }: {
   bars: readonly Bar[];
   /** Index of the bar and its label. */
   ticks: readonly { index: number; label: string }[];
-  /** The value at the top of the scale, formatted. */
-  maxLabel: (max: number) => string;
+  /** The value axis for the largest bar (src/app/chart-axis.ts). */
+  axis: (max: number) => Axis;
+  /** What the values are (e.g. "kWh por dia"), above the axis. */
+  caption: (unit: string) => string;
   /** What the chart shows, for screen readers. */
   label: string;
 }) {
   const totals = bars.map((bar) => bar.segments.reduce((sum, segment) => sum + segment.value, 0));
-  const max = Math.max(...totals, 1);
-  const step = WIDTH / Math.max(bars.length, 1);
+  const scale = axis(Math.max(...totals, 0));
+  const top = scale.ticks.at(-1)?.value ?? 1;
+  const step = PLOT_WIDTH / Math.max(bars.length, 1);
   const gap = bars.length > 40 ? 0.15 : 0.25;
   return (
     <svg
@@ -45,26 +111,23 @@ export function BarChart({
       role="img"
       aria-label={label}
     >
-      <line className="chart-grid" x1={0} x2={WIDTH} y1={TOP} y2={TOP} />
-      <text className="chart-text" x={0} y={TOP - 4}>
-        {maxLabel(max)}
-      </text>
-      <line className="chart-axis" x1={0} x2={WIDTH} y1={TOP + PLOT} y2={TOP + PLOT} />
+      <ValueAxis axis={scale} caption={caption(scale.unit)} />
       {bars.map((bar, index) => {
         let y = TOP + PLOT;
+        const x = LEFT + index * step;
         return (
           <g key={bar.key} className={bar.partial ? 'chart-partial' : undefined}>
             <title>{bar.title}</title>
             {/* Full-height hit area, so short bars still show their tooltip. */}
-            <rect className="chart-hit" x={index * step} y={TOP} width={step} height={PLOT} />
+            <rect className="chart-hit" x={x} y={TOP} width={step} height={PLOT} />
             {bar.segments.map((segment) => {
-              const height = (segment.value * PLOT) / max;
+              const height = (segment.value * PLOT) / top;
               y -= height;
               return (
                 <rect
                   key={segment.period}
                   className={`period-${segment.period}`}
-                  x={index * step + (step * gap) / 2}
+                  x={x + (step * gap) / 2}
                   y={y}
                   width={step * (1 - gap)}
                   height={height}
@@ -74,18 +137,7 @@ export function BarChart({
           </g>
         );
       })}
-      {ticks.map((tick) => (
-        <text
-          key={tick.index}
-          className="chart-text"
-          x={Math.max(tick.index * step + step / 2, 0)}
-          y={TOP + PLOT + AXIS - 3}
-          // The first label starts at the edge, so it is not cut.
-          textAnchor={tick.index * step < 12 ? 'start' : 'middle'}
-        >
-          {tick.label}
-        </text>
-      ))}
+      <SlotTicks ticks={ticks} step={step} />
     </svg>
   );
 }
@@ -164,7 +216,8 @@ export function SeriesChart({
   series,
   kind,
   ticks,
-  maxLabel,
+  axis,
+  caption,
   label,
 }: {
   /** Tooltip of each slot (all series' values). */
@@ -172,12 +225,16 @@ export function SeriesChart({
   series: readonly Series[];
   kind: 'lines' | 'bars';
   ticks: readonly { index: number; label: string }[];
-  maxLabel: (max: number) => string;
+  axis: (max: number) => Axis;
+  caption: (unit: string) => string;
   label: string;
 }) {
-  const max = Math.max(1, ...series.flatMap((item) => item.values.map((value) => value ?? 0)));
-  const step = WIDTH / Math.max(slots.length, 1);
-  const y = (value: number) => TOP + PLOT - (value * PLOT) / max;
+  const scale = axis(
+    Math.max(0, ...series.flatMap((item) => item.values.map((value) => value ?? 0))),
+  );
+  const top = scale.ticks.at(-1)?.value ?? 1;
+  const step = PLOT_WIDTH / Math.max(slots.length, 1);
+  const y = (value: number) => TOP + PLOT - (value * PLOT) / top;
   const gap = 0.25;
   const barWidth = (step * (1 - gap)) / Math.max(series.length, 1);
   return (
@@ -187,11 +244,7 @@ export function SeriesChart({
       role="img"
       aria-label={label}
     >
-      <line className="chart-grid" x1={0} x2={WIDTH} y1={TOP} y2={TOP} />
-      <text className="chart-text" x={0} y={TOP - 4}>
-        {maxLabel(max)}
-      </text>
-      <line className="chart-axis" x1={0} x2={WIDTH} y1={TOP + PLOT} y2={TOP + PLOT} />
+      <ValueAxis axis={scale} caption={caption(scale.unit)} />
       {series.map((item, seriesIndex) =>
         kind === 'lines' ? (
           <path
@@ -202,7 +255,8 @@ export function SeriesChart({
                 if (value === null) return '';
                 const previous = index > 0 ? item.values[index - 1] : null;
                 const command = previous === null || previous === undefined ? 'M' : 'L';
-                return `${command}${(index * step + step / 2).toFixed(1)},${y(value).toFixed(1)}`;
+                const x = LEFT + index * step + step / 2;
+                return `${command}${x.toFixed(1)},${y(value).toFixed(1)}`;
               })
               .join('')}
           />
@@ -212,7 +266,7 @@ export function SeriesChart({
               value === null ? null : (
                 <rect
                   key={index}
-                  x={index * step + (step * gap) / 2 + seriesIndex * barWidth}
+                  x={LEFT + index * step + (step * gap) / 2 + seriesIndex * barWidth}
                   y={y(value)}
                   width={barWidth}
                   height={TOP + PLOT - y(value)}
@@ -226,7 +280,7 @@ export function SeriesChart({
         <rect
           key={slot.key}
           className="chart-hit"
-          x={index * step}
+          x={LEFT + index * step}
           y={TOP}
           width={step}
           height={PLOT}
@@ -234,17 +288,7 @@ export function SeriesChart({
           <title>{slot.title}</title>
         </rect>
       ))}
-      {ticks.map((tick) => (
-        <text
-          key={tick.index}
-          className="chart-text"
-          x={Math.max(tick.index * step + step / 2, 0)}
-          y={TOP + PLOT + AXIS - 3}
-          textAnchor={tick.index * step < 12 ? 'start' : 'middle'}
-        >
-          {tick.label}
-        </text>
-      ))}
+      <SlotTicks ticks={ticks} step={step} />
     </svg>
   );
 }

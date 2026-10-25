@@ -183,7 +183,12 @@ function now(data: DemoData) {
         },
       },
     ],
-    database: { sizeBytes: 31_000_000, limitBytes: 500_000_000 },
+    database: {
+      sizeBytes: 31_000_000,
+      limitBytes: 500_000_000,
+      rowsReadToday: 40_000,
+      rowsReadLimit: 5_000_000,
+    },
   };
 }
 

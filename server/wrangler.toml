@@ -29,6 +29,8 @@ RETENTION_1M_DAYS = "730"
 RETENTION_1S_DAYS = "90"
 # D1 size limit on the free plan; the app warns near it.
 DATABASE_LIMIT_MB = "500"
+# Rows read per UTC day on the free plan; past it D1 refuses reads until midnight UTC.
+ROWS_READ_LIMIT = "5000000"
 
 # Rollups (minutes → 15 min → day), retention and database size: server/src/rollups.ts.
 [triggers]

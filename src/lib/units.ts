@@ -38,6 +38,26 @@ export function formatKwh(wh: Wh, digits = 1): string {
   return `${decimal(digits).format(wh / 1000)} kWh`;
 }
 
+/** Average power over a quarter hour from its energy (Wh × 4 = W). */
+export function quarterAverageW(wh: Wh): Watts {
+  assertInteger(wh, 'Wh');
+  return wh * 4;
+}
+
+const upTo = (digits: number) => new Intl.NumberFormat('pt-PT', { maximumFractionDigits: digits });
+
+/** A chart axis value without its unit (the axis names it): W, or kW (e.g. 1500 → "1,5"). */
+export function powerTick(watts: Watts, inKw: boolean): string {
+  assertInteger(watts, 'W');
+  return inKw ? upTo(2).format(watts / 1000) : upTo(0).format(watts);
+}
+
+/** A chart axis value in kWh, without the unit (e.g. 2500 → "2,5"). */
+export function kwhTick(wh: Wh): string {
+  assertInteger(wh, 'Wh');
+  return upTo(3).format(wh / 1000);
+}
+
 /** Power for display only: W below 1 kW, kW with two decimals above (e.g. 3450 → "3,45 kW"). */
 export function formatPower(watts: Watts): string {
   assertInteger(watts, 'W');

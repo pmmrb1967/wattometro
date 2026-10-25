@@ -86,6 +86,33 @@ describe('GET /v1/health', () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ status: 'degraded', database: false });
   });
+
+  it("says when D1's daily limit is reached, and every route answers 503 database_limit", async () => {
+    const limit = () =>
+      Promise.reject(new Error("D1_ERROR: exceeded D1's free tier daily row read limit"));
+    const limited = createApp({
+      sql: { first: limit, all: limit, run: limit, batch: limit },
+      sessionSecret: SECRET,
+      allowedOrigins: [],
+      now: () => Date.parse('2026-10-25T07:05:00Z') / 1000,
+    });
+    const midnight = Date.parse('2026-10-26T00:00:00Z') / 1000;
+    const health = await limited.request('/v1/health');
+    expect(health.status).toBe(503);
+    expect(await health.json()).toEqual({
+      status: 'degraded',
+      database: false,
+      limit: { resetsAt: midnight },
+    });
+    const login = await limited.request(`${ORIGIN}/v1/auth/login`, {
+      method: 'POST',
+      headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: EMAIL, password: 'x' }),
+    });
+    expect(login.status).toBe(503);
+    expect(login.headers.get('Retry-After')).toBe(String(16 * 3600 + 55 * 60));
+    expect(await login.json()).toEqual({ error: 'database_limit', resetsAt: midnight });
+  });
 });
 
 describe('login', () => {

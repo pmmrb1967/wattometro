@@ -24,7 +24,8 @@ import {
 import type { BillingPeriod } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonTime, lisbonDate, type LocalDate } from '../lib/time';
-import { formatKwh } from '../lib/units';
+import { formatKwh, formatPower, quarterAverageW } from '../lib/units';
+import { energyAxis, powerAxis } from './chart-axis';
 
 const texts = t.consumption.charts;
 const periodNames = t.settings.tariff.periods;
@@ -136,10 +137,14 @@ export function ConsumptionCharts({
           ? texts.quarterTitle(
               formatLisbonTime(ts),
               kwh(quarter.energyWh),
+              formatPower(quarterAverageW(quarter.energyWh)),
               periodNames[quarter.period],
             )
           : texts.dayTitle(formatLisbonTime(ts), texts.noData),
-        segments: quarter ? [{ period: quarter.period, value: quarter.energyWh }] : [],
+        // A day in average power (W), so the scale reads like the meter's.
+        segments: quarter
+          ? [{ period: quarter.period, value: quarterAverageW(quarter.energyWh) }]
+          : [],
       };
     });
     ticks = hourTicks(slots);
@@ -232,22 +237,17 @@ export function ConsumptionCharts({
                     partsOf(slot),
                   ),
                 }))}
-                series={[
-                  {
-                    name: seriesNames.eredes,
-                    className: 'series-eredes',
-                    values: comparison.slots.map((slot) => slot.eredes),
-                  },
-                  {
-                    name: seriesNames.shelly,
-                    className: 'series-shelly',
-                    values: comparison.slots.map((slot) => slot.shelly),
-                  },
-                ]}
+                series={(['eredes', 'shelly'] as const).map((key) => ({
+                  name: seriesNames[key],
+                  className: `series-${key}`,
+                  values: comparison.slots.map((slot) => {
+                    const wh = slot[key];
+                    return wh === null || view !== 'day' ? wh : quarterAverageW(wh);
+                  }),
+                }))}
                 ticks={view === 'day' ? ticks : dayBars(shown, totals, view).ticks}
-                maxLabel={(max) =>
-                  view === 'day' ? texts.perQuarter(kwh(max)) : texts.perDay(kwh(max))
-                }
+                axis={view === 'day' ? powerAxis : energyAxis}
+                caption={view === 'day' ? texts.axisPower : texts.axisPerDay}
                 label={`${texts.title}: ${title(view, shown)}`}
               />
               <ul className="chart-legend">
@@ -287,9 +287,8 @@ export function ConsumptionCharts({
             <BarChart
               bars={bars}
               ticks={ticks}
-              maxLabel={(max) =>
-                view === 'day' ? texts.perQuarter(kwh(max)) : texts.perDay(kwh(max))
-              }
+              axis={view === 'day' ? powerAxis : energyAxis}
+              caption={view === 'day' ? texts.axisPower : texts.axisPerDay}
               label={`${texts.title}: ${title(view, shown)}, ${texts.total(kwh(totalWh))}`}
             />
             {used.length > 1 && (

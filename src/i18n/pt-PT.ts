@@ -57,6 +57,8 @@ export const t = {
     noTariff: 'Para veres quanto custa, indica o teu tarifário em Definições.',
     databaseNear: (used: number, limit: number) =>
       `A base de dados está a ${used} MB de ${limit} MB. É preciso libertar espaço em breve.`,
+    rowsReadNear: (pct: number) =>
+      `Hoje a app já leu ${pct} % das linhas que a base de dados gratuita permite por dia. Aos 100 % fica parada até à meia-noite UTC.`,
   },
   home: {
     status: 'Em construção',
@@ -517,9 +519,10 @@ export const t = {
       next: 'Seguinte',
       weekOf: (first: string, last: string) => `Semana de ${first} a ${last}`,
       total: (kwh: string) => `Total: ${kwh}`,
-      perQuarter: (kwh: string) => `${kwh} por quarto de hora`,
-      perDay: (kwh: string) => `${kwh} por dia`,
-      quarterTitle: (time: string, kwh: string, period: string) => `${time}: ${kwh} (${period})`,
+      axisPower: (unit: string) => `${unit} · potência média de cada quarto de hora`,
+      axisPerDay: (unit: string) => `${unit} por dia`,
+      quarterTitle: (time: string, kwh: string, power: string, period: string) =>
+        `${time}: ${kwh}, ${power} em média (${period})`,
       dayTitle: (day: string, kwh: string) => `${day}: ${kwh}`,
       noData: 'sem dados',
       partialHint: 'Barras mais claras: dias sem dados ou incompletos.',
@@ -709,6 +712,9 @@ export const t = {
     checking: 'A verificar o servidor…',
     ok: 'Servidor ligado',
     unavailable: 'Servidor indisponível',
+    limit: 'Base de dados em pausa',
+    limitBanner: (time: string | null) =>
+      `A base de dados atingiu o limite diário gratuito de leituras da Cloudflare: a app fica parada${time ? ` até às ${time}` : ''} (meia-noite UTC). Os dados guardados não se perdem; o Shelly guarda os minutos que conseguir até lá.`,
     banner:
       'Sem ligação ao servidor: os valores podem estar desatualizados. A app tenta outra vez sozinha.',
   },

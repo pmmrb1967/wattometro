@@ -17,19 +17,35 @@ export interface Sql {
   batch(statements: Statement[]): Promise<number[]>;
   /** Size of the database in bytes, if the engine reports it. */
   sizeBytes?(): Promise<number | null>;
+  /** Rows read so far through this connection, if the engine reports them (D1). */
+  rowsRead?(): number;
+}
+
+/**
+ * D1 refuses every query that reads rows once the free plan's 5 000 000 rows a
+ * day are used up, until midnight UTC (seen on 2026-10-25: "Your account has
+ * exceeded D1's free tier daily row read limit…", code 7500).
+ */
+const LIMIT_ERROR = /free tier daily row \w+ limit/i;
+
+export function isDatabaseLimit(error: unknown): boolean {
+  return error instanceof Error && LIMIT_ERROR.test(error.message);
 }
 
 /** The subset of Cloudflare's D1Database used here (no dependency on its types). */
 type D1Value = string | number | null | ArrayBuffer;
+interface D1Meta {
+  size_after?: number;
+  rows_read?: number;
+}
 interface D1Statement {
   bind(...values: D1Value[]): D1Statement;
-  first<T>(): Promise<T | null>;
-  all<T>(): Promise<{ results: T[]; meta?: { size_after?: number } }>;
-  run(): Promise<unknown>;
+  all<T>(): Promise<{ results: T[]; meta?: D1Meta }>;
+  run(): Promise<{ meta?: D1Meta }>;
 }
 export interface D1Like {
   prepare(query: string): D1Statement;
-  batch(statements: D1Statement[]): Promise<{ meta: { changes: number } }[]>;
+  batch(statements: D1Statement[]): Promise<{ meta: { changes: number } & D1Meta }[]>;
 }
 
 /** D1 stores an ArrayBuffer as a BLOB. */
@@ -43,20 +59,29 @@ function toD1(value: SqlValue): D1Value {
 export function d1(db: D1Like): Sql {
   const statement = (query: string, params: SqlValue[]) =>
     db.prepare(query).bind(...params.map(toD1));
+  // Every result says how many rows it read: the free plan's binding limit.
+  let rowsRead = 0;
+  const count = <R extends { meta?: D1Meta }>(result: R): R => {
+    rowsRead += result.meta?.rows_read ?? 0;
+    return result;
+  };
+  const all = async <T>(query: string, params: SqlValue[]) =>
+    count(await statement(query, params).all<T>()).results;
   return {
-    first: <T>(query: string, ...params: SqlValue[]) => statement(query, params).first<T>(),
-    all: async <T>(query: string, ...params: SqlValue[]) =>
-      (await statement(query, params).all<T>()).results,
+    first: async <T>(query: string, ...params: SqlValue[]) =>
+      (await all<T>(query, params))[0] ?? null,
+    all: <T>(query: string, ...params: SqlValue[]) => all<T>(query, params),
     run: async (query: string, ...params: SqlValue[]) => {
-      await statement(query, params).run();
+      count(await statement(query, params).run());
     },
     batch: async (statements: Statement[]) =>
       statements.length === 0
         ? []
         : (await db.batch(statements.map((s) => statement(s.query, s.params)))).map(
-            (result) => result.meta.changes,
+            (result) => count(result).meta.changes,
           ),
     // D1 reports the database size with every result.
     sizeBytes: async () => (await db.prepare('SELECT 1').all<unknown>()).meta?.size_after ?? null,
+    rowsRead: () => rowsRead,
   };
 }
