@@ -402,6 +402,18 @@ export async function fetchPeakRecords(
   return failure(response, []);
 }
 
+/** GET /v1/seconds: a meter's per-second values in [from, to) (≤ 25 h), as records. */
+export async function fetchSeconds(
+  meter: string,
+  from: number,
+  to: number,
+): Promise<{ ok: true; records: ArrayBuffer } | Failure> {
+  const query = new URLSearchParams({ meter, from: String(from), to: String(to) });
+  const response = await send('GET', `/v1/seconds?${query}`);
+  if (response?.ok) return { ok: true, records: await response.arrayBuffer() };
+  return failure(response, []);
+}
+
 const EredesSummary = z.object({
   quarters: int,
   estimated: int,

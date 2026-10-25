@@ -42,6 +42,8 @@
  *   GET  /v1/power/peaks?meter&from&to&threshold → application/octet-stream, the minutes of
  *                              meter 'device:channel' above threshold (VA, else W) as records
  *                              (repo/power.ts); X-Truncated: 1 when there were more
+ *   GET  /v1/seconds?meter&from&to → application/octet-stream, the per-second values of meter
+ *                              'device:channel' in [from, to) (≤ 25 h) as records (repo/seconds.ts)
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
  *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
@@ -87,6 +89,7 @@ import { databaseState } from './repo/health';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { secondsRecords } from './repo/seconds';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
 import { rowsReadOn, utcDay } from './repo/usage';
@@ -194,6 +197,11 @@ const PeaksQuery = rangeQuery(MAX_QUALITY_DAYS).and(
     threshold: z.coerce.number().int().min(0).max(1_000_000),
   }),
 );
+/** A Lisbon day of 25 hours. */
+export const MAX_SECONDS_SPAN = 25 * 3600;
+const SecondsQuery = z
+  .object({ meter: z.string().regex(/^[^:]{1,64}:[0-3]$/), from: epoch, to: epoch })
+  .refine(({ from, to }) => from < to && to - from <= MAX_SECONDS_SPAN);
 export const MAX_IMPORT_QUARTERS = 3000;
 export const MAX_IMPORT_BYTES = 256 * 1024;
 // 13 months before the current one, plus the current one (src/app/household-energy.ts).
@@ -576,6 +584,23 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     c.header('Content-Type', 'application/octet-stream');
     c.header('X-Truncated', peaks.truncated ? '1' : '0');
     return c.body(peaks.records.buffer as ArrayBuffer);
+  });
+
+  app.get('/v1/seconds', requireUser, async (c) => {
+    const parsed = SecondsQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { meter, from, to } = parsed.data;
+    const [deviceId = '', channel] = meter.split(':');
+    const records = await secondsRecords(
+      config.sql,
+      c.get('user').householdId,
+      deviceId,
+      Number(channel),
+      from,
+      to,
+    );
+    c.header('Content-Type', 'application/octet-stream');
+    return c.body(records.buffer as ArrayBuffer);
   });
 
   app.post('/v1/import/eredes', requireUser, async (c) => {

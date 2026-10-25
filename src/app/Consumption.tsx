@@ -12,6 +12,7 @@ import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatKwh, formatPower } from '../lib/units';
 import { AnomalyList } from './Anomalies';
+import { DayEvents } from './DayEvents';
 import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
@@ -163,6 +164,7 @@ export function Consumption() {
             eredes={meter === 'eredes' || meter === HOUSE_METER}
           />
           <AnomalyList energy={energy} />
+          <DayEvents energy={energy} />
           <ConsumptionCharts
             quarters={quarters}
             today={energy.today}

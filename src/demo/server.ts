@@ -336,6 +336,21 @@ function energyRecords(quarters: [number, number][]): Response {
   return new Response(records, { headers: { 'Content-Type': 'application/octet-stream' } });
 }
 
+/** Records of GET /v1/seconds (server/src/repo/seconds.ts). */
+function secondsRecords(data: DemoData, from: number, to: number): Response {
+  const [first, last] = minuteRange(data, from, to);
+  const chosen: number[] = [];
+  for (let index = first; index < last; index++) if (data.present[index]) chosen.push(index);
+  const records = new Uint8Array(chosen.length * (4 + READINGS_1S_BYTES));
+  const view = new DataView(records.buffer);
+  chosen.forEach((index, position) => {
+    const offset = position * (4 + READINGS_1S_BYTES);
+    view.setUint32(offset, data.start + index * MINUTE, true);
+    records.set(encodeSeconds(data.seconds(index)), offset + 4);
+  });
+  return new Response(records, { headers: { 'Content-Type': 'application/octet-stream' } });
+}
+
 /** Records of GET /v1/power/peaks (server/src/repo/power.ts). */
 function peaks(data: DemoData, from: number, to: number, threshold: number): Response {
   const [first, last] = minuteRange(data, from, to);
@@ -487,6 +502,11 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       });
     case 'GET /v1/power':
       return range ? json(power(data, from, to)) : invalid();
+    case 'GET /v1/seconds':
+      if (!range || to - from > 25 * 3600 || url.searchParams.get('meter') !== METER) {
+        return invalid();
+      }
+      return secondsRecords(data, from, to);
     case 'GET /v1/power/peaks': {
       const threshold = numberParam(url, 'threshold');
       if (!range || threshold === null || url.searchParams.get('meter') !== METER) {

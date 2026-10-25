@@ -12,6 +12,7 @@ import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
 import { clearWeatherCache } from '../weather/weather';
 import { clearEnergyCache } from './energy-cache';
+import { clearSecondsCache } from './seconds-cache';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
 
@@ -100,6 +101,7 @@ export function AppShell() {
   const signOut = useCallback(() => {
     // The consumption and the weather (it reveals the locality) kept in this browser go with the session.
     void clearEnergyCache();
+    void clearSecondsCache();
     void clearWeatherCache();
     if (isDemo()) {
       exitDemo();

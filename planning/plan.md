@@ -201,9 +201,11 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e reprocessada sobre os últimos 90 dias sem tocar no Shelly.
 
 ### 8.1 Deteção de eventos
-- [ ] Deteção de saltos de potência (ΔP, e ΔQ quando houver) com filtragem de ruído e estados estáveis antes/depois
-- [ ] Descritor de cada evento ao segundo: ΔP, ΔQ/ΔFP, pico de arranque (overshoot) e duração do transitório, rampa (aparelhos com inversor), estabilidade do estado seguinte
-- [ ] Emparelhamento liga/desliga → ciclos com duração e energia; aparelhos multi-estado (ex.: fases da máquina de lavar)
+- [x] Deteção de saltos de potência (ΔP, e ΔQ quando houver) com filtragem de ruído e estados estáveis antes/depois — `src/nilm/events.ts`: estados estáveis de ≥ 3 s (cada segundo a max(15 W, 2 %) da média), evento se |ΔP| ≥ 30 W; os estados encontram-se na potência medida e só o salto é escalado a 230 V (`deltaW230`), para uma descida de tensão não parecer um aparelho. Dados por `GET /v1/seconds` (um dia, pela chave primária), em cache no browser para dias fechados (`src/app/seconds-cache.ts`)
+- [x] Descritor de cada evento ao segundo: ΔP, ΔQ/ΔFP, pico de arranque (overshoot) e duração do transitório, rampa (aparelhos com inversor), estabilidade do estado seguinte
+- [x] Emparelhamento liga/desliga → ciclos com duração e energia (`src/nilm/cycles.ts`; cada descida com a subida aberta mais recente que espelha, até 6 h) e cartão "Ao segundo" em Consumo, com os ciclos agrupados por potência (`src/nilm/summary.ts`). Na casa da demonstração encontra todos os ciclos do frigorífico, o termoacumulador, a chaleira e a máquina da loiça
+- [ ] Aparelhos multi-estado (ex.: fases da máquina de lavar)
+- [ ] `pnpm nilm:eval` sobre dias reais em `fixtures/private`, com os aparelhos anotados pelo utilizador
 - [ ] Padrões periódicos de segundos (ex.: placa de indução a pulsar)
 - [ ] Migração `events` (resultado sincronizado) e reprocessamento idempotente por intervalo de datas
 

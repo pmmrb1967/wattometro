@@ -8,6 +8,7 @@ import { hashPassword } from './password';
 import { createDevice } from './repo/devices';
 import { createHousehold } from './repo/households';
 import { PEAK_RECORD_BYTES } from './repo/power';
+import { SECONDS_RECORD_BYTES } from './repo/seconds';
 import { minuteStatements } from './repo/readings';
 import { createUser } from './repo/users';
 
@@ -113,6 +114,36 @@ describe('GET /v1/power', () => {
       ],
       eredes: { quarters: 0, maxEnergyWh: null },
     });
+  });
+});
+
+describe('GET /v1/seconds', () => {
+  it('packs the per-second values of the meter, in its household only', async () => {
+    await minute(0, START, 3000, 3200);
+    await minute(0, START + 60, 5000, null);
+    await minute(0, START + 120, 6000, 6500);
+    await minute(1, START + 60, 9000, 9900);
+    const cookie = await signIn();
+    const meter = `${households[0]!.deviceId}:0`;
+    const response = await get(cookie, `/v1/seconds?meter=${meter}&from=${START}&to=${NOW}`);
+    expect(response.status).toBe(200);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    expect(bytes.byteLength).toBe(2 * SECONDS_RECORD_BYTES);
+    const view = new DataView(bytes.buffer);
+    expect(view.getUint32(0, true)).toBe(START);
+    expect(view.getUint32(SECONDS_RECORD_BYTES, true)).toBe(START + 120);
+    expect(decodeSeconds(bytes.slice(4, SECONDS_RECORD_BYTES)).power[59]).toBe(3000);
+
+    const other = `${households[1]!.deviceId}:0`;
+    const theirs = await get(cookie, `/v1/seconds?meter=${other}&from=${START}&to=${NOW}`);
+    expect((await theirs.arrayBuffer()).byteLength).toBe(0);
+  });
+
+  it('refuses more than a day of 25 hours', async () => {
+    const cookie = await signIn();
+    const meter = `${households[0]!.deviceId}:0`;
+    const path = `/v1/seconds?meter=${meter}&from=${START}&to=${START + 25 * 3600 + 1}`;
+    expect((await get(cookie, path)).status).toBe(400);
   });
 });
 

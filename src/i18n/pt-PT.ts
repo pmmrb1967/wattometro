@@ -528,6 +528,25 @@ export const t = {
       'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
   },
+  dayEvents: {
+    title: 'Ao segundo: o que ligou e desligou',
+    intro:
+      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Ainda não diz que aparelho é: isso vem a seguir.',
+    day: 'Dia',
+    today: 'Hoje (até agora)',
+    error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
+    none: 'Não há valores ao segundo deste dia.',
+    summary: (minutes: number, events: number, cycles: number) =>
+      `${minutes} minutos com valores ao segundo: ${events} mudanças de potência, ${cycles} ciclos de ligar e desligar.`,
+    power: 'Potência',
+    times: 'Quando',
+    duration: 'Duração típica',
+    energy: 'Energia no dia',
+    count: (count: number) => `${count} vezes`,
+    how: 'Cada mudança é uma subida ou descida de pelo menos 30 W entre dois momentos estáveis. Um ciclo junta uma subida à descida do mesmo tamanho que vem depois.',
+    limits:
+      'Aparelhos com várias fases (máquina de lavar) ou que pulsam (placa de indução) podem aparecer como vários ciclos. Os ciclos que passam a meia-noite não entram.',
+  },
   anomalies: {
     title: 'Dias fora do habitual',
     intro: (days: number) =>
