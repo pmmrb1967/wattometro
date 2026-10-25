@@ -33,6 +33,7 @@ import {
 import { formatKwh, formatPower } from '../src/lib/units';
 import { pairCycles, type Cycle } from '../src/nilm/cycles';
 import { detectEvents, DETECTOR_VERSION } from '../src/nilm/events';
+import { mergePulses } from '../src/nilm/periodic';
 import { decodeSecondsRecords, SECONDS_RECORD_BYTES, toSeries } from '../src/nilm/series';
 import { groupCycles } from '../src/nilm/summary';
 
@@ -138,7 +139,8 @@ function evaluate(): void {
     const events = detectEvents(
       toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day))),
     );
-    const cycles = pairCycles(events);
+    const pairs = pairCycles(events);
+    const cycles = mergePulses(pairs);
     found.push({ day, cycles });
     console.log(
       `${name}: ${minutes.length} minutes, ${events.length} steps, ${cycles.length} cycles`,
@@ -147,10 +149,10 @@ function evaluate(): void {
       const when =
         group.count === 1 ? formatLisbonTime(group.cycles[0]!.start) : `${group.count} times`;
       console.log(
-        `  ${(group.statesW.length > 1 ? group.statesW.map((watts) => formatPower(watts)).join(' → ') : formatPower(group.powerW)).padStart(9)}  ${when.padEnd(9)} ${formatDuration(group.durationS).padEnd(14)} ${formatKwh(group.energyWh, 2)}`,
+        `  ${(group.statesW.length > 1 ? group.statesW.map((watts) => formatPower(watts)).join(' → ') : group.pulsing ? `${formatPower(group.powerW)} pulsing` : formatPower(group.powerW)).padStart(9)}  ${when.padEnd(9)} ${formatDuration(group.durationS).padEnd(14)} ${formatKwh(group.energyWh, 2)}`,
       );
     }
-    const paired = new Set(cycles.flatMap((cycle) => [cycle.on, cycle.off]));
+    const paired = new Set(pairs.flatMap((cycle) => [cycle.on, cycle.off]));
     const unpaired = events.filter(
       (event) => !paired.has(event) && Math.abs(event.deltaW) >= LIST_UNPAIRED_W,
     );

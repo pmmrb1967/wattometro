@@ -22,6 +22,8 @@ export interface CycleGroup {
   energyWh: number;
   /** The measured power of each state of the group's first cycle (one for most), W. */
   statesW: number[];
+  /** Runs of pulses (periodic.ts), not single cycles. */
+  pulsing: boolean;
   cycles: Cycle[];
 }
 
@@ -33,9 +35,13 @@ function median(values: readonly number[]): number {
     : Math.round(((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2);
 }
 
-/** The same number of states, each of a similar power (the kettle is not a washing machine). */
+/**
+ * The same number of states, each of a similar power (the kettle is not a washing
+ * machine), and both runs of pulses or neither (the kettle is not the hob).
+ */
 function sameStates(a: Cycle, b: Cycle): boolean {
   return (
+    (a.pulses === undefined) === (b.pulses === undefined) &&
     a.states.length === b.states.length &&
     a.states.every(
       (state, index) =>
@@ -67,6 +73,7 @@ export function groupCycles(cycles: readonly Cycle[]): CycleGroup[] {
       energyWh: list.reduce((sum, item) => sum + item.energyWh, 0),
       cycles: list.sort((a, b) => a.start - b.start),
       statesW: (list[0] as Cycle).states.map((state) => state.powerW),
+      pulsing: (list[0] as Cycle).pulses !== undefined,
     }))
     .sort((a, b) => b.energyWh - a.energyWh);
 }

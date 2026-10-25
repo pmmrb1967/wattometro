@@ -582,9 +582,10 @@ export const t = {
     duration: 'Duração típica',
     energy: 'Energia no dia',
     count: (count: number) => `${count} vezes`,
+    pulsing: (power: string) => `${power} aos pulsos`,
     how: 'Cada mudança é uma subida ou descida de pelo menos 30 W entre dois momentos estáveis. Um ciclo junta uma subida à descida do mesmo tamanho que vem depois.',
     limits:
-      'Um aparelho que muda de fase sem desligar (máquina de lavar: aquecimento, depois motor) aparece com as potências de cada fase (2,00 kW → 400 W). Os que pulsam (placa de indução) ainda aparecem como vários ciclos, e os ciclos que passam a meia-noite não entram.',
+      'Um aparelho que muda de fase sem desligar (máquina de lavar: aquecimento, depois motor) aparece com as potências de cada fase (2,00 kW → 400 W). Um que liga e desliga a mesma potência a cada poucos segundos ou minutos (placa de indução, forno a manter a temperatura) aparece como um só uso, "aos pulsos", com a energia dos pulsos. Os ciclos que passam a meia-noite não entram.',
   },
   calibrate: {
     title: 'Calibrar aparelhos',

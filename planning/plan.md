@@ -206,7 +206,7 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - [x] Emparelhamento liga/desliga → ciclos com duração e energia (`src/nilm/cycles.ts`; cada descida com a subida aberta mais recente que espelha, até 6 h) e cartão "Ao segundo" em Consumo, com os ciclos agrupados por potência (`src/nilm/summary.ts`). Na casa da demonstração encontra todos os ciclos do frigorífico, o termoacumulador, a chaleira e a máquina da loiça
 - [x] Aparelhos multi-estado (ex.: fases da máquina de lavar) — uma descida que não espelha nenhum aparelho aberto, mas é ≥ 30 % da potência de um deles e deixa ≥ 30 W ligados, é uma mudança de fase desse aparelho; o ciclo guarda as fases e a energia soma-as. No agrupamento, só se juntam ciclos com as mesmas fases. Na demonstração: a máquina de lavar de sábado (2000 W → 400 W, 80 min) num só ciclo
 - [ ] `pnpm nilm:eval` sobre dias reais em `fixtures/private`, com os aparelhos anotados pelo utilizador — script feito (`fetch <dia>` descarrega, `notes.json` com os aparelhos anotados) e experimentado num dia da demonstração no D1 local; falta correr sobre dias reais depois do reset do D1
-- [ ] Padrões periódicos de segundos (ex.: placa de indução a pulsar)
+- [x] Padrões periódicos de segundos (ex.: placa de indução a pulsar) — `src/nilm/periodic.ts`: ≥ 3 ciclos da mesma potência, cada um ≤ 5 min e a começar ≤ 2 min depois do anterior acabar, passam a um só uso "aos pulsos" (energia = soma dos pulsos); os outros ciclos entretanto (frigorífico) ficam à parte. Pulsos de menos de 3 s não deixam estado estável e não são vistos: a confirmar com uma placa real
 - [ ] Migração `events` (resultado sincronizado) e reprocessamento idempotente por intervalo de datas
 
 ### 8.2 Modo de calibração

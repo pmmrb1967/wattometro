@@ -21,6 +21,7 @@ import {
 import { formatKwh, formatPower } from '../lib/units';
 import { pairCycles } from '../nilm/cycles';
 import { detectEvents } from '../nilm/events';
+import { mergePulses } from '../nilm/periodic';
 import { decodeSecondsRecords, toSeries } from '../nilm/series';
 import { groupCycles } from '../nilm/summary';
 import type { HouseholdEnergy } from './household-energy';
@@ -71,7 +72,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       startOfLisbonDay(nextDate(loaded.day)),
     );
     const events = detectEvents(series);
-    const cycles = pairCycles(events);
+    const cycles = mergePulses(pairCycles(events));
     return { minutes: minutes.length, events, cycles, groups: groupCycles(cycles) };
   }, [loaded]);
 
@@ -118,7 +119,9 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                       <td>
                         {group.statesW.length > 1
                           ? group.statesW.map((watts) => formatPower(watts)).join(' → ')
-                          : formatPower(group.powerW)}
+                          : group.pulsing
+                            ? texts.pulsing(formatPower(group.powerW))
+                            : formatPower(group.powerW)}
                       </td>
                       <td>
                         {group.count === 1

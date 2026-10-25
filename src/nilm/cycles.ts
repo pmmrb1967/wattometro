@@ -13,8 +13,8 @@
  * something switched on before the day began (the TV, 150 W) from being
  * taken for a phase of the water heater (1800 W).
  *
- * Periodic patterns (an induction hob pulsing) still come out as several
- * cycles.
+ * Periodic patterns (an induction hob pulsing) come out as several cycles
+ * here; mergePulses (periodic.ts) makes each run of them one.
  */
 import type { EpochSeconds } from '../lib/time';
 import { MIN_STEP_W, type PowerEvent } from './events';
@@ -54,6 +54,8 @@ export interface Cycle {
   energyWh: number;
   /** One per state, in order (one for an appliance that only switches on and off). */
   states: CycleState[];
+  /** A run of pulses made one (periodic.ts): how many, and the seconds they were on. */
+  pulses?: { count: number; onS: number };
 }
 
 interface Level {

@@ -80,7 +80,9 @@ function Library({
                       : texts.cycle(
                           cycle.states.length > 1
                             ? cycle.states.map((state) => formatPower(state.powerW)).join(' → ')
-                            : formatPower(cycle.powerW),
+                            : cycle.pulses
+                              ? t.dayEvents.pulsing(formatPower(cycle.powerW))
+                              : formatPower(cycle.powerW),
                           formatDuration(cycle.durationS),
                           formatKwh(cycle.energyWh, 2),
                         )}

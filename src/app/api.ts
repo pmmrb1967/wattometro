@@ -426,9 +426,7 @@ const Signature = z.object({
 export type Signature = z.infer<typeof Signature>;
 
 /** The calibrations kept (server/src/repo/signatures.ts), the latest first. */
-export async function fetchSignatures(): Promise<
-  { ok: true; signatures: Signature[] } | Failure
-> {
+export async function fetchSignatures(): Promise<{ ok: true; signatures: Signature[] } | Failure> {
   const response = await send('GET', '/v1/signatures');
   if (response?.ok) {
     const { signatures } = z
