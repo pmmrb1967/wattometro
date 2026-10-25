@@ -5,7 +5,7 @@
  * The conversation stays while the user moves between pages; the panel and its
  * data are only loaded on the first opening. "/perguntar" opens it on Início.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useOutletContext } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { chatPageOf } from './chat-page';
@@ -44,6 +44,10 @@ function ChatDock() {
 
   // Off the page (Definições) the panel stays mounted but hidden: the conversation survives.
   const shown = open && page !== null;
+  useEffect(() => {
+    document.documentElement.classList.toggle('chat-open', shown);
+    return () => document.documentElement.classList.remove('chat-open');
+  }, [shown]);
   return (
     <>
       {page && <div className="chat-spacer" aria-hidden="true" />}

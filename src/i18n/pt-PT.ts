@@ -137,6 +137,7 @@ export const t = {
     unconfirmed: (values: string) =>
       `Atenção: estes valores não vêm das contas da app e podem estar errados: ${values}. Confirma na página indicada.`,
     cost: (cost: string) => `Custo desta resposta: cerca de ${cost}.`,
+    privacyShort: 'Só seguem resumos para a Anthropic, nunca as medições.',
     privacy:
       'Só seguem para a Anthropic a tua pergunta e os resumos que a IA pede (totais, custos, médias), nunca as medições ao minuto nem dados da conta.',
     tools: {

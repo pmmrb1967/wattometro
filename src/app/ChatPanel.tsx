@@ -198,29 +198,7 @@ export function ChatPanel({
                 ))}
               </ul>
             )}
-            <label>
-              <span className="visually-hidden">
-                {exchanges.length > 0 ? texts.followUp : texts.question}
-              </span>
-              <textarea
-                ref={input}
-                rows={2}
-                value={question}
-                maxLength={1000}
-                onChange={(event) => {
-                  setQuestion(event.target.value);
-                  setPending(null);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
-                placeholder={exchanges.length > 0 ? texts.followUp : texts.placeholder}
-              />
-            </label>
-            {pending ? (
+            {pending && (
               <div className="confirm">
                 <p>
                   {texts.estimate(formatMicroUsd(pending.estimate.costMicroUsd), provider.model)}
@@ -238,23 +216,57 @@ export function ChatPanel({
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="actions">
-                <button
-                  type="submit"
-                  className="primary"
-                  disabled={busy || !context || question.trim() === ''}
-                >
-                  {busy ? texts.thinking : !context ? t.loading : texts.ask}
-                </button>
-              </div>
             )}
+            <div className="chat-input">
+              <label>
+                <span className="visually-hidden">
+                  {exchanges.length > 0 ? texts.followUp : texts.question}
+                </span>
+                <textarea
+                  ref={input}
+                  rows={2}
+                  value={question}
+                  maxLength={1000}
+                  onChange={(event) => {
+                    setQuestion(event.target.value);
+                    setPending(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                  placeholder={exchanges.length > 0 ? texts.followUp : texts.placeholder}
+                />
+              </label>
+              <button
+                type="submit"
+                className="chat-send"
+                disabled={busy || !context || pending !== null || question.trim() === ''}
+                aria-label={busy ? texts.thinking : !context ? t.loading : texts.ask}
+                title={texts.ask}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 12 20 4l-4 16-4-7-8-1z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
             {error && (
               <p className="error" role="alert">
                 {error}
               </p>
             )}
-            <p className="hint">{texts.privacy}</p>
+            <p className="hint chat-privacy" title={texts.privacy}>
+              <span aria-hidden="true">🔒 </span>
+              {texts.privacyShort}
+            </p>
           </form>
         </>
       )}
