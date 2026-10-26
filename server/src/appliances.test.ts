@@ -46,7 +46,14 @@ const request = (cookie: string, method: string, path: string, body?: unknown) =
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
-const FRIDGE = { label: 'Frigorífico', powerW: 104, statesW: [98], pulsing: false };
+const FRIDGE = {
+  label: 'Frigorífico',
+  powerW: 104,
+  statesW: [98],
+  pulsing: false,
+  minDurationS: 540,
+  maxDurationS: 2160,
+};
 
 describe('/v1/appliances', () => {
   it('creates, lists, renames and deletes, per household', async () => {
@@ -69,6 +76,12 @@ describe('/v1/appliances', () => {
     await request(rui, 'DELETE', path);
     expect((await request(ana, 'PATCH', path, { label: ' Arca ' })).status).toBe(204);
     expect(await list(ana)).toMatchObject([{ label: 'Arca' }]);
+    // Another programme widens the durations; the label stays.
+    const durations = { minS: 300, maxS: 2400 };
+    expect((await request(ana, 'PATCH', path, { durations })).status).toBe(204);
+    expect(await list(ana)).toMatchObject([
+      { label: 'Arca', minDurationS: 300, maxDurationS: 2400 },
+    ]);
     expect((await request(ana, 'DELETE', path)).status).toBe(204);
     expect(await list(ana)).toEqual([]);
   });
@@ -80,6 +93,8 @@ describe('/v1/appliances', () => {
       { ...FRIDGE, statesW: [] },
       { ...FRIDGE, powerW: 12.5 },
       { ...FRIDGE, pulsing: 'no' },
+      { ...FRIDGE, minDurationS: null },
+      { ...FRIDGE, minDurationS: 3000 },
     ]) {
       expect((await request(ana, 'POST', '/v1/appliances', bad)).status).toBe(400);
     }
@@ -87,6 +102,18 @@ describe('/v1/appliances', () => {
       await request(ana, 'POST', '/v1/appliances', { ...FRIDGE, label: `A${index}` });
     }
     expect((await request(ana, 'POST', '/v1/appliances', FRIDGE)).status).toBe(409);
+  });
+
+  it('accepts an appliance without durations (named before migration 0017)', async () => {
+    const ana = await signIn(0);
+    const { label, powerW, statesW, pulsing } = FRIDGE;
+    const old = { label, powerW, statesW, pulsing };
+    const created = await request(ana, 'POST', '/v1/appliances', old);
+    expect(await created.json()).toMatchObject({
+      appliance: { minDurationS: null, maxDurationS: null },
+    });
+    // A change must change something.
+    expect((await request(ana, 'PATCH', '/v1/appliances/x', {})).status).toBe(400);
   });
 
   it('needs a session', async () => {

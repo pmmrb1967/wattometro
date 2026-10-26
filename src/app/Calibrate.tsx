@@ -64,7 +64,7 @@ function Recognise({ signature, cycle }: { signature: Signature; cycle: Cycle })
 
   async function recognise() {
     setBusy(true);
-    const outcome = await addAppliance({ label: signature.label, ...describeCycle(cycle) });
+    const outcome = await addAppliance(signature.label, describeCycle(cycle));
     setBusy(false);
     if (outcome.ok) return;
     const text = failureText(outcome, t.dayEvents.tooMany);

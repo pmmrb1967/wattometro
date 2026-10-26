@@ -707,7 +707,9 @@ export const t = {
   knownAppliances: {
     title: 'Aparelhos que a app reconhece',
     intro:
-      'Cada um é reconhecido pela potência e pela forma dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "O que é?" no cartão "Ao segundo" ou a partir de uma calibração.',
+      'Cada um é reconhecido pela potência, pela forma e pela duração dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "O que é?" no cartão "Ao segundo" ou a partir de uma calibração. Um programa mais curto ou mais longo (máquina de lavar a 30 ou a 60 °C) que não seja reconhecido: dá-lhe o mesmo nome e a duração aceite alarga-se.',
+    withDurations: (power: string, shortest: string, longest: string) =>
+      `${power}, ciclos de ${shortest} a ${longest}`,
     empty: 'Ainda nenhum. Dá nome a um grupo de ciclos no cartão "Ao segundo" do Consumo.',
     name: 'Nome do aparelho',
     rename: 'Guardar nome',

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * The house's named appliances (Phase 8.3, migration 0016): a label and the
- * descriptor the browser classifies cycles with (src/nilm/appliances.ts).
+ * The house's named appliances (Phase 8.3, migrations 0016 and 0017): a label
+ * and the descriptor the browser classifies cycles with
+ * (src/nilm/appliances.ts), with the range of durations seen.
  */
 import { z } from 'zod';
 import type { Sql } from '../db';
@@ -14,6 +15,9 @@ export interface ApplianceInput {
   powerW: number;
   statesW: number[];
   pulsing: boolean;
+  /** Range of its cycles' durations, s; null matches any duration. */
+  minDurationS: number | null;
+  maxDurationS: number | null;
 }
 
 export interface Appliance extends ApplianceInput {
@@ -30,10 +34,12 @@ export async function listAppliances(sql: Sql, householdId: string): Promise<App
     power_w: number;
     states_w: string;
     pulsing: number;
+    min_duration_s: number | null;
+    max_duration_s: number | null;
     created_at: number;
   }>(
-    `SELECT id, label, power_w, states_w, pulsing, created_at FROM appliances
-     WHERE household_id = ? ORDER BY label`,
+    `SELECT id, label, power_w, states_w, pulsing, min_duration_s, max_duration_s, created_at
+     FROM appliances WHERE household_id = ? ORDER BY label`,
     householdId,
   );
   return rows.map((row) => ({
@@ -42,6 +48,8 @@ export async function listAppliances(sql: Sql, householdId: string): Promise<App
     powerW: row.power_w,
     statesW: States.parse(JSON.parse(row.states_w)),
     pulsing: row.pulsing === 1,
+    minDurationS: row.min_duration_s,
+    maxDurationS: row.max_duration_s,
     createdAt: row.created_at,
   }));
 }
@@ -60,30 +68,42 @@ export async function createAppliance(
   if ((count?.n ?? 0) >= MAX_APPLIANCES) return null;
   const id = crypto.randomUUID();
   await sql.run(
-    `INSERT INTO appliances (id, household_id, label, power_w, states_w, pulsing, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO appliances (id, household_id, label, power_w, states_w, pulsing,
+       min_duration_s, max_duration_s, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     householdId,
     input.label,
     input.powerW,
     JSON.stringify(input.statesW),
     input.pulsing ? 1 : 0,
+    input.minDurationS,
+    input.maxDurationS,
     now,
   );
   return { id, ...input, createdAt: now };
 }
 
-/** False when it is not the household's. */
-export async function renameAppliance(
+/** A new name, or a new range of durations (another programme); false when not the household's. */
+export async function updateAppliance(
   sql: Sql,
   householdId: string,
   id: string,
-  label: string,
+  change: { label?: string; durations?: { minS: number; maxS: number } },
 ): Promise<boolean> {
   const [changed = 0] = await sql.batch([
     {
-      query: 'UPDATE appliances SET label = ? WHERE id = ? AND household_id = ?',
-      params: [label, id, householdId],
+      query: `UPDATE appliances SET label = COALESCE(?, label),
+                min_duration_s = COALESCE(?, min_duration_s),
+                max_duration_s = COALESCE(?, max_duration_s)
+              WHERE id = ? AND household_id = ?`,
+      params: [
+        change.label ?? null,
+        change.durations?.minS ?? null,
+        change.durations?.maxS ?? null,
+        id,
+        householdId,
+      ],
     },
   ]);
   return changed > 0;

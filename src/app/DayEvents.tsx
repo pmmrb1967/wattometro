@@ -60,7 +60,7 @@ function NameGroup({ group, onDone }: { group: CycleGroup; onDone: () => void })
 
   async function save() {
     setBusy(true);
-    const outcome = await addAppliance({ label: label.trim(), ...describeGroup(group) });
+    const outcome = await addAppliance(label.trim(), describeGroup(group));
     setBusy(false);
     if (outcome.ok) return onDone();
     const text = failureText(outcome, texts.tooMany);

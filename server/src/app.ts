@@ -60,9 +60,11 @@
  *   GET  /v1/signatures        → {signatures: [{id, meter, label, from, to, minutes, createdAt}]}
  *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
  *   DELETE /v1/signatures/:id  → 204
- *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing, createdAt}]}
- *   POST /v1/appliances        {label, powerW, statesW, pulsing} → 201 {appliance}; 409 too_many
- *   PATCH /v1/appliances/:id   {label} → 204; 404
+ *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing,
+ *                              minDurationS, maxDurationS, createdAt}]}
+ *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?}
+ *                              → 201 {appliance}; 409 too_many
+ *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404
  *   DELETE /v1/appliances/:id  → 204
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
@@ -120,7 +122,7 @@ import {
   createAppliance,
   deleteAppliance,
   listAppliances,
-  renameAppliance,
+  updateAppliance,
 } from './repo/appliances';
 import {
   deleteSubscription,
@@ -283,12 +285,28 @@ const MissingQuery = z
   })
   .refine(({ from, to }) => from < to && to - from <= MAX_MISSING_SPAN);
 const ApplianceLabel = z.string().trim().min(1).max(60);
-const ApplianceBody = z.object({
-  label: ApplianceLabel,
-  powerW: z.number().int().min(1).max(50_000),
-  statesW: z.array(z.number().int().min(-50_000).max(50_000)).min(1).max(8),
-  pulsing: z.boolean(),
-});
+/** Up to a day: longer than any cycle pairCycles finds (MAX_CYCLE_S). */
+const DurationS = z.number().int().min(1).max(86_400);
+const Durations = z
+  .object({ minS: DurationS, maxS: DurationS })
+  .refine(({ minS, maxS }) => minS <= maxS);
+const ApplianceBody = z
+  .object({
+    label: ApplianceLabel,
+    powerW: z.number().int().min(1).max(50_000),
+    statesW: z.array(z.number().int().min(-50_000).max(50_000)).min(1).max(8),
+    pulsing: z.boolean(),
+    minDurationS: DurationS.nullable().default(null),
+    maxDurationS: DurationS.nullable().default(null),
+  })
+  .refine(
+    ({ minDurationS, maxDurationS }) =>
+      (minDurationS === null) === (maxDurationS === null) &&
+      (minDurationS === null || minDurationS <= (maxDurationS as number)),
+  );
+const ApplianceChange = z
+  .object({ label: ApplianceLabel.optional(), durations: Durations.optional() })
+  .refine(({ label, durations }) => label !== undefined || durations !== undefined);
 
 const SignatureBody = z
   .object({
@@ -806,15 +824,19 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   });
 
   app.patch('/v1/appliances/:id', requireUser, async (c) => {
-    const parsed = await body(c, z.object({ label: ApplianceLabel }));
+    const parsed = await body(c, ApplianceChange);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
-    const renamed = await renameAppliance(
+    const { label, durations } = parsed.data;
+    const updated = await updateAppliance(
       config.sql,
       c.get('user').householdId,
       c.req.param('id'),
-      parsed.data.label,
+      {
+        ...(label !== undefined ? { label } : {}),
+        ...(durations !== undefined ? { durations } : {}),
+      },
     );
-    return renamed ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+    return updated ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
   });
 
   app.delete('/v1/appliances/:id', requireUser, async (c) => {

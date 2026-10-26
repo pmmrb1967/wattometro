@@ -49,13 +49,18 @@ interface DemoAppliance {
   powerW: number;
   statesW: number[];
   pulsing: boolean;
+  minDurationS: number | null;
+  maxDurationS: number | null;
   createdAt: number;
 }
 
 /** A descriptor as the server accepts it (server/src/app.ts, ApplianceBody). */
 function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'> | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { label, powerW, statesW, pulsing } = value as Record<string, unknown>;
+  const { label, powerW, statesW, pulsing, minDurationS, maxDurationS } = value as Record<
+    string,
+    unknown
+  >;
   const name = typeof label === 'string' ? label.trim() : '';
   if (name === '' || name.length > 60 || !Number.isInteger(powerW) || (powerW as number) < 1) {
     return null;
@@ -64,7 +69,23 @@ function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'>
     return null;
   }
   if (typeof pulsing !== 'boolean') return null;
-  return { label: name, powerW: powerW as number, statesW: statesW as number[], pulsing };
+  const min = minDurationS ?? null;
+  const max = maxDurationS ?? null;
+  if ((min === null) !== (max === null)) return null;
+  if (
+    min !== null &&
+    (!Number.isInteger(min) || !Number.isInteger(max) || (min as number) > (max as number))
+  ) {
+    return null;
+  }
+  return {
+    label: name,
+    powerW: powerW as number,
+    statesW: statesW as number[],
+    pulsing,
+    minDurationS: min as number | null,
+    maxDurationS: max as number | null,
+  };
 }
 
 interface DemoSignature {
@@ -655,11 +676,25 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     const id = decodeURIComponent(appliance[1] as string);
     const found = demo.appliances.find((item) => item.id === id);
     if (method === 'PATCH') {
-      const label = (body as { label?: unknown } | undefined)?.label;
-      const name = typeof label === 'string' ? label.trim() : '';
-      if (name === '' || name.length > 60) return invalid();
+      const { label, durations } = (body ?? {}) as { label?: unknown; durations?: unknown };
+      const name = typeof label === 'string' ? label.trim() : null;
+      const range = durations as { minS?: unknown; maxS?: unknown } | undefined;
+      if (name === null && range === undefined) return invalid();
+      if (name !== null && (name === '' || name.length > 60)) return invalid();
+      if (
+        range !== undefined &&
+        (!Number.isInteger(range.minS) ||
+          !Number.isInteger(range.maxS) ||
+          (range.minS as number) > (range.maxS as number))
+      ) {
+        return invalid();
+      }
       if (!found) return json({ error: 'not_found' }, 404);
-      found.label = name;
+      if (name !== null) found.label = name;
+      if (range !== undefined) {
+        found.minDurationS = range.minS as number;
+        found.maxDurationS = range.maxS as number;
+      }
       return empty();
     }
     if (method === 'DELETE') {

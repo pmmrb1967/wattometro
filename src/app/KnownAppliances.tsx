@@ -6,6 +6,7 @@
  */
 import { useState } from 'react';
 import { t } from '../i18n/pt-PT';
+import { formatDuration } from '../lib/time';
 import { formatPower } from '../lib/units';
 import type { Appliance } from './api';
 import { forgetAppliance, renameKnownAppliance, useAppliances } from './appliances-store';
@@ -14,11 +15,18 @@ import { failureText, useSession } from './session';
 const texts = t.knownAppliances;
 
 function describeAppliance(appliance: Appliance): string {
-  return appliance.statesW.length > 1
-    ? appliance.statesW.map((watts) => formatPower(watts)).join(' → ')
-    : appliance.pulsing
-      ? t.dayEvents.pulsing(formatPower(appliance.powerW))
-      : formatPower(appliance.powerW);
+  const power =
+    appliance.statesW.length > 1
+      ? appliance.statesW.map((watts) => formatPower(watts)).join(' → ')
+      : appliance.pulsing
+        ? t.dayEvents.pulsing(formatPower(appliance.powerW))
+        : formatPower(appliance.powerW);
+  if (appliance.minDurationS === null || appliance.maxDurationS === null) return power;
+  return texts.withDurations(
+    power,
+    formatDuration(appliance.minDurationS),
+    formatDuration(appliance.maxDurationS),
+  );
 }
 
 function Row({ appliance }: { appliance: Appliance }) {

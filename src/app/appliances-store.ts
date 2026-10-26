@@ -5,11 +5,12 @@
  * the server (GET /v1/appliances), so every device signed in sees the same.
  */
 import { useEffect, useState } from 'react';
+import { nameAppliance, type ApplianceDescriptor } from '../nilm/appliances';
 import {
   createAppliance,
   deleteAppliance,
   fetchAppliances,
-  renameAppliance,
+  updateAppliance,
   type Appliance,
   type Failure,
 } from './api';
@@ -39,19 +40,40 @@ function load(householdId: string) {
 
 const ready = () => (state.kind === 'ready' ? state.appliances : []);
 
+/**
+ * Names a descriptor: an appliance with the same name and shape takes its
+ * durations (another programme of it); otherwise a new appliance.
+ */
 export async function addAppliance(
-  input: Parameters<typeof createAppliance>[0],
-): Promise<{ ok: true; appliance: Appliance } | Failure> {
-  const outcome = await createAppliance(input);
+  label: string,
+  descriptor: ApplianceDescriptor,
+): Promise<{ ok: true } | Failure> {
+  const plan = nameAppliance(label, descriptor, ready());
+  if (plan.kind === 'widen') {
+    const outcome = await updateAppliance(plan.appliance.id, { durations: plan.durations });
+    if (outcome.ok) {
+      const { minS, maxS } = plan.durations;
+      set({
+        kind: 'ready',
+        appliances: ready().map((item) =>
+          item.id === plan.appliance.id
+            ? { ...item, minDurationS: minS, maxDurationS: maxS }
+            : item,
+        ),
+      });
+    }
+    return outcome;
+  }
+  const outcome = await createAppliance({ label, ...descriptor });
   if (outcome.ok) set({ kind: 'ready', appliances: [...ready(), outcome.appliance] });
-  return outcome;
+  return outcome.ok ? { ok: true } : outcome;
 }
 
 export async function renameKnownAppliance(
   id: string,
   label: string,
 ): Promise<{ ok: true } | Failure> {
-  const outcome = await renameAppliance(id, label);
+  const outcome = await updateAppliance(id, { label });
   if (outcome.ok) {
     set({
       kind: 'ready',

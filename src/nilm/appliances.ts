@@ -8,9 +8,18 @@
  * so every device the user signs in on knows them.
  *
  * A cycle fits when it has the same shape (the states and pulses, as in
- * groupCycles) and its power is within matchToleranceW of the appliance's,
- * a little wider than a day's grouping: the same fridge varies more from day
- * to day than within one. With two that fit, the closest power wins.
+ * groupCycles), its power is within matchToleranceW of the appliance's, a
+ * little wider than a day's grouping (the same fridge varies more from day to
+ * day than within one), and its duration is within the appliance's range:
+ * appliances of about 2 kW differ mostly in how long they stay on (a kettle
+ * 3 minutes, a washing machine heating for 11). With two that fit, the
+ * closest power wins.
+ *
+ * Programmes differ (a washing machine at 30 °C heats for less than at
+ * 60 °C), so the range starts at half to twice what was seen and widens with
+ * every cycle the user names the same (nameAppliance). A programme of
+ * another shape becomes a second descriptor with the same name; the energy
+ * adds up by name (applianceTotals).
  */
 import { MISSING, type SecondsSeries } from './series';
 import type { Cycle } from './cycles';
@@ -22,6 +31,9 @@ export interface ApplianceDescriptor {
   /** Measured power of each state, in order (one for most appliances), W. */
   statesW: number[];
   pulsing: boolean;
+  /** Range of its cycles' durations, s; null (named before there were ranges) fits any. */
+  minDurationS: number | null;
+  maxDurationS: number | null;
 }
 
 export interface Appliance extends ApplianceDescriptor {
@@ -38,21 +50,87 @@ export function matchToleranceW(powerW: number): number {
   return Math.max(25, Math.abs(powerW) * 0.05);
 }
 
+/** Half the shortest to twice the longest seen: room for the programmes not seen yet. */
+export function durationRange(durationsS: readonly number[]): { minS: number; maxS: number } {
+  return {
+    minS: Math.max(1, Math.floor(Math.min(...durationsS) / 2)),
+    maxS: Math.ceil(Math.max(...durationsS) * 2),
+  };
+}
+
 export function describeGroup(group: CycleGroup): ApplianceDescriptor {
-  return { powerW: group.powerW, statesW: group.statesW, pulsing: group.pulsing };
+  const { minS, maxS } = durationRange(group.cycles.map((cycle) => cycle.durationS));
+  return {
+    powerW: group.powerW,
+    statesW: group.statesW,
+    pulsing: group.pulsing,
+    minDurationS: minS,
+    maxDurationS: maxS,
+  };
 }
 
 export function describeCycle(cycle: Cycle): ApplianceDescriptor {
+  const { minS, maxS } = durationRange([cycle.durationS]);
   return {
     powerW: cycle.powerW230,
     statesW: cycle.states.map((state) => state.powerW),
     pulsing: cycle.pulses !== undefined,
+    minDurationS: minS,
+    maxDurationS: maxS,
+  };
+}
+
+/** Same shape and power, whatever the duration: the same appliance in another programme. */
+function sameShape(a: ApplianceDescriptor, b: ApplianceDescriptor): boolean {
+  return (
+    a.pulsing === b.pulsing &&
+    a.statesW.length === b.statesW.length &&
+    a.statesW.every(
+      (watts, index) =>
+        index === 0 || Math.abs(watts - (b.statesW[index] as number)) <= matchToleranceW(watts),
+    ) &&
+    Math.abs(a.powerW - b.powerW) <= matchToleranceW(a.powerW)
+  );
+}
+
+const sameLabel = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase('pt') === b.trim().toLocaleLowerCase('pt');
+
+/**
+ * What naming a descriptor does: widen the durations of an appliance with the
+ * same name and shape (another programme), or create a new one.
+ */
+export function nameAppliance(
+  label: string,
+  descriptor: ApplianceDescriptor,
+  appliances: readonly Appliance[],
+):
+  | { kind: 'widen'; appliance: Appliance; durations: { minS: number; maxS: number } }
+  | { kind: 'create' } {
+  const same = appliances.find(
+    (appliance) => sameLabel(appliance.label, label) && sameShape(appliance, descriptor),
+  );
+  if (!same) return { kind: 'create' };
+  const seen = [descriptor.minDurationS, descriptor.maxDurationS];
+  // Without a range yet, the one named now is it.
+  const current =
+    same.minDurationS !== null && same.maxDurationS !== null
+      ? [same.minDurationS, same.maxDurationS]
+      : [];
+  const all = [...seen, ...current].filter((value): value is number => value !== null);
+  if (all.length === 0) return { kind: 'create' };
+  return {
+    kind: 'widen',
+    appliance: same,
+    durations: { minS: Math.min(...all), maxS: Math.max(...all) },
   };
 }
 
 /** How far a cycle is from an appliance, W; null when it does not fit. */
 function distance(cycle: Cycle, appliance: ApplianceDescriptor): number | null {
   if ((cycle.pulses !== undefined) !== appliance.pulsing) return null;
+  if (appliance.minDurationS !== null && cycle.durationS < appliance.minDurationS) return null;
+  if (appliance.maxDurationS !== null && cycle.durationS > appliance.maxDurationS) return null;
   if (cycle.states.length !== appliance.statesW.length) return null;
   // Later states compared as measured, as groupCycles does; the first through the 230 V power.
   for (let index = 1; index < cycle.states.length; index++) {
@@ -119,7 +197,8 @@ export interface ApplianceTotal {
 /**
  * Energy per named appliance, the most first, and the share of the day's
  * energy they explain: an honest measure of how far the naming goes (the
- * baseload and what nobody named are the rest).
+ * baseload and what nobody named are the rest). Descriptors with the same
+ * name (programmes of another shape) add up as one appliance.
  */
 export function applianceTotals(
   cycles: readonly Cycle[],
@@ -130,10 +209,11 @@ export function applianceTotals(
   for (const cycle of cycles) {
     const appliance = named.get(cycle.start);
     if (!appliance) continue;
-    const total = totals.get(appliance.id) ?? { appliance, cycles: 0, energyWh: 0 };
+    const key = appliance.label.trim().toLocaleLowerCase('pt');
+    const total = totals.get(key) ?? { appliance, cycles: 0, energyWh: 0 };
     total.cycles++;
     total.energyWh += cycle.energyWh;
-    totals.set(appliance.id, total);
+    totals.set(key, total);
   }
   const list = [...totals.values()].sort((a, b) => b.energyWh - a.energyWh);
   const explained = list.reduce((sum, total) => sum + total.energyWh, 0);

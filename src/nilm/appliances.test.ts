@@ -5,7 +5,9 @@ import {
   classify,
   describeCycle,
   describeGroup,
+  durationRange,
   groupAppliance,
+  nameAppliance,
   seriesEnergyWh,
   type Appliance,
 } from './appliances';
@@ -31,12 +33,19 @@ const pulses = (count: number, on: number, off: number, watts: number, base: num
   Array.from({ length: count }, () => [...flat(on, base + watts), ...flat(off, base)]).flat();
 const cyclesOf = (power: number[]) => mergePulses(pairCycles(detectEvents(series(power))));
 
-const appliance = (id: string, label: string, powerW: number, extra: Partial<Appliance> = {}) => ({
+const appliance = (
+  id: string,
+  label: string,
+  powerW: number,
+  extra: Partial<Appliance> = {},
+): Appliance => ({
   id,
   label,
   powerW,
   statesW: [powerW],
   pulsing: false,
+  minDurationS: null,
+  maxDurationS: null,
   ...extra,
 });
 
@@ -90,10 +99,13 @@ describe('classify', () => {
       'Chaleira',
       'Máquina de lavar',
     ]);
+    // 1200 s: half to twice.
     expect(describeCycle(cycles[2]!)).toEqual({
       powerW: 2000,
       statesW: [2000, 400],
       pulsing: false,
+      minDurationS: 600,
+      maxDurationS: 2400,
     });
   });
 
@@ -107,7 +119,14 @@ describe('classify', () => {
     ]);
     const [group] = groupCycles(cycles);
     const fridge = { id: 'f', label: 'Frigorífico', ...describeGroup(group!) };
-    expect(fridge).toMatchObject({ powerW: 100, statesW: [100], pulsing: false });
+    // Cycles of 300 s: 150 to 600 s.
+    expect(fridge).toMatchObject({
+      powerW: 100,
+      statesW: [100],
+      pulsing: false,
+      minDurationS: 150,
+      maxDurationS: 600,
+    });
     expect(groupAppliance(group!, classify(cycles, [fridge]))).toBe(fridge);
     expect(groupAppliance(group!, new Map())).toBeNull();
   });
@@ -116,6 +135,62 @@ describe('classify', () => {
     const cycles = cyclesOf([...flat(30, 160), ...flat(600, 310), ...flat(60, 160)]);
     expect(classify(cycles, [appliance('f', 'Frigorífico', 110)]).size).toBe(0);
     expect(classify(cycles, [appliance('t', 'Televisão', 140)]).size).toBe(1);
+  });
+});
+
+describe('durations', () => {
+  // A kettle of 2000 W for 3 min and a washing machine heating at 2000 W for 11 min.
+  const day = [
+    ...flat(30, 160),
+    ...flat(180, 2160),
+    ...flat(600, 160),
+    ...flat(660, 2160),
+    ...flat(60, 160),
+  ];
+
+  it('keeps a kettle apart from a washing machine heating at the same power', () => {
+    const cycles = cyclesOf(day);
+    const washer = { id: 'w', label: 'Máquina de lavar', ...describeCycle(cycles[1]!) };
+    expect(washer).toMatchObject({ minDurationS: 330, maxDurationS: 1320 });
+    const named = classify(cycles, [washer]);
+    expect(cycles.map((cycle) => named.get(cycle.start)?.label ?? null)).toEqual([
+      null,
+      'Máquina de lavar',
+    ]);
+    // Named before there were ranges: any duration fits.
+    expect(classify(cycles, [appliance('o', 'Antigo', 2000)]).size).toBe(2);
+  });
+
+  it('widens the range when the same appliance is named in another programme', () => {
+    const washer = appliance('w', 'Máquina de lavar', 1961, {
+      minDurationS: 337,
+      maxDurationS: 1348,
+    });
+    // A 60 °C programme heating for 30 min, named the same (case and spaces apart).
+    const long = describeCycle(
+      cyclesOf([...flat(30, 160), ...flat(1800, 2120), ...flat(60, 160)])[0]!,
+    );
+    expect(nameAppliance(' máquina de LAVAR ', long, [washer])).toEqual({
+      kind: 'widen',
+      appliance: washer,
+      durations: { minS: 337, maxS: 3600 },
+    });
+    // Another name, or another shape, is another appliance.
+    expect(nameAppliance('Chaleira', long, [washer])).toEqual({ kind: 'create' });
+    expect(nameAppliance('Máquina de lavar', { ...long, statesW: [1960, 400] }, [washer])).toEqual({
+      kind: 'create',
+    });
+    expect(durationRange([1])).toEqual({ minS: 1, maxS: 2 });
+  });
+
+  it('adds up descriptors with the same name', () => {
+    const cycles = cyclesOf(day);
+    const named = classify(cycles, [
+      appliance('a', 'Máquina de lavar', 2000, { minDurationS: 100, maxDurationS: 300 }),
+      appliance('b', 'Máquina de lavar ', 2000, { minDurationS: 500, maxDurationS: 900 }),
+    ]);
+    const { totals } = applianceTotals(cycles, named, 1000);
+    expect(totals.map((total) => [total.appliance.id, total.cycles])).toEqual([['a', 2]]);
   });
 });
 

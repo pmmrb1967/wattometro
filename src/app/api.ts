@@ -478,6 +478,8 @@ const Appliance = z.object({
   powerW: int,
   statesW: z.array(int),
   pulsing: z.boolean(),
+  minDurationS: int.nullable(),
+  maxDurationS: int.nullable(),
   createdAt: int,
 });
 export type Appliance = z.infer<typeof Appliance>;
@@ -499,6 +501,8 @@ export async function createAppliance(input: {
   powerW: number;
   statesW: number[];
   pulsing: boolean;
+  minDurationS: number | null;
+  maxDurationS: number | null;
 }): Promise<{ ok: true; appliance: Appliance } | Failure> {
   const response = await send('POST', '/v1/appliances', input);
   if (response?.ok) {
@@ -510,8 +514,12 @@ export async function createAppliance(input: {
   return failure(response, [400, 409]);
 }
 
-export async function renameAppliance(id: string, label: string): Promise<{ ok: true } | Failure> {
-  const response = await send('PATCH', `/v1/appliances/${encodeURIComponent(id)}`, { label });
+/** A new name, or the durations widened by another programme. */
+export async function updateAppliance(
+  id: string,
+  change: { label?: string; durations?: { minS: number; maxS: number } },
+): Promise<{ ok: true } | Failure> {
+  const response = await send('PATCH', `/v1/appliances/${encodeURIComponent(id)}`, change);
   if (response?.ok) return { ok: true };
   return failure(response, [400, 404]);
 }
