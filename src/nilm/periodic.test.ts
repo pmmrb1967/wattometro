@@ -24,7 +24,10 @@ const flat = (seconds: number, watts: number) => Array.from({ length: seconds },
 const pulses = (count: number, on: number, off: number, watts: number, base: number) =>
   Array.from({ length: count }, () => [...flat(on, base + watts), ...flat(off, base)]).flat();
 
-const cyclesOf = (power: number[]) => mergePulses(pairCycles(detectEvents(series(power))));
+const cyclesOf = (power: number[]) => {
+  const s = series(power);
+  return mergePulses(pairCycles(detectEvents(s)), s);
+};
 
 describe('mergePulses', () => {
   it('makes an induction hob pulsing one use', () => {
@@ -66,6 +69,64 @@ describe('mergePulses', () => {
     expect(cyclesOf([...flat(30, 160), ...pulses(3, 20, 180, 2000, 160)])).toHaveLength(3);
     // Three of 10 minutes each (an oven, not pulses).
     expect(cyclesOf([...flat(30, 160), ...pulses(3, 600, 60, 2400, 160)])).toHaveLength(3);
+  });
+
+  it('makes two plates pulsing at once one use, with most of the energy of both', () => {
+    // Plate A: 1200 W, 30 s on and 14 s off; plate B: 1200 W, 13 s on and 9 s off, from 0:25.
+    // They never switch in the same second, but often within 3 s (no steady state between).
+    const power = Array.from({ length: 600 }, (_, second) => {
+      const a = second % 44 < 30 ? 1200 : 0;
+      const b = second >= 25 && (second - 25) % 22 < 13 ? 1200 : 0;
+      return 240 + a + b;
+    });
+    const cycles = cyclesOf([...flat(60, 240), ...power, ...flat(60, 240)]);
+    const uses = cycles.filter((cycle) => cycle.pulses);
+    expect(uses).toHaveLength(1);
+    expect(uses[0]).toMatchObject({ powerW: 1200 });
+    const drawnWh = power.reduce((sum, watts) => sum + watts - 240, 0) / 3600;
+    expect(uses[0]!.energyWh).toBeGreaterThan(drawnWh * 0.9);
+  });
+
+  it('joins the continuous heating of a plate at full power to its pulses', () => {
+    // 1200 W for 6 min, then 12 s on and 8 s off for 5 min.
+    const cycles = cyclesOf([
+      ...flat(60, 240),
+      ...flat(360, 1440),
+      ...flat(8, 240),
+      ...pulses(15, 12, 8, 1200, 240),
+      ...flat(60, 240),
+    ]);
+    expect(cycles).toHaveLength(1);
+    // 1200 W × (360 + 15 × 12) s = 648 000 J = 180 Wh.
+    expect(cycles[0]).toMatchObject({ start: 1_790_000_060, powerW: 1200, energyWh: 180 });
+    expect(cycles[0]!.pulses).toEqual({ count: 16, onS: 540 });
+  });
+
+  it('makes one use of a plate pulsing, another heating meanwhile, then both', () => {
+    // Plate A pulses (10 s on, 34 s off) for 10 min; plate B heats 1200 W from 4:00 to 9:00,
+    // then pulses (12 s on, 8 s off) until 14:00 (the real hob of 26/10, simplified).
+    const power = Array.from({ length: 840 }, (_, second) => {
+      const a = second < 600 && second % 44 < 10 ? 1200 : 0;
+      const b =
+        second >= 240 && second < 540 ? 1200 : second >= 543 && (second - 543) % 20 < 12 ? 1200 : 0;
+      return 240 + a + b;
+    });
+    const cycles = cyclesOf([...flat(60, 240), ...power, ...flat(60, 240)]);
+    expect(cycles.filter((cycle) => cycle.pulses)).toHaveLength(1);
+  });
+
+  it('keeps a kettle apart from a hob pulsing at another power', () => {
+    const cycles = cyclesOf([
+      ...flat(30, 240),
+      ...flat(150, 2240),
+      ...flat(20, 240),
+      ...pulses(6, 10, 10, 1200, 240),
+      ...flat(60, 240),
+    ]);
+    expect(cycles.map((cycle) => [cycle.powerW, cycle.pulses?.count ?? 1])).toEqual([
+      [2000, 1],
+      [1200, 6],
+    ]);
   });
 
   it('groups a pulsing hob apart from a kettle of the same power', () => {

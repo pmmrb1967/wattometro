@@ -140,7 +140,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       startOfLisbonDay(nextDate(loaded.day)),
     );
     const events = detectEvents(series);
-    const cycles = mergePulses(pairCycles(events));
+    const cycles = mergePulses(pairCycles(events), series);
     return {
       minutes: minutes.length,
       events,
@@ -222,7 +222,18 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                         <tr>
                           <td>
                             {appliance ? (
-                              <strong>{appliance.label}</strong>
+                              <>
+                                <strong>{appliance.label}</strong>
+                                {appliance.minDurationS !== null &&
+                                  appliance.maxDurationS !== null && (
+                                    <span className="hint appliance-range">
+                                      {texts.range(
+                                        formatDuration(appliance.minDurationS),
+                                        formatDuration(appliance.maxDurationS),
+                                      )}
+                                    </span>
+                                  )}
+                              </>
                             ) : named ? (
                               <button
                                 type="button"

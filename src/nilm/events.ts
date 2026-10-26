@@ -18,7 +18,7 @@ import type { EpochSeconds } from '../lib/time';
 import { MISSING, type SecondsSeries } from './series';
 
 /** Changes with the parameters below, so stored events can be detected again. */
-export const DETECTOR_VERSION = 1;
+export const DETECTOR_VERSION = 2;
 /** Smallest step that is an event, W. */
 export const MIN_STEP_W = 30;
 /** Seconds within tolerance that make a steady state. */

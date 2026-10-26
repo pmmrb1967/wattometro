@@ -136,11 +136,10 @@ function evaluate(): void {
   for (const name of files) {
     const day = name.slice(0, 10);
     const minutes = decodeSecondsRecords(readFileSync(join(FOLDER, name)));
-    const events = detectEvents(
-      toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day))),
-    );
+    const series = toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
+    const events = detectEvents(series);
     const pairs = pairCycles(events);
-    const cycles = mergePulses(pairs);
+    const cycles = mergePulses(pairs, series);
     found.push({ day, cycles });
     console.log(
       `${name}: ${minutes.length} minutes, ${events.length} steps, ${cycles.length} cycles`,

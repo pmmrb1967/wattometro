@@ -636,6 +636,7 @@ export const t = {
       'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Diz o que é cada grupo ("O que é?") ou calibra um aparelho: a partir daí a app reconhece-o em todos os dias.',
     appliance: 'Aparelho',
     whatIsIt: 'O que é?',
+    range: (shortest: string, longest: string) => `de ${shortest} a ${longest}`,
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
     name: 'Guardar',
     cancel: 'Cancelar',

@@ -1559,3 +1559,8 @@ a.button-link {
   margin: 0 0 4px;
   font-size: 1rem;
 }
+
+.appliance-range {
+  display: block;
+  white-space: nowrap;
+}

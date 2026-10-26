@@ -27,7 +27,8 @@ export function signatureCycle(
   if (minutes.length === 0) return null;
   const first = Math.min(...minutes.map((minute) => minute.ts));
   const end = Math.max(...minutes.map((minute) => minute.ts)) + 60;
-  const cycles = mergePulses(pairCycles(detectEvents(toSeries(minutes, first, end))));
+  const series = toSeries(minutes, first, end);
+  const cycles = mergePulses(pairCycles(detectEvents(series)), series);
   const wide = { from: from - SLACK_S, to: to + SLACK_S };
   let best: Cycle | null = null;
   let bestScore = 0;
