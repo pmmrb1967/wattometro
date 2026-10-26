@@ -1467,3 +1467,37 @@ a.button-link {
   font-size: 1.75rem;
   font-weight: 700;
 }
+
+/* A secret field (the AI key) with the eye that shows it, inside on the right. */
+.secret-field {
+  position: relative;
+}
+
+.form .secret-field input {
+  padding-right: 48px;
+}
+
+.secret-toggle {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.secret-toggle:hover,
+.secret-toggle[aria-pressed='true'] {
+  color: var(--text);
+}
+
+.secondary.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}

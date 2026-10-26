@@ -30,6 +30,7 @@ export default {
     const app = createApp({
       sql,
       sessionSecret: env.SESSION_SECRET,
+      ...(env.AI_KEY_SECRET ? { aiKeySecret: env.AI_KEY_SECRET } : {}),
       allowedOrigins: allowedOrigins(env),
       ingestRequestsPerMinute: positiveInteger(env.INGEST_REQUESTS_PER_MINUTE),
       ...(limitMb !== undefined ? { databaseLimitBytes: limitMb * 1000 * 1000 } : {}),

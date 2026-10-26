@@ -12,6 +12,10 @@
  *   GET  /v1/auth/me           → Me, or 401 unauthenticated
  *   POST /v1/account/password  {currentPassword, newPassword} → 204 + new cookie;
  *                              403 wrong_password, 429 locked; other devices are signed out
+ *   GET  /v1/ai-settings       → {apiKey, model, autoSend, updatedAt}; 404 none; 503 without
+ *                              AI_KEY_SECRET (the key is sealed in D1: secret-box.ts)
+ *   PUT  /v1/ai-settings       {apiKey, model, autoSend} → 204
+ *   DELETE /v1/ai-settings     → 204 (on every device)
  *   PUT  /v1/household         {name} → Me
  *   GET  /v1/household/location → {location: {name, latitudeCdeg, longitudeCdeg} | null}
  *   PUT  /v1/household/location {location: … | null} → 204 (the locality, for the weather;
@@ -100,7 +104,9 @@ import { databaseState } from './repo/health';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { deleteAiSettings, getAiSettings, putAiSettings } from './repo/ai-settings';
 import { missingMinutes } from './repo/readings';
+import { MIN_SECRET_LENGTH, open as openSealed, seal } from './secret-box';
 import { secondsRecords } from './repo/seconds';
 import {
   createSignature,
@@ -146,6 +152,8 @@ export interface AppConfig {
   sql: Sql;
   /** Secret that signs session cookies (wrangler secret put SESSION_SECRET). */
   sessionSecret: string;
+  /** Secret that seals the users' AI keys (wrangler secret put AI_KEY_SECRET); without it, 503. */
+  aiKeySecret?: string;
   /** Origins besides the API's own that may send writes (local development). */
   allowedOrigins: string[];
   /** Current time in epoch seconds (tests set it). */
@@ -169,6 +177,12 @@ type AppEnv = { Variables: { user: User } };
 const LoginBody = z.object({
   email: z.string().trim().min(3).max(254),
   password: z.string().min(1).max(1024),
+});
+
+const AiSettingsBody = z.object({
+  apiKey: z.string().trim().min(1).max(500),
+  model: z.string().min(1).max(100),
+  autoSend: z.boolean(),
 });
 
 const PasswordBody = z.object({
@@ -386,6 +400,47 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     }
     // This device stays signed in with the new session version.
     await startSession(c, result.user);
+    return c.body(null, 204);
+  });
+
+  // The user's AI settings, on every device they sign in on (repo/ai-settings.ts).
+  const aiSecret = () =>
+    config.aiKeySecret && config.aiKeySecret.length >= MIN_SECRET_LENGTH
+      ? config.aiKeySecret
+      : null;
+
+  app.get('/v1/ai-settings', requireUser, async (c) => {
+    const secret = aiSecret();
+    if (!secret) return c.json({ error: 'not_configured' }, 503);
+    const user = c.get('user');
+    const stored = await getAiSettings(config.sql, user);
+    const apiKey = stored ? await openSealed(secret, stored.keySealed, user.id) : null;
+    if (!stored || apiKey === null) return c.json({ error: 'not_found' }, 404);
+    return c.json({
+      apiKey,
+      model: stored.model,
+      autoSend: stored.autoSend,
+      updatedAt: stored.updatedAt,
+    });
+  });
+
+  app.put('/v1/ai-settings', requireUser, async (c) => {
+    const secret = aiSecret();
+    if (!secret) return c.json({ error: 'not_configured' }, 503);
+    const parsed = await body(c, AiSettingsBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const user = c.get('user');
+    await putAiSettings(config.sql, user, {
+      keySealed: await seal(secret, parsed.data.apiKey, user.id),
+      model: parsed.data.model,
+      autoSend: parsed.data.autoSend,
+      updatedAt: now(),
+    });
+    return c.body(null, 204);
+  });
+
+  app.delete('/v1/ai-settings', requireUser, async (c) => {
+    await deleteAiSettings(config.sql, c.get('user'));
     return c.body(null, 204);
   });
 

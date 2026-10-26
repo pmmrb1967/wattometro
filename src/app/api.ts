@@ -575,3 +575,35 @@ export async function fetchOffers(): Promise<OffersFile | null> {
     return null;
   }
 }
+
+/** The user's AI settings kept in their account (GET /v1/ai-settings): the key opened by the server. */
+const AccountAiSettings = z.object({
+  apiKey: z.string(),
+  model: z.string(),
+  autoSend: z.boolean(),
+});
+export type AccountAiSettings = z.infer<typeof AccountAiSettings>;
+
+/** null: the account has none. "unavailable" also covers a server without AI_KEY_SECRET (503). */
+export async function fetchAccountAiSettings(): Promise<
+  { ok: true; settings: AccountAiSettings | null } | Failure
+> {
+  const response = await send('GET', '/v1/ai-settings');
+  if (response?.status === 404) return { ok: true, settings: null };
+  if (response?.ok) return { ok: true, settings: AccountAiSettings.parse(await response.json()) };
+  return failure(response, []);
+}
+
+export async function saveAccountAiSettings(
+  settings: AccountAiSettings,
+): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', '/v1/ai-settings', settings);
+  if (response?.ok) return { ok: true };
+  return failure(response, [400]);
+}
+
+export async function deleteAccountAiSettings(): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', '/v1/ai-settings');
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}

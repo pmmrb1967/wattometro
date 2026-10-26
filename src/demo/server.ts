@@ -459,6 +459,11 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       return json(DEMO_ME);
     case 'POST /v1/auth/logout':
       return empty();
+    // As a server without AI_KEY_SECRET: a key tried in the demonstration stays in this browser.
+    case 'GET /v1/ai-settings':
+    case 'PUT /v1/ai-settings':
+    case 'DELETE /v1/ai-settings':
+      return json({ error: 'not_configured' }, 503);
     case 'GET /v1/devices':
       return json({ devices: devices(data) });
     case 'GET /v1/now':

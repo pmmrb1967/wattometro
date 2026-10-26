@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * The user's AI settings and spending, kept only in this browser
- * (localStorage, per account): the key is personal and never goes to the
- * Worker. Clearing the site's data forgets it.
+ * The user's AI settings and spending in this browser (localStorage, per
+ * account). The settings are a copy of the ones kept in the account, sealed
+ * by the server (src/app/ai-sync.ts), so the key is on every device the user
+ * signs in on; the spending stays per browser.
  */
 import { z } from 'zod';
 import { AnthropicProvider } from './anthropic';
@@ -51,6 +52,12 @@ function read<T>(key: string, schema: z.ZodType<T>, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+/** Settings from elsewhere (the account), with the same defaults as a stored copy. */
+export function toAiSettings(value: unknown): AiSettings {
+  const parsed = AiSettingsSchema.safeParse(value);
+  return parsed.success ? { ...parsed.data, apiKey: parsed.data.apiKey.trim() } : EMPTY_AI_SETTINGS;
 }
 
 export function loadAiSettings(email: string): AiSettings {

@@ -13,7 +13,8 @@ import { Link } from 'react-router';
 import { askWattometro, estimateChat, type ChatResult } from '../ai/chat';
 import { formatMicroUsd } from '../ai/models';
 import { AiError, type AiEstimate, type ChatHistory } from '../ai/provider';
-import { loadAiSettings, providerFromSettings, recordUsage } from '../ai/settings';
+import { providerFromSettings, recordUsage } from '../ai/settings';
+import { useAiSettings } from './ai-sync';
 import { t } from '../i18n/pt-PT';
 import { lisbonToday } from '../lib/time';
 import { toolContext } from './ai-context';
@@ -77,8 +78,8 @@ export function ChatPanel({
   onClose: () => void;
 }) {
   const { me } = useSession();
-  // Read on every render (a small localStorage read): a key added in Definições applies at once.
-  const settings = loadAiSettings(me.email);
+  // Read again when they change (Definições, or the account's copy arriving).
+  const settings = useAiSettings(me.email);
   const provider = providerFromSettings(settings);
   const energy = useHouseholdEnergy();
   const [today] = useState(lisbonToday);

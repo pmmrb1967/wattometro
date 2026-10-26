@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Outlet, useLocation, useOutletContext } from 'react-router';
 import { t } from '../i18n/pt-PT';
+import { pullAiSettings } from './ai-sync';
 import { chatPageOf } from './chat-page';
 import {
   CHAT_MAX_WIDTH,
@@ -24,6 +25,11 @@ import type { SessionContext } from './session';
 /** The route around the signed-in pages: passes the session on and adds the chat. */
 export function WithChat() {
   const session = useOutletContext<SessionContext>();
+  const { email } = session.me;
+  // The AI key saved on another device, ready for the chat and "Explicar" (src/app/ai-sync.ts).
+  useEffect(() => {
+    void pullAiSettings(email);
+  }, [email]);
   return (
     <>
       <Outlet context={session} />

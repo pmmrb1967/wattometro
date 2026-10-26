@@ -10,7 +10,8 @@ import { estimateExplain, explainFacts, type ExplainResult } from '../ai/explain
 import { formatMicroUsd } from '../ai/models';
 import type { ExplainSubject } from '../ai/prompts/explain';
 import { AiError } from '../ai/provider';
-import { loadAiSettings, providerFromSettings, recordUsage } from '../ai/settings';
+import { providerFromSettings, recordUsage } from '../ai/settings';
+import { useAiSettings } from './ai-sync';
 import { t } from '../i18n/pt-PT';
 import { aiErrorText } from './ai-errors';
 import { useSession } from './session';
@@ -33,7 +34,7 @@ export function ExplainButton({
   facts: () => unknown;
 }) {
   const { me } = useSession();
-  const [settings] = useState(() => loadAiSettings(me.email));
+  const settings = useAiSettings(me.email);
   const provider = providerFromSettings(settings);
   const [state, setState] = useState<State>({ kind: 'idle' });
   if (!provider) return null;

@@ -6,6 +6,8 @@ export interface Env {
   DB: D1Like;
   /** Secret (wrangler secret put SESSION_SECRET): at least 32 random characters. */
   SESSION_SECRET: string;
+  /** Secret (wrangler secret put AI_KEY_SECRET): at least 32 random characters; seals the AI keys. */
+  AI_KEY_SECRET?: string;
   /** Comma-separated extra origins allowed to send writes (local development). */
   ALLOWED_ORIGINS: string;
   /** Ingest requests a device may send per minute; ingest.ts has the default. */
