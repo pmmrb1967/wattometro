@@ -13,7 +13,7 @@
  * day than within one), and its duration is within the appliance's range:
  * appliances of about 2 kW differ mostly in how long they stay on (a kettle
  * 3 minutes, a washing machine heating for 11). With two that fit, the
- * closest power wins.
+ * closest power wins, and on a tie the one named last (a correction).
  *
  * Programmes differ (a washing machine at 30 °C heats for less than at
  * 60 °C), so the range starts at half to twice what was seen and widens with
@@ -23,6 +23,7 @@
  */
 import { MISSING, type SecondsSeries } from './series';
 import type { Cycle } from './cycles';
+import { overlapCappedWh } from './energy';
 import type { CycleGroup } from './summary';
 
 export interface ApplianceDescriptor {
@@ -39,6 +40,8 @@ export interface ApplianceDescriptor {
 export interface Appliance extends ApplianceDescriptor {
   id: string;
   label: string;
+  /** When it was named, epoch s: on a tie, the latest naming wins (a correction). */
+  createdAt?: number;
 }
 
 /**
@@ -91,6 +94,18 @@ function sameShape(a: ApplianceDescriptor, b: ApplianceDescriptor): boolean {
     ) &&
     Math.abs(a.powerW - b.powerW) <= matchToleranceW(a.powerW)
   );
+}
+
+/**
+ * Two descriptors the classification cannot keep apart: the same shape and
+ * power, and durations that overlap (a washing machine and a dishwasher both
+ * heating water at 2 kW for about 10 minutes).
+ */
+export function confusable(a: ApplianceDescriptor, b: ApplianceDescriptor): boolean {
+  if (!sameShape(a, b)) return false;
+  if (a.minDurationS === null || a.maxDurationS === null) return true;
+  if (b.minDurationS === null || b.maxDurationS === null) return true;
+  return a.minDurationS <= b.maxDurationS && b.minDurationS <= a.maxDurationS;
 }
 
 const sameLabel = (a: string, b: string) =>
@@ -153,7 +168,8 @@ export function classify(
     let bestGap = Infinity;
     for (const appliance of appliances) {
       const gap = distance(cycle, appliance);
-      if (gap !== null && gap < bestGap) {
+      const later = (appliance.createdAt ?? 0) > (best?.createdAt ?? 0);
+      if (gap !== null && (gap < bestGap || (gap === bestGap && later))) {
         best = appliance;
         bestGap = gap;
       }
@@ -198,21 +214,28 @@ export interface ApplianceTotal {
  * Energy per named appliance, the most first, and the share of the day's
  * energy they explain: an honest measure of how far the naming goes (the
  * baseload and what nobody named are the rest). Descriptors with the same
- * name (programmes of another shape) add up as one appliance.
+ * name (programmes of another shape) add up as one appliance; cycles of one
+ * descriptor that overlap count each second once (overlapCappedWh).
  */
 export function applianceTotals(
   cycles: readonly Cycle[],
   named: ReadonlyMap<number, Appliance>,
   dayEnergyWh: number,
 ): { totals: ApplianceTotal[]; explainedPct: number | null } {
-  const totals = new Map<string, ApplianceTotal>();
+  const byDescriptor = new Map<string, { appliance: Appliance; cycles: Cycle[] }>();
   for (const cycle of cycles) {
     const appliance = named.get(cycle.start);
     if (!appliance) continue;
+    const entry = byDescriptor.get(appliance.id) ?? { appliance, cycles: [] };
+    entry.cycles.push(cycle);
+    byDescriptor.set(appliance.id, entry);
+  }
+  const totals = new Map<string, ApplianceTotal>();
+  for (const { appliance, cycles: own } of byDescriptor.values()) {
     const key = appliance.label.trim().toLocaleLowerCase('pt');
     const total = totals.get(key) ?? { appliance, cycles: 0, energyWh: 0 };
-    total.cycles++;
-    total.energyWh += cycle.energyWh;
+    total.cycles += own.length;
+    total.energyWh += overlapCappedWh(own, appliance.powerW);
     totals.set(key, total);
   }
   const list = [...totals.values()].sort((a, b) => b.energyWh - a.energyWh);

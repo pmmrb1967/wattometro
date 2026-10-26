@@ -1564,3 +1564,13 @@ a.button-link {
   display: block;
   white-space: nowrap;
 }
+
+.appliance-name {
+  font-weight: 600;
+  text-align: left;
+}
+
+.name-group .warning {
+  margin: 0;
+  font-weight: 600;
+}

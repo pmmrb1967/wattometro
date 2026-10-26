@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applianceTotals,
   classify,
+  confusable,
   describeCycle,
   describeGroup,
   durationRange,
@@ -131,6 +132,14 @@ describe('classify', () => {
     expect(groupAppliance(group!, new Map())).toBeNull();
   });
 
+  it('gives a tie to the appliance named last (a correction)', () => {
+    const cycles = cyclesOf([...flat(30, 160), ...flat(600, 2120), ...flat(60, 160)]);
+    const washer = { ...appliance('w', 'Máquina de lavar', 1960), createdAt: 100 };
+    const dishwasher = { ...appliance('d', 'Máquina da loiça', 1960), createdAt: 200 };
+    expect(classify(cycles, [dishwasher, washer]).get(cycles[0]!.start)).toBe(dishwasher);
+    expect(classify(cycles, [washer, dishwasher]).get(cycles[0]!.start)).toBe(dishwasher);
+  });
+
   it('does not take a 150 W television for a 110 W fridge', () => {
     const cycles = cyclesOf([...flat(30, 160), ...flat(600, 310), ...flat(60, 160)]);
     expect(classify(cycles, [appliance('f', 'Frigorífico', 110)]).size).toBe(0);
@@ -181,6 +190,19 @@ describe('durations', () => {
       kind: 'create',
     });
     expect(durationRange([1])).toEqual({ minS: 1, maxS: 2 });
+  });
+
+  it('tells when two appliances cannot be kept apart', () => {
+    // The washing machine and the dishwasher of 26/10, both heating water.
+    const washer = appliance('w', 'Máquina de lavar', 1961, {
+      minDurationS: 337,
+      maxDurationS: 1348,
+    });
+    const dishwasher = { ...washer, powerW: 2033, minDurationS: 365, maxDurationS: 1462 };
+    expect(confusable(washer, dishwasher)).toBe(true);
+    // A kettle: 2 kW too, but 3 minutes.
+    expect(confusable(washer, { ...washer, minDurationS: 90, maxDurationS: 300 })).toBe(false);
+    expect(confusable(washer, { ...washer, powerW: 1200 })).toBe(false);
   });
 
   it('adds up descriptors with the same name', () => {

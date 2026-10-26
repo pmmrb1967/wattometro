@@ -3,8 +3,8 @@
  * "Consumo": what the Shelly's per-second values show on a day (Phase 8.1):
  * the power steps (src/nilm/events.ts) and the on/off cycles they pair into
  * (src/nilm/cycles.ts), grouped by power, and the appliances they are
- * (src/nilm/appliances.ts): a group without a name has "O que é?". Only with a
- * Shelly, for the last days.
+ * (src/nilm/appliances.ts): a group without a name has "O que é?", and a named
+ * one can be corrected by tapping its name. Only with a Shelly, for the last days.
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -23,21 +23,27 @@ import { formatKwh, formatPower } from '../lib/units';
 import {
   applianceTotals,
   classify,
+  confusable,
   describeGroup,
   groupAppliance,
   seriesEnergyWh,
 } from '../nilm/appliances';
 import { pairCycles } from '../nilm/cycles';
+import { boundCycleEnergy } from '../nilm/energy';
 import { detectEvents } from '../nilm/events';
 import { mergePulses } from '../nilm/periodic';
 import { decodeSecondsRecords, toSeries } from '../nilm/series';
 import { groupCycles, type CycleGroup } from '../nilm/summary';
+import type { Appliance } from '../nilm/appliances';
 import { addAppliance, useAppliances } from './appliances-store';
 import type { HouseholdEnergy } from './household-energy';
 import { loadDaySeconds } from './seconds-cache';
 import { failureText, useSession } from './session';
 
 const texts = t.dayEvents;
+
+const sameName = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase('pt') === b.trim().toLocaleLowerCase('pt');
 /** As far back as the per-second values are usually kept (and the cache keeps). */
 const DAYS = 7;
 
@@ -51,21 +57,57 @@ function groupPower(group: CycleGroup): string {
       : formatPower(group.powerW);
 }
 
-/** "O que é?": names a group; the name then applies to every cycle that fits, on any day. */
-function NameGroup({ group, onDone }: { group: CycleGroup; onDone: () => void }) {
+/** Below this, groups sit near the detector's floor (MIN_STEP_W) and the house's own noise. */
+const RELIABLE_W = 60;
+
+/**
+ * "O que é?": names a group; the name then applies to every cycle that fits, on
+ * any day. On a group already named (`current`), corrects it: the new name gets
+ * this group's descriptor, and each cycle goes to the closest appliance.
+ */
+function NameGroup({
+  group,
+  current,
+  onDone,
+}: {
+  group: CycleGroup;
+  current: Appliance | null;
+  onDone: () => void;
+}) {
   const { signOut } = useSession();
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   async function save() {
     setBusy(true);
-    const outcome = await addAppliance(label.trim(), describeGroup(group));
+    const descriptor = describeGroup(group);
+    const correcting = current !== null && !sameName(current.label, label);
+    const outcome = await addAppliance(label.trim(), descriptor, { separate: correcting });
     setBusy(false);
-    if (outcome.ok) return onDone();
+    if (outcome.ok) {
+      if (current && !sameName(current.label, label) && confusable(current, descriptor)) {
+        return setWarning(texts.confusable(label.trim(), current.label));
+      }
+      return onDone();
+    }
     const text = failureText(outcome, texts.tooMany);
     if (text === null) return signOut();
     setError(text);
+  }
+
+  if (warning) {
+    return (
+      <div className="name-group">
+        <p className="warning">{warning}</p>
+        <div className="actions">
+          <button type="button" className="secondary" onClick={onDone}>
+            {texts.close}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -77,7 +119,9 @@ function NameGroup({ group, onDone }: { group: CycleGroup; onDone: () => void })
       }}
     >
       <label>
-        {texts.whatIsItLabel(groupPower(group))}
+        {current
+          ? texts.notThisLabel(current.label, groupPower(group))
+          : texts.whatIsItLabel(groupPower(group))}
         <input
           value={label}
           maxLength={60}
@@ -140,7 +184,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       startOfLisbonDay(nextDate(loaded.day)),
     );
     const events = detectEvents(series);
-    const cycles = mergePulses(pairCycles(events), series);
+    const cycles = boundCycleEnergy(mergePulses(pairCycles(events), series), series);
     return {
       minutes: minutes.length,
       events,
@@ -223,7 +267,14 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                           <td>
                             {appliance ? (
                               <>
-                                <strong>{appliance.label}</strong>
+                                <button
+                                  type="button"
+                                  className="link-button appliance-name"
+                                  aria-expanded={naming === first}
+                                  onClick={() => setNaming(naming === first ? null : first)}
+                                >
+                                  {appliance.label}
+                                </button>
                                 {appliance.minDurationS !== null &&
                                   appliance.maxDurationS !== null && (
                                     <span className="hint appliance-range">
@@ -244,7 +295,12 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                               </button>
                             ) : null}
                           </td>
-                          <td>{groupPower(group)}</td>
+                          <td>
+                            {groupPower(group)}
+                            {Math.abs(group.powerW) < RELIABLE_W && (
+                              <span className="hint appliance-range">{texts.unreliable}</span>
+                            )}
+                          </td>
                           <td>
                             {group.count === 1
                               ? formatLisbonTime(group.cycles[0]!.start)
@@ -253,10 +309,14 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                           <td>{formatDuration(group.durationS)}</td>
                           <td>{formatKwh(group.energyWh, 2)}</td>
                         </tr>
-                        {naming === first && !appliance && (
+                        {naming === first && (
                           <tr>
                             <td colSpan={5}>
-                              <NameGroup group={group} onDone={() => setNaming(null)} />
+                              <NameGroup
+                                group={group}
+                                current={appliance}
+                                onDone={() => setNaming(null)}
+                              />
                             </td>
                           </tr>
                         )}
@@ -270,6 +330,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
           <ul className="hint caveats">
             <li>{texts.how}</li>
             <li>{texts.limits}</li>
+            <li>{texts.unreliableNote}</li>
           </ul>
         </>
       )}

@@ -47,8 +47,12 @@ const ready = () => (state.kind === 'ready' ? state.appliances : []);
 export async function addAppliance(
   label: string,
   descriptor: ApplianceDescriptor,
+  /** A correction ("Não é X?"): always a descriptor of its own, with this group's exact power. */
+  options: { separate?: boolean } = {},
 ): Promise<{ ok: true } | Failure> {
-  const plan = nameAppliance(label, descriptor, ready());
+  const plan = options.separate
+    ? ({ kind: 'create' } as const)
+    : nameAppliance(label, descriptor, ready());
   if (plan.kind === 'widen') {
     const outcome = await updateAppliance(plan.appliance.id, { durations: plan.durations });
     if (outcome.ok) {

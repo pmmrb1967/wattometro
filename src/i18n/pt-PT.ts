@@ -638,6 +638,14 @@ export const t = {
     whatIsIt: 'O que é?',
     range: (shortest: string, longest: string) => `de ${shortest} a ${longest}`,
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
+    notThisLabel: (label: string, power: string) =>
+      `Não é "${label}"? Que aparelho é este (${power})?`,
+    confusable: (label: string, other: string) =>
+      `Guardado. Atenção: "${label}" e "${other}" têm ciclos quase iguais (mesma potência e duração parecida). A app fica com o mais próximo, mas pode trocá-los.`,
+    close: 'Fechar',
+    unreliable: 'pouco fiável',
+    unreliableNote:
+      'Grupos de menos de 60 W ("pouco fiável") estão perto do mínimo que a app consegue ver: o consumo da casa varia mais do que isso de segundo a segundo, e alguns ligares ficam emparelhados com o desligar errado. A energia deles é um máximo, não uma medida.',
     name: 'Guardar',
     cancel: 'Cancelar',
     named: 'Aparelhos reconhecidos neste dia',

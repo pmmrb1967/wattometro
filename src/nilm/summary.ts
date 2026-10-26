@@ -7,6 +7,7 @@
  * appliances: labelling is Phase 8.3.
  */
 import type { Cycle } from './cycles';
+import { overlapCappedWh } from './energy';
 
 /** 20 W, or 3 % (the same resistance at 230 V varies less than that). */
 export function groupToleranceW(powerW: number): number {
@@ -70,7 +71,7 @@ export function groupCycles(cycles: readonly Cycle[]): CycleGroup[] {
       powerW: median(list.map((item) => item.powerW230)),
       count: list.length,
       durationS: median(list.map((item) => item.durationS)),
-      energyWh: list.reduce((sum, item) => sum + item.energyWh, 0),
+      energyWh: overlapCappedWh(list, median(list.map((item) => item.powerW230))),
       cycles: list.sort((a, b) => a.start - b.start),
       statesW: (list[0] as Cycle).states.map((state) => state.powerW),
       pulsing: (list[0] as Cycle).pulses !== undefined,

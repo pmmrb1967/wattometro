@@ -9,6 +9,7 @@
  */
 import type { EpochSeconds } from '../lib/time';
 import { pairCycles, type Cycle } from './cycles';
+import { boundCycleEnergy } from './energy';
 import { detectEvents } from './events';
 import { mergePulses } from './periodic';
 import { toSeries, type MinuteSeconds } from './series';
@@ -28,7 +29,7 @@ export function signatureCycle(
   const first = Math.min(...minutes.map((minute) => minute.ts));
   const end = Math.max(...minutes.map((minute) => minute.ts)) + 60;
   const series = toSeries(minutes, first, end);
-  const cycles = mergePulses(pairCycles(detectEvents(series)), series);
+  const cycles = boundCycleEnergy(mergePulses(pairCycles(detectEvents(series)), series), series);
   const wide = { from: from - SLACK_S, to: to + SLACK_S };
   let best: Cycle | null = null;
   let bestScore = 0;
