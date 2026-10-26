@@ -60,6 +60,10 @@
  *   GET  /v1/signatures        → {signatures: [{id, meter, label, from, to, minutes, createdAt}]}
  *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
  *   DELETE /v1/signatures/:id  → 204
+ *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing, createdAt}]}
+ *   POST /v1/appliances        {label, powerW, statesW, pulsing} → 201 {appliance}; 409 too_many
+ *   PATCH /v1/appliances/:id   {label} → 204; 404
+ *   DELETE /v1/appliances/:id  → 204
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
  *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
@@ -112,6 +116,12 @@ import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
 import { t } from '../../src/i18n/pt-PT';
 import { deleteAiSettings, getAiSettings, putAiSettings } from './repo/ai-settings';
+import {
+  createAppliance,
+  deleteAppliance,
+  listAppliances,
+  renameAppliance,
+} from './repo/appliances';
 import {
   deleteSubscription,
   findSubscription,
@@ -272,6 +282,14 @@ const MissingQuery = z
     limit: z.coerce.number().int().min(1).max(1000).optional(),
   })
   .refine(({ from, to }) => from < to && to - from <= MAX_MISSING_SPAN);
+const ApplianceLabel = z.string().trim().min(1).max(60);
+const ApplianceBody = z.object({
+  label: ApplianceLabel,
+  powerW: z.number().int().min(1).max(50_000),
+  statesW: z.array(z.number().int().min(-50_000).max(50_000)).min(1).max(8),
+  pulsing: z.boolean(),
+});
+
 const SignatureBody = z
   .object({
     meter: z.string().regex(/^[^:]{1,64}:[0-3]$/),
@@ -767,6 +785,41 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     );
     c.header('Content-Type', 'application/octet-stream');
     return c.body(records.buffer as ArrayBuffer);
+  });
+
+  // Named appliances (Phase 8.3): the browser classifies cycles with their descriptors.
+  app.get('/v1/appliances', requireUser, async (c) =>
+    c.json({ appliances: await listAppliances(config.sql, c.get('user').householdId) }),
+  );
+
+  app.post('/v1/appliances', requireUser, async (c) => {
+    const parsed = await body(c, ApplianceBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const appliance = await createAppliance(
+      config.sql,
+      c.get('user').householdId,
+      parsed.data,
+      now(),
+    );
+    if (!appliance) return c.json({ error: 'too_many' }, 409);
+    return c.json({ appliance }, 201);
+  });
+
+  app.patch('/v1/appliances/:id', requireUser, async (c) => {
+    const parsed = await body(c, z.object({ label: ApplianceLabel }));
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const renamed = await renameAppliance(
+      config.sql,
+      c.get('user').householdId,
+      c.req.param('id'),
+      parsed.data.label,
+    );
+    return renamed ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+  });
+
+  app.delete('/v1/appliances/:id', requireUser, async (c) => {
+    await deleteAppliance(config.sql, c.get('user').householdId, c.req.param('id'));
+    return c.body(null, 204);
   });
 
   app.post('/v1/signatures', requireUser, async (c) => {

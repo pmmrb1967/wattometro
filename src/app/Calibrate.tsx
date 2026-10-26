@@ -4,7 +4,8 @@
  * it ran, live ("Liguei agora" … "Desliguei agora") or by the times; the
  * per-second values of the run are kept on the server (POST /v1/signatures)
  * past the 90 days of readings_1s. Each kept run shows the cycle the detection
- * finds in it (src/nilm/signature.ts): the appliance's power and duration.
+ * finds in it (src/nilm/signature.ts): the appliance's power and duration,
+ * and from it the app recognises the appliance on every day (Phase 8.3).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
@@ -21,6 +22,7 @@ import {
 import { formatKwh, formatPower } from '../lib/units';
 import { decodeSecondsRecords } from '../nilm/series';
 import { signatureCycle } from '../nilm/signature';
+import { classify, describeCycle } from '../nilm/appliances';
 import type { Cycle } from '../nilm/cycles';
 import {
   createSignature,
@@ -29,6 +31,8 @@ import {
   fetchSignatureSeconds,
   type Signature,
 } from './api';
+import { addAppliance, useAppliances } from './appliances-store';
+import { KnownAppliances } from './KnownAppliances';
 import {
   loadPending,
   MAX_RUN_S,
@@ -47,6 +51,41 @@ const SECONDS_DAYS = 90;
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 type Found = Cycle | null | 'loading' | 'error';
+
+/** A calibration's cycle: already recognised, or a button to recognise it on every day. */
+function Recognise({ signature, cycle }: { signature: Signature; cycle: Cycle }) {
+  const { me, signOut } = useSession();
+  const known = useAppliances(me.householdId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (known.kind !== 'ready') return null;
+  const appliance = classify([cycle], known.appliances).get(cycle.start);
+  if (appliance) return <span className="hint">{texts.recognised(appliance.label)}</span>;
+
+  async function recognise() {
+    setBusy(true);
+    const outcome = await addAppliance({ label: signature.label, ...describeCycle(cycle) });
+    setBusy(false);
+    if (outcome.ok) return;
+    const text = failureText(outcome, t.dayEvents.tooMany);
+    if (text === null) return signOut();
+    setError(text);
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="link-button"
+        disabled={busy}
+        onClick={() => void recognise()}
+      >
+        {texts.recognise}
+      </button>
+      {error && <span className="error">{error}</span>}
+    </>
+  );
+}
 
 function Library({
   signatures,
@@ -87,6 +126,9 @@ function Library({
                           formatKwh(cycle.energyWh, 2),
                         )}
               </span>
+              {cycle !== 'loading' && cycle !== 'error' && cycle !== null && (
+                <Recognise signature={signature} cycle={cycle} />
+              )}
             </div>
             <button type="button" className="secondary" onClick={() => onRemove(signature)}>
               {texts.remove}
@@ -406,6 +448,8 @@ export function Calibrate() {
           <Library signatures={signatures} found={found} onRemove={(s) => void remove(s)} />
         )}
       </section>
+
+      <KnownAppliances />
     </>
   );
 }

@@ -14,7 +14,7 @@ import { addDays } from '../domain/consumption';
 import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
-import { lisbonDate, lisbonLocalTime, lisbonToday, startOfLisbonDay } from '../lib/time';
+import { lisbonDate, lisbonToday, startOfLisbonDay } from '../lib/time';
 import { DEMO_DAYS, generateDemo, type DemoData } from './model';
 
 const MINUTE = 60;
@@ -40,6 +40,31 @@ interface DemoState {
   installation: Installation;
   excluded: Set<number>;
   signatures: DemoSignature[];
+  appliances: DemoAppliance[];
+}
+
+interface DemoAppliance {
+  id: string;
+  label: string;
+  powerW: number;
+  statesW: number[];
+  pulsing: boolean;
+  createdAt: number;
+}
+
+/** A descriptor as the server accepts it (server/src/app.ts, ApplianceBody). */
+function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'> | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { label, powerW, statesW, pulsing } = value as Record<string, unknown>;
+  const name = typeof label === 'string' ? label.trim() : '';
+  if (name === '' || name.length > 60 || !Number.isInteger(powerW) || (powerW as number) < 1) {
+    return null;
+  }
+  if (!Array.isArray(statesW) || statesW.length === 0 || !statesW.every(Number.isInteger)) {
+    return null;
+  }
+  if (typeof pulsing !== 'boolean') return null;
+  return { label: name, powerW: powerW as number, statesW: statesW as number[], pulsing };
 }
 
 interface DemoSignature {
@@ -107,6 +132,7 @@ function current(): DemoState {
       installation: DEMO_INSTALLATION,
       excluded: new Set(),
       signatures: demoSignatures(),
+      appliances: [],
     };
   }
   return state;
@@ -114,9 +140,8 @@ function current(): DemoState {
 
 /** One calibration already made: the dishwasher of yesterday evening (src/demo/model.ts). */
 function demoSignatures(): DemoSignature[] {
-  const yesterday = addDays(lisbonToday(), -1);
-  const from = lisbonLocalTime(yesterday, 22, 30);
-  if (from === null) return [];
+  // As the model counts it: 22 h 30 after midnight (21:30 on the day the clocks go back).
+  const from = startOfLisbonDay(addDays(lisbonToday(), -1)) + (22 * 60 + 30) * MINUTE;
   return [
     {
       id: 'demo-dishwasher',
@@ -601,12 +626,45 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       demo.signatures.push(signature);
       return json({ signature: view }, 201);
     }
+    case 'GET /v1/appliances':
+      return json({
+        appliances: [...demo.appliances].sort((a, b) => a.label.localeCompare(b.label, 'pt')),
+      });
+    case 'POST /v1/appliances': {
+      const input = applianceInput(body);
+      if (!input) return invalid();
+      const appliance = {
+        id: `demo-appliance-${demo.appliances.length + 1}-${Date.now()}`,
+        ...input,
+        createdAt: Math.floor(Date.now() / 1000),
+      };
+      demo.appliances.push(appliance);
+      return json({ appliance }, 201);
+    }
     case 'GET /v1/power/peaks': {
       const threshold = numberParam(url, 'threshold');
       if (!range || threshold === null || url.searchParams.get('meter') !== METER) {
         return invalid();
       }
       return peaks(data, from, to, threshold);
+    }
+  }
+
+  const appliance = /^\/v1\/appliances\/([^/]+)$/.exec(url.pathname);
+  if (appliance) {
+    const id = decodeURIComponent(appliance[1] as string);
+    const found = demo.appliances.find((item) => item.id === id);
+    if (method === 'PATCH') {
+      const label = (body as { label?: unknown } | undefined)?.label;
+      const name = typeof label === 'string' ? label.trim() : '';
+      if (name === '' || name.length > 60) return invalid();
+      if (!found) return json({ error: 'not_found' }, 404);
+      found.label = name;
+      return empty();
+    }
+    if (method === 'DELETE') {
+      demo.appliances = demo.appliances.filter((item) => item.id !== id);
+      return empty();
     }
   }
 

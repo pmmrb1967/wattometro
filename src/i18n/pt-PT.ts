@@ -633,7 +633,19 @@ export const t = {
   dayEvents: {
     title: 'Ao segundo: o que ligou e desligou',
     intro:
-      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Ainda não diz que aparelho é: para isso, calibra os teus aparelhos.',
+      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Diz o que é cada grupo ("O que é?") ou calibra um aparelho: a partir daí a app reconhece-o em todos os dias.',
+    appliance: 'Aparelho',
+    whatIsIt: 'O que é?',
+    whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
+    name: 'Guardar',
+    cancel: 'Cancelar',
+    named: 'Aparelhos reconhecidos neste dia',
+    namedRow: (count: number, energy: string) =>
+      `${count === 1 ? '1 vez' : `${count} vezes`}, ${energy}`,
+    explained: (percent: number, energy: string) =>
+      `Os aparelhos com nome explicam ${percent} % da energia deste dia (${energy}). O resto é o consumo de fundo e o que ainda não tem nome.`,
+    nameFailed: 'Não foi possível guardar o nome. Tenta outra vez.',
+    tooMany: 'Já há aparelhos a mais com nome. Apaga algum em "Calibrar aparelhos".',
     day: 'Dia',
     today: 'Hoje (até agora)',
     error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
@@ -689,6 +701,20 @@ export const t = {
     remove: 'Apagar',
     confirmRemove: (label: string) => `Apagar a calibração "${label}"?`,
     error: 'Não foi possível guardar. Tenta outra vez.',
+    recognise: 'Reconhecer nos outros dias',
+    recognised: (label: string) => `Reconhecido como "${label}".`,
+  },
+  knownAppliances: {
+    title: 'Aparelhos que a app reconhece',
+    intro:
+      'Cada um é reconhecido pela potência e pela forma dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "O que é?" no cartão "Ao segundo" ou a partir de uma calibração.',
+    empty: 'Ainda nenhum. Dá nome a um grupo de ciclos no cartão "Ao segundo" do Consumo.',
+    name: 'Nome do aparelho',
+    rename: 'Guardar nome',
+    forget: 'Esquecer',
+    confirmForget: (label: string) =>
+      `Esquecer "${label}"? Os ciclos dele voltam a aparecer sem nome.`,
+    failed: 'Não foi possível guardar. Tenta outra vez.',
   },
   anomalies: {
     title: 'Dias fora do habitual',

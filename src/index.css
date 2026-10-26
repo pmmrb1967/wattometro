@@ -1521,3 +1521,41 @@ a.button-link {
   display: grid;
   gap: 2px;
 }
+
+/* "Ao segundo": naming a group of cycles, and the appliances of the day. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.name-group {
+  display: grid;
+  gap: 8px;
+  max-width: 28rem;
+  padding: 4px 0 8px;
+}
+
+.named-appliances ul {
+  display: grid;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.named-appliances li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.named-appliances h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}

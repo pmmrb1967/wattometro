@@ -472,6 +472,56 @@ export async function deleteSignature(id: string): Promise<{ ok: true } | Failur
   return failure(response, []);
 }
 
+const Appliance = z.object({
+  id: z.string(),
+  label: z.string(),
+  powerW: int,
+  statesW: z.array(int),
+  pulsing: z.boolean(),
+  createdAt: int,
+});
+export type Appliance = z.infer<typeof Appliance>;
+
+/** The appliances the house named (server/src/repo/appliances.ts). */
+export async function fetchAppliances(): Promise<{ ok: true; appliances: Appliance[] } | Failure> {
+  const response = await send('GET', '/v1/appliances');
+  if (response?.ok) {
+    const { appliances } = z
+      .object({ appliances: z.array(Appliance) })
+      .parse(await response.json());
+    return { ok: true, appliances };
+  }
+  return failure(response, []);
+}
+
+export async function createAppliance(input: {
+  label: string;
+  powerW: number;
+  statesW: number[];
+  pulsing: boolean;
+}): Promise<{ ok: true; appliance: Appliance } | Failure> {
+  const response = await send('POST', '/v1/appliances', input);
+  if (response?.ok) {
+    return {
+      ok: true,
+      appliance: z.object({ appliance: Appliance }).parse(await response.json()).appliance,
+    };
+  }
+  return failure(response, [400, 409]);
+}
+
+export async function renameAppliance(id: string, label: string): Promise<{ ok: true } | Failure> {
+  const response = await send('PATCH', `/v1/appliances/${encodeURIComponent(id)}`, { label });
+  if (response?.ok) return { ok: true };
+  return failure(response, [400, 404]);
+}
+
+export async function deleteAppliance(id: string): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', `/v1/appliances/${encodeURIComponent(id)}`);
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
 const EredesSummary = z.object({
   quarters: int,
   estimated: int,
