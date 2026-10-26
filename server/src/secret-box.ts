@@ -8,25 +8,14 @@
  *
  * Format: "v1.<iv>.<ciphertext>" (base64url), versioned so the scheme can change.
  */
+import { fromBase64Url, toBase64Url } from './base64url';
 
 /** As SESSION_SECRET: at least 32 random characters. */
 export const MIN_SECRET_LENGTH = 32;
 const VERSION = 'v1';
 const IV_BYTES = 12;
+
 const encoder = new TextEncoder();
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
 
 async function aesKey(secret: string): Promise<CryptoKey> {
   const base = await crypto.subtle.importKey('raw', encoder.encode(secret), 'HKDF', false, [

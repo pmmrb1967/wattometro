@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+/**
+ * Alerts (Phase 4, docs/alerts.md), checked by the Cron every 5 minutes and
+ * sent by Web Push (webpush.ts) to the devices that asked for each kind:
+ * - stale: no minutes from the Shelly for STALE_MINUTES (and again when it is back);
+ * - power: a one-second peak above k × the contracted power, where the smart
+ *   meter starts counting towards a cut (src/data/power-trip.json); at most
+ *   one an hour;
+ * - database: D1 has read DATABASE_SHARE of its daily rows; once a UTC day.
+ *
+ * The decisions are pure (decideStale, decidePower, decideDatabase); a
+ * condition that lasts is announced once, as alert_state remembers.
+ */
+import trip from '../../src/data/power-trip.json';
+import { t } from '../../src/i18n/pt-PT';
+import { lisbonDate, formatLisbonTime } from '../../src/lib/time';
+import { formatKva } from '../../src/lib/units';
+import type { Sql } from './db';
+import { MAX_CHANNEL } from './ingest';
+import { listDevices } from './repo/devices';
+import {
+  alertStates,
+  forgetEndpoint,
+  householdSubscriptions,
+  minutePeaksSince,
+  setAlertState,
+  type AlertKind,
+  type AlertState,
+  type Subscription,
+} from './repo/push';
+import { listTariffs } from './repo/tariffs';
+import { rowsReadOn, utcDay } from './repo/usage';
+import { sendPush, type Fetcher, type VapidKeys } from './webpush';
+
+export const STALE_MINUTES = 15;
+export const POWER_FACTOR = trip.kSinglePhase;
+export const POWER_QUIET_SECONDS = 3600;
+export const DATABASE_SHARE = 0.8;
+/** How far back the power check looks again, for minutes the Shelly sends late. */
+const POWER_LOOKBACK_SECONDS = 10 * 60;
+const DAY = 86_400;
+
+export interface AlertMessage {
+  title: string;
+  body: string;
+  /** Same tag, same notification: a newer one replaces it. */
+  tag: string;
+  /** The page the notification opens. */
+  url: string;
+}
+
+interface Decision {
+  state: AlertState;
+  message: AlertMessage | null;
+}
+
+export function decideStale(
+  state: AlertState,
+  device: { name: string; lastSeenAt: number } | null,
+  now: number,
+  staleMinutes = STALE_MINUTES,
+): Decision {
+  if (!device) return { state, message: null };
+  const silent = now - device.lastSeenAt >= staleMinutes * 60;
+  if (silent && !state.active) {
+    return {
+      state: { ...state, active: true, since: device.lastSeenAt, sentAt: now },
+      message: {
+        title: t.alerts.staleTitle,
+        body: t.alerts.staleBody(device.name, formatLisbonTime(device.lastSeenAt)),
+        tag: 'stale',
+        url: '/definicoes',
+      },
+    };
+  }
+  if (!silent && state.active) {
+    return {
+      state: { ...state, active: false, sentAt: now },
+      message: {
+        title: t.alerts.backTitle,
+        body: t.alerts.backBody(device.name, formatLisbonTime(device.lastSeenAt)),
+        tag: 'stale',
+        url: '/',
+      },
+    };
+  }
+  return { state, message: null };
+}
+
+/** `since` is the minute last announced; `checkedUntil` where the minutes were looked at. */
+export function decidePower(
+  state: AlertState,
+  peaks: readonly { ts: number; peak: number }[],
+  contractedVa: number | null,
+  now: number,
+): Decision {
+  const checkedUntil = Math.max(state.checkedUntil ?? 0, ...peaks.map((minute) => minute.ts + 60));
+  const next = { ...state, checkedUntil };
+  if (contractedVa === null) return { state: next, message: null };
+  const limit = POWER_FACTOR * contractedVa;
+  const over = peaks.filter((minute) => minute.peak > limit && minute.ts > (state.since ?? 0));
+  if (over.length === 0) return { state: next, message: null };
+  const quiet = state.sentAt !== null && now - state.sentAt < POWER_QUIET_SECONDS;
+  const highest = over.reduce((best, minute) => (minute.peak > best.peak ? minute : best));
+  // Announced or not, these minutes are done with.
+  const latest = Math.max(...over.map((minute) => minute.ts));
+  if (quiet) return { state: { ...next, since: latest }, message: null };
+  return {
+    state: { ...next, active: true, since: latest, sentAt: now },
+    message: {
+      title: t.alerts.powerTitle,
+      body: t.alerts.powerBody(
+        formatLisbonTime(highest.ts),
+        formatKva(Math.round(highest.peak)),
+        new Intl.NumberFormat('pt-PT').format(POWER_FACTOR),
+        formatKva(contractedVa),
+      ),
+      tag: 'power',
+      url: '/potencia',
+    },
+  };
+}
+
+export function decideDatabase(
+  state: AlertState,
+  rowsRead: number,
+  limit: number,
+  now: number,
+): Decision {
+  const over = rowsRead >= DATABASE_SHARE * limit;
+  if (!over) return { state: { ...state, active: false }, message: null };
+  const sentToday = state.sentAt !== null && utcDay(state.sentAt) === utcDay(now);
+  if (sentToday) return { state: { ...state, active: true }, message: null };
+  const resetsAt = (Math.floor(now / DAY) + 1) * DAY;
+  return {
+    state: { ...state, active: true, since: now, sentAt: now },
+    message: {
+      title: t.alerts.databaseTitle,
+      body: t.alerts.databaseBody(Math.floor((100 * rowsRead) / limit), formatLisbonTime(resetsAt)),
+      tag: 'database',
+      url: '/definicoes',
+    },
+  };
+}
+
+export interface AlertConfig {
+  vapid: VapidKeys;
+  rowsReadLimit: number;
+  fetcher?: Fetcher;
+}
+
+async function deliver(
+  sql: Sql,
+  subscriptions: readonly Subscription[],
+  kind: AlertKind,
+  message: AlertMessage,
+  config: AlertConfig,
+  now: number,
+): Promise<void> {
+  for (const subscription of subscriptions) {
+    if (!subscription.alerts[kind]) continue;
+    const result = await sendPush(subscription, message, config.vapid, now, config.fetcher);
+    if (result === 'gone') await forgetEndpoint(sql, subscription.endpoint);
+  }
+}
+
+/** One Cron run for one household; nothing is read for a household without subscriptions. */
+export async function checkAlerts(
+  sql: Sql,
+  householdId: string,
+  now: number,
+  config: AlertConfig,
+): Promise<void> {
+  const subscriptions = await householdSubscriptions(sql, householdId);
+  if (subscriptions.length === 0) return;
+  const states = await alertStates(sql, householdId);
+  const wants = (kind: AlertKind) => subscriptions.some((item) => item.alerts[kind]);
+  const decisions: [AlertKind, Decision][] = [];
+
+  const devices = (await listDevices(sql, householdId)).filter(
+    (device) => device.revokedAt === null,
+  );
+  if (wants('stale')) {
+    const seen = devices
+      .filter((device) => device.lastSeenAt !== null)
+      .map((device) => ({ name: device.name, lastSeenAt: device.lastSeenAt as number }))
+      .sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+    decisions.push(['stale', decideStale(states.stale, seen[0] ?? null, now)]);
+  }
+
+  if (wants('power')) {
+    const today = lisbonDate(now);
+    const tariff = (await listTariffs(sql, householdId))
+      .filter((item) => item.validFrom <= today)
+      .at(-1);
+    const from =
+      Math.max(states.power.checkedUntil ?? now - POWER_LOOKBACK_SECONDS, now - DAY) -
+      POWER_LOOKBACK_SECONDS;
+    const peaks = await minutePeaksSince(
+      sql,
+      householdId,
+      devices.map((device) => device.id),
+      MAX_CHANNEL + 1,
+      from,
+    );
+    decisions.push(['power', decidePower(states.power, peaks, tariff?.powerVa ?? null, now)]);
+  }
+
+  if (wants('database')) {
+    const rowsRead = await rowsReadOn(sql, utcDay(now));
+    decisions.push([
+      'database',
+      decideDatabase(states.database, rowsRead, config.rowsReadLimit, now),
+    ]);
+  }
+
+  for (const [kind, decision] of decisions) {
+    if (decision.message) await deliver(sql, subscriptions, kind, decision.message, config, now);
+    if (JSON.stringify(decision.state) !== JSON.stringify(states[kind])) {
+      await setAlertState(sql, householdId, kind, decision.state);
+    }
+  }
+}

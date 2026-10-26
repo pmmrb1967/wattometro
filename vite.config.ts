@@ -65,6 +65,8 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
         // The API shares the origin: never answer it with the app shell.
         navigateFallbackDenylist: [/^\/v1(\/|$)/],
+        // Web Push alerts (public/push-sw.js, docs/alerts.md).
+        importScripts: ['push-sw.js'],
       },
     }),
   ],

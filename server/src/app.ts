@@ -16,6 +16,12 @@
  *                              AI_KEY_SECRET (the key is sealed in D1: secret-box.ts)
  *   PUT  /v1/ai-settings       {apiKey, model, autoSend} → 204
  *   DELETE /v1/ai-settings     → 204 (on every device)
+ *   GET  /v1/push/key          → {publicKey} (VAPID, for the browser's subscription); 503 none
+ *   GET  /v1/push/subscription?endpoint → {alerts: {stale, power, database}}; 404 not this user's
+ *   PUT  /v1/push/subscription {endpoint, keys: {p256dh, auth}, alerts} → 204 (a push service's
+ *                              endpoint only: webpush.ts, isPushEndpoint)
+ *   DELETE /v1/push/subscription {endpoint} → 204
+ *   POST /v1/push/test         {endpoint} → 204 sent; 404; 502 the push service refused
  *   PUT  /v1/household         {name} → Me
  *   GET  /v1/household/location → {location: {name, latitudeCdeg, longitudeCdeg} | null}
  *   PUT  /v1/household/location {location: … | null} → 204 (the locality, for the weather;
@@ -104,7 +110,15 @@ import { databaseState } from './repo/health';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { t } from '../../src/i18n/pt-PT';
 import { deleteAiSettings, getAiSettings, putAiSettings } from './repo/ai-settings';
+import {
+  deleteSubscription,
+  findSubscription,
+  forgetEndpoint,
+  saveSubscription,
+} from './repo/push';
+import { isPushEndpoint, sendPush, type Fetcher, type VapidKeys } from './webpush';
 import { missingMinutes } from './repo/readings';
 import { MIN_SECRET_LENGTH, open as openSealed, seal } from './secret-box';
 import { secondsRecords } from './repo/seconds';
@@ -154,6 +168,10 @@ export interface AppConfig {
   sessionSecret: string;
   /** Secret that seals the users' AI keys (wrangler secret put AI_KEY_SECRET); without it, 503. */
   aiKeySecret?: string;
+  /** Web Push keys (env.ts, vapidKeys); without them, /v1/push answers 503. */
+  vapid?: VapidKeys;
+  /** For tests: what posts to the push services. */
+  pushFetcher?: Fetcher;
   /** Origins besides the API's own that may send writes (local development). */
   allowedOrigins: string[];
   /** Current time in epoch seconds (tests set it). */
@@ -178,6 +196,15 @@ const LoginBody = z.object({
   email: z.string().trim().min(3).max(254),
   password: z.string().min(1).max(1024),
 });
+
+const PushAlerts = z.object({ stale: z.boolean(), power: z.boolean(), database: z.boolean() });
+const PushEndpoint = z.string().max(2000).refine(isPushEndpoint);
+const PushSubscriptionBody = z.object({
+  endpoint: PushEndpoint,
+  keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+  alerts: PushAlerts,
+});
+const PushEndpointBody = z.object({ endpoint: PushEndpoint });
 
 const AiSettingsBody = z.object({
   apiKey: z.string().trim().min(1).max(500),
@@ -442,6 +469,53 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   app.delete('/v1/ai-settings', requireUser, async (c) => {
     await deleteAiSettings(config.sql, c.get('user'));
     return c.body(null, 204);
+  });
+
+  // Web Push alerts (alerts.ts): this browser's subscription and which alerts it wants.
+  app.get('/v1/push/key', requireUser, (c) =>
+    config.vapid
+      ? c.json({ publicKey: config.vapid.publicKey })
+      : c.json({ error: 'not_configured' }, 503),
+  );
+
+  app.get('/v1/push/subscription', requireUser, async (c) => {
+    const parsed = PushEndpointBody.safeParse({ endpoint: c.req.query('endpoint') });
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const found = await findSubscription(config.sql, c.get('user'), parsed.data.endpoint);
+    return found ? c.json({ alerts: found.alerts }) : c.json({ error: 'not_found' }, 404);
+  });
+
+  app.put('/v1/push/subscription', requireUser, async (c) => {
+    if (!config.vapid) return c.json({ error: 'not_configured' }, 503);
+    const parsed = await body(c, PushSubscriptionBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { endpoint, keys, alerts } = parsed.data;
+    await saveSubscription(config.sql, c.get('user'), { endpoint, ...keys, alerts }, now());
+    return c.body(null, 204);
+  });
+
+  app.delete('/v1/push/subscription', requireUser, async (c) => {
+    const parsed = await body(c, PushEndpointBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    await deleteSubscription(config.sql, c.get('user'), parsed.data.endpoint);
+    return c.body(null, 204);
+  });
+
+  app.post('/v1/push/test', requireUser, async (c) => {
+    if (!config.vapid) return c.json({ error: 'not_configured' }, 503);
+    const parsed = await body(c, PushEndpointBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const found = await findSubscription(config.sql, c.get('user'), parsed.data.endpoint);
+    if (!found) return c.json({ error: 'not_found' }, 404);
+    const message = {
+      title: t.alerts.testTitle,
+      body: t.alerts.testBody,
+      tag: 'test',
+      url: '/definicoes',
+    };
+    const result = await sendPush(found, message, config.vapid, now(), config.pushFetcher);
+    if (result === 'gone') await forgetEndpoint(config.sql, found.endpoint);
+    return result === 'sent' ? c.body(null, 204) : c.json({ error: result }, 502);
   });
 
   app.put('/v1/household', requireUser, async (c) => {

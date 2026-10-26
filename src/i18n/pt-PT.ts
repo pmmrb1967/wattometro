@@ -162,6 +162,23 @@ export const t = {
     note: (cost: string) =>
       `Explicação escrita pela IA a partir dos números da app; as causas são hipóteses. Custou cerca de ${cost}.`,
   },
+  /** Web Push alerts (server/src/alerts.ts composes them; Definições → Avisos sets them). */
+  alerts: {
+    staleTitle: 'O Shelly deixou de enviar',
+    staleBody: (device: string, time: string) =>
+      `Sem medições de «${device}» desde as ${time}. O Shelly guarda os minutos até 10 dias: quando voltar a enviar, são recuperados.`,
+    backTitle: 'O Shelly voltou a enviar',
+    backBody: (device: string, time: string) =>
+      `«${device}» voltou a enviar às ${time}. Os minutos em falta vêm do registo do próprio Shelly.`,
+    powerTitle: 'Potência perto do corte',
+    powerBody: (time: string, peak: string, factor: string, contracted: string) =>
+      `Às ${time} chegaste a ${peak}, acima de ${factor} × a potência contratada (${contracted}): o contador começou a contar para cortar a luz.`,
+    databaseTitle: 'Base de dados perto do limite diário',
+    databaseBody: (percent: number, resetsAt: string) =>
+      `Hoje já se leram ${percent} % das linhas que o plano gratuito da Cloudflare permite por dia. Aos 100 %, a app deixa de gravar até às ${resetsAt}.`,
+    testTitle: 'Aviso de teste',
+    testBody: 'Os avisos do Wattómetro chegam a este aparelho.',
+  },
   ai: {
     errors: {
       no_key: 'Falta a chave da API da Anthropic (Definições → Inteligência artificial).',
@@ -176,6 +193,42 @@ export const t = {
     },
   },
   settings: {
+    alerts: {
+      title: 'Avisos',
+      intro:
+        'Notificações neste aparelho, mesmo com a app fechada. O servidor verifica a cada 5 minutos.',
+      turnOn: 'Ativar avisos neste aparelho',
+      turnOff: 'Desativar neste aparelho',
+      turnedOn: 'Avisos ativos neste aparelho.',
+      turnedOff: 'Avisos desativados neste aparelho.',
+      which: 'Avisar quando:',
+      kinds: {
+        stale: 'O Shelly deixa de enviar',
+        power: 'A potência se aproxima do corte',
+        database: 'A base de dados se aproxima do limite diário',
+      },
+      kindNotes: {
+        stale: 'Ao fim de 15 minutos sem medições, e outra vez quando voltar.',
+        power:
+          'Quando passa de 1,2 × a potência contratada: o contador começa a contar para cortar a luz. No máximo um por hora.',
+        database:
+          'Aos 80 % das leituras que o plano gratuito permite por dia. Aos 100 %, a app deixa de gravar até à meia-noite (UTC).',
+      },
+      saved: 'Escolha guardada.',
+      test: 'Enviar aviso de teste',
+      testSent: 'Aviso de teste enviado: deve aparecer dentro de segundos.',
+      testFailed: 'O serviço de notificações recusou o aviso. Desativa e volta a ativar os avisos.',
+      denied:
+        'O browser não deu autorização para notificações. Permite-as nas definições do browser para este site e tenta outra vez.',
+      failed: 'Não foi possível ativar os avisos. Tenta outra vez.',
+      notConfigured: 'O servidor ainda não tem os avisos ativos.',
+      needsInstall:
+        'No iPhone e no iPad, os avisos só funcionam com a app instalada no ecrã principal (Partilhar → Adicionar ao ecrã principal). Abre-a por aí e volta a esta página.',
+      unsupported:
+        'Este browser não permite avisos. No telemóvel, usa o Chrome ou a app instalada.',
+      privacy:
+        'Os avisos passam pelo serviço de notificações do browser (Google, Apple ou Mozilla), cifrados: só este aparelho os lê. Nunca levam medições.',
+    },
     ai: {
       title: 'Inteligência artificial',
       intro:

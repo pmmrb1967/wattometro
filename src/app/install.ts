@@ -34,7 +34,7 @@ const notify = () => {
   for (const listener of listeners) listener();
 };
 
-function standalone(): boolean {
+export function standalone(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true

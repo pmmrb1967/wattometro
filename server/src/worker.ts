@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Cloudflare Worker entry point. Configuration in server/wrangler.toml. */
-import { createApp } from './app';
+import { checkAlerts } from './alerts';
+import { createApp, DEFAULT_ROWS_READ_LIMIT } from './app';
 import { d1, type Sql } from './db';
-import { allowedOrigins, positiveInteger, type Env } from './env';
+import { allowedOrigins, positiveInteger, vapidKeys, type Env } from './env';
+import { listHouseholdIds } from './repo/households';
 import { addRowsRead, utcDay } from './repo/usage';
 import { runMaintenance } from './rollups';
 
@@ -30,6 +32,7 @@ export default {
     const app = createApp({
       sql,
       sessionSecret: env.SESSION_SECRET,
+      ...(vapidKeys(env) ? { vapid: vapidKeys(env) } : {}),
       ...(env.AI_KEY_SECRET ? { aiKeySecret: env.AI_KEY_SECRET } : {}),
       allowedOrigins: allowedOrigins(env),
       ingestRequestsPerMinute: positiveInteger(env.INGEST_REQUESTS_PER_MINUTE),
@@ -41,14 +44,22 @@ export default {
     return response;
   },
 
-  /** Cron (server/wrangler.toml): rollups, retention, database size. */
+  /** Cron (server/wrangler.toml): rollups, retention, database size, then the alerts. */
   async scheduled(event: ScheduledEventLike, env: Env): Promise<void> {
     const sql = d1(env.DB);
     try {
-      await runMaintenance(sql, Math.floor(event.scheduledTime / 1000), {
+      const now = Math.floor(event.scheduledTime / 1000);
+      await runMaintenance(sql, now, {
         retention1mDays: positiveInteger(env.RETENTION_1M_DAYS),
         retention1sDays: positiveInteger(env.RETENTION_1S_DAYS),
       });
+      const vapid = vapidKeys(env);
+      if (vapid) {
+        const rowsReadLimit = positiveInteger(env.ROWS_READ_LIMIT) ?? DEFAULT_ROWS_READ_LIMIT;
+        for (const householdId of await listHouseholdIds(sql)) {
+          await checkAlerts(sql, householdId, now, { vapid, rowsReadLimit });
+        }
+      }
     } finally {
       await countRowsRead(sql);
     }
