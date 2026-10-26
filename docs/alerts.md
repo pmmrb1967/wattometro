@@ -39,5 +39,6 @@ Os serviços de push são uma ligação externa aceite pelo utilizador a 2026-10
 
 ## Por confirmar
 
-- ☐ Entrega real num Android (Chrome) e num iPhone com a app no ecrã principal.
+- ☑ Entrega real num Android (Chrome, serviço da Google), a 2026-10-26: o aviso de teste chegou como notificação do sistema.
+- ☐ Entrega real num iPhone com a app no ecrã principal.
 - ☐ CPU do Cron no plano gratuito com avisos a enviar (cifra + assinatura por aparelho).
