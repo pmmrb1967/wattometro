@@ -45,9 +45,10 @@ function useAnomalies(energy: HouseholdEnergy): Anomaly[] | undefined {
   }, [quarters, tariff, weather, today]);
 }
 
-/** "das 19 h às 22 h", "das 19 h à meia-noite". */
+/** "Sobretudo das 19 h às 22 h.", "… da meia-noite às 7 h.", or the whole day. */
 function spanText(span: NonNullable<Anomaly['span']>): string {
-  return texts.span(span.from, span.to === 24 ? null : span.to);
+  if (span.from === 0 && span.to === 24) return texts.wholeDay;
+  return texts.mostly(texts.span(span.from, span.to));
 }
 
 function Sentence({ anomaly, when }: { anomaly: Anomaly; when: string }) {
@@ -63,7 +64,7 @@ function Sentence({ anomaly, when }: { anomaly: Anomaly; when: string }) {
         formatKwh(anomaly.actualWh),
         formatKwh(anomaly.expectedWh),
       )}
-      {anomaly.span && ` ${texts.mostly(spanText(anomaly.span))}`}
+      {anomaly.span && ` ${spanText(anomaly.span)}`}
       {anomaly.excessCents !== null &&
         anomaly.excessCents !== 0 &&
         ` ${texts.cost(anomaly.excessCents > 0, formatCents(Math.abs(anomaly.excessCents)))}`}

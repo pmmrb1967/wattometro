@@ -727,9 +727,10 @@ export const t = {
     yesterday: 'Ontem',
     sentence: (when: string, direction: 1 | -1, pct: number, actual: string, usual: string) =>
       `${when}: ${pct} % ${direction > 0 ? 'mais' : 'menos'} do que o habitual (${actual} em vez de ${usual}).`,
-    span: (from: number, to: number | null) =>
-      to === null ? `das ${from} h à meia-noite` : `das ${from} h às ${to} h`,
+    span: (from: number, to: number) =>
+      `${from === 0 ? 'da meia-noite' : `das ${from} h`} ${to === 24 ? 'à meia-noite' : `às ${to} h`}`,
     mostly: (span: string) => `Sobretudo ${span}.`,
+    wholeDay: 'Ao longo do dia inteiro, não numa altura em especial.',
     cost: (more: boolean, euros: string) =>
       more ? `Custou cerca de ${euros} a mais.` : `Poupaste cerca de ${euros}.`,
     more: 'Ver os dias fora do habitual',
