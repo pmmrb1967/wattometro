@@ -1,5 +1,5 @@
-# Checks on every push and pull request (synthetic fixtures only).
-# Deploys are manual for now (pnpm deploy:server, pnpm deploy:app).
+# Checks on every push and pull request (synthetic fixtures only). On a push
+# to main, deploys to Cloudflare once every check has passed.
 name: CI
 
 on:
@@ -20,3 +20,41 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+
+  deploy:
+    # Only for main, after the checks; needs the CLOUDFLARE_API_TOKEN secret
+    # (account token: Workers Scripts Edit, D1 Edit, Workers Routes Edit).
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: deploy
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 0fcf1ed22512b5ad46f39cf8eb61d82f
+    steps:
+      - name: Token configured?
+        id: token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN is not set: skipping the deploy."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.token.outputs.ok == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version: 24
+      - if: steps.token.outputs.ok == 'true'
+        run: corepack enable pnpm && pnpm install --frozen-lockfile
+      - name: Database migrations
+        if: steps.token.outputs.ok == 'true'
+        run: pnpm db:migrate:remote
+      - name: API
+        if: steps.token.outputs.ok == 'true'
+        run: pnpm deploy:server
+      - name: App
+        if: steps.token.outputs.ok == 'true'
+        run: pnpm deploy:app

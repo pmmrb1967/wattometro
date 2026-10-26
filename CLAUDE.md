@@ -155,7 +155,7 @@ pnpm deploy:app          # build + Worker `app` → https://app.wattometro.worke
 pnpm shelly:install      # instala/atualiza shelly/wattometro.js no Shelly de casa (SHELLY_HOST e SHELLY_PASSWORD no .env)
 ```
 
-`pnpm erse:sync` atualiza `public/data/erse-offers.json` com as ofertas da ERSE. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas.
+`pnpm erse:sync` atualiza `public/data/erse-offers.json` com as ofertas da ERSE. Os `wrangler*.toml` fixam o `account_id` da conta Wattómetro: o login do wrangler nesta máquina vê várias contas. Num push ao `main`, o CI faz o deploy sozinho depois das verificações (migrações D1 → `api` → `app`), com o segredo `CLOUDFLARE_API_TOKEN` do repositório; os comandos acima ficam para deploys locais.
 
 Antes de dar uma tarefa por concluída: `pnpm typecheck && pnpm lint && pnpm test` sem erros.
 
