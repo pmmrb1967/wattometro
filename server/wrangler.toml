@@ -34,6 +34,7 @@ ROWS_READ_LIMIT = "5000000"
 # Web Push alerts (docs/alerts.md): contact for the push services. VAPID_PUBLIC_KEY goes
 # here too (it is public); the private key is a secret (wrangler secret put VAPID_PRIVATE_KEY).
 VAPID_SUBJECT = "mailto:wattometro@outlook.com"
+VAPID_PUBLIC_KEY = "BLf-NqBqEYR8G6YN4tEzrvrPL_g4Bkq9sKKDaibw2b0icmYJfcn_VYigkbCPnYRNzmiw_LkWf390DbA-ysFoeJQ"
 
 # Rollups (minutes → 15 min → day), retention and database size: server/src/rollups.ts.
 [triggers]
