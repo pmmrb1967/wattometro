@@ -1,0 +1,14 @@
+{
+  "source": "docs/omie.md",
+  "consulted": "2026-10-27",
+  "rules": [
+    { "supplier": "ALFAENERGIA", "name": "INDEX", "kind": "dynamic" },
+    { "supplier": "AUDAX", "name": "INDEXADO", "kind": "dynamic" },
+    { "supplier": "COOP", "name": "ÚNICO", "kind": "dynamic" },
+    { "supplier": "ZUG POWER", "name": "Dynamic", "kind": "dynamic" },
+    { "supplier": "EDPC", "name": "Indexada média", "kind": "average" },
+    { "supplier": "GOLD", "name": "Index", "kind": "average" },
+    { "supplier": "NOSSAENERGIA", "name": "Indexada", "kind": "average" },
+    { "supplier": "IBD", "name": "Indexado", "kind": "average" }
+  ]
+}

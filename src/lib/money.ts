@@ -133,6 +133,20 @@ export function eurosToMicro(euros: number): MicroEuros {
   return micro;
 }
 
+/** An OMIE price (cents per MWh, src/domain/omie.ts) per kWh: 1 cent/MWh = 10 µ€/kWh. */
+export function omieToMicro(centsPerMwh: number): MicroEuros {
+  return Math.round(centsPerMwh * 10);
+}
+
+/** A price per kWh to show, e.g. 95_400 → "0,095\u00a0€/kWh" (3 decimals; may be negative). */
+export function formatPricePerKwh(micro: MicroEuros): string {
+  const euros = new Intl.NumberFormat('pt-PT', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(micro / 1_000_000);
+  return `${euros}\u00a0€/kWh`;
+}
+
 /** Micro-euros as text for an input field, without trailing zeros (e.g. 166500 → "0,1665"). */
 export function microToPtInput(micro: MicroEuros): string {
   if (!Number.isSafeInteger(micro) || micro < 0) throw new TypeError(`Not a price: ${micro}`);

@@ -14,6 +14,7 @@ import {
   type AnnualUsage,
   type Comparison,
   type OfferResult,
+  type EnergyAdjust,
   type Shift,
 } from '../domain/compare';
 import type { Cycle, MeterPeriod, TariffInput } from '../domain/tariff';
@@ -21,12 +22,14 @@ import type { RecentAppliances } from '../nilm/recent';
 import type { HouseholdEnergy } from './household-energy';
 import { useRecentAppliances } from './use-recent-appliances';
 import type { Offer } from '../domain/erse';
+import { dynamicAdjust, indexedKind, profileEffect, type ProfileEffect } from '../domain/indexed';
+import type { OmieFile } from '../domain/omie';
 import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
-import { formatCents } from '../lib/money';
+import { formatCents, formatPricePerKwh, omieToMicro } from '../lib/money';
 import { lisbonToday } from '../lib/time';
 import { formatKva, formatKwh } from '../lib/units';
-import { fetchOffers } from './api';
+import { fetchOffers, fetchOmie } from './api';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
 import { MeterSelect } from './MeterSelect';
@@ -58,11 +61,13 @@ function Machines({
   usage,
   tariff,
   energy,
+  adjust,
 }: {
   comparison: Comparison;
   usage: AnnualUsage;
   tariff: TariffInput;
   energy: HouseholdEnergy;
+  adjust: EnergyAdjust | undefined;
 }) {
   const { active, recent } = useRecentAppliances(energy);
   if (active && !recent) return null;
@@ -86,6 +91,7 @@ function Machines({
             usage,
             tariff,
             machinesPerYear(recent, shift.best.cycle),
+            adjust,
           );
           if (cents === null) return null;
           const difference = comparison.currentCents - cents;
@@ -103,6 +109,57 @@ function Machines({
         })}
       </ul>
     </>
+  );
+}
+
+const MONTH = new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const monthName = (month: string) => MONTH.format(new Date(`${month}-15T12:00:00Z`));
+const perKwh = (centsPerMwh: number) => formatPricePerKwh(omieToMicro(centsPerMwh));
+
+/** "Tarifários": what the hours the household consumes mean for the offers indexed to the OMIE. */
+function Indexed({ effect, offers }: { effect: ProfileEffect; offers: readonly Offer[] }) {
+  const words = texts.indexed;
+  const pct = effect.average > 0 ? Math.round((effect.weighted / effect.average - 1) * 100) : 0;
+  const weighted = perKwh(effect.weighted);
+  const average = perKwh(effect.average);
+  const dynamic = [
+    ...new Set(
+      offers.filter((offer) => indexedKind(offer) === 'dynamic').map((offer) => offer.supplier),
+    ),
+  ];
+  const sorted = [...effect.months].sort((a, b) => a.average - b.average);
+  const low = sorted[0];
+  const high = sorted.at(-1);
+  return (
+    <section className="card form">
+      <h2>{words.title}</h2>
+      <p>
+        {pct > 1
+          ? words.dearer(weighted, pct, average)
+          : pct < -1
+            ? words.cheaper(weighted, -pct, average)
+            : words.same(weighted, average)}
+      </p>
+      {low && high && effect.months.length > 1 && (
+        <p>
+          {words.months(
+            perKwh(low.average),
+            monthName(low.month),
+            perKwh(high.average),
+            monthName(high.month),
+          )}
+        </p>
+      )}
+      <HowItWorks>
+        <ul className="hint caveats">
+          <li>{words.how}</li>
+          {dynamic.length > 0 && <li>{words.dynamic(dynamic.join(', '))}</li>}
+          <li>{words.others}</li>
+          <li>{words.losses}</li>
+          <li>{words.source}</li>
+        </ul>
+      </HowItWorks>
+    </section>
   );
 }
 
@@ -131,12 +188,17 @@ export function Tariffs() {
   const { window, tariff, meters, devices, meter } = energy;
   const error = energy.error ?? (energy.tariffsFailed ? t.errors.unavailable : null);
   const [offers, setOffers] = useState<Offer[] | null | 'none'>(null);
+  const [omie, setOmie] = useState<OmieFile | null>(null);
   const [filters, setFilters] = useState({ option: 'all', noLoyalty: false, noServices: false });
 
   useEffect(() => {
     let active = true;
     void fetchOffers().then((file) => {
       if (active) setOffers(file ? file.offers : 'none');
+    });
+    // Without the OMIE prices, indexed offers keep the ERSE estimate.
+    void fetchOmie().then((file) => {
+      if (active) setOmie(file);
     });
     return () => {
       active = false;
@@ -150,6 +212,11 @@ export function Tariffs() {
     () => (quarters && tariff ? annualUsage(quarters, tariff.periodsMap) : null),
     [quarters, tariff],
   );
+  const effect = useMemo(
+    () => (quarters && tariff && omie ? profileEffect(quarters, omie, tariff.periodsMap) : null),
+    [quarters, tariff, omie],
+  );
+  const adjust = useMemo(() => dynamicAdjust(effect), [effect]);
   const comparison = useMemo(() => {
     if (!usage || !tariff || !Array.isArray(offers)) return null;
     const chosen = offers.filter(
@@ -157,8 +224,8 @@ export function Tariffs() {
         (!filters.noLoyalty || !offer.loyalty) &&
         (!filters.noServices || offer.servicesPerYearWithVat === 0),
     );
-    return compareOffers({ usage, current: tariff, offers: chosen, today: lisbonToday() });
-  }, [usage, tariff, offers, filters.noLoyalty, filters.noServices]);
+    return compareOffers({ usage, current: tariff, offers: chosen, today: lisbonToday(), adjust });
+  }, [usage, tariff, offers, filters.noLoyalty, filters.noServices, adjust]);
 
   const header = (
     <>
@@ -330,7 +397,12 @@ export function Tariffs() {
                               result.offer.supply === 'DUAL' && texts.tagDual,
                               result.offer.loyalty && texts.tagLoyalty,
                               result.offer.servicesPerYearWithVat > 0 && texts.tagServices,
-                              result.offer.indexedPrices && texts.tagIndexed,
+                              result.offer.indexedPrices &&
+                                (result.adjusted
+                                  ? texts.tagDynamic
+                                  : indexedKind(result.offer) === 'average'
+                                    ? texts.tagAverage
+                                    : texts.tagIndexed),
                             ]
                               .filter(Boolean)
                               .join(' · ')}
@@ -354,6 +426,8 @@ export function Tariffs() {
             </div>
           </section>
 
+          {effect && Array.isArray(offers) && <Indexed effect={effect} offers={offers} />}
+
           <section className="card form">
             <h2>{texts.shiftTitle}</h2>
             <p className="hint">{texts.shiftIntro}</p>
@@ -362,7 +436,13 @@ export function Tariffs() {
               <ShiftLine option="tri" shift={comparison.shift.tri} />
             </ul>
             {usage && (
-              <Machines comparison={comparison} usage={usage} tariff={tariff} energy={energy} />
+              <Machines
+                comparison={comparison}
+                usage={usage}
+                tariff={tariff}
+                energy={energy}
+                adjust={adjust}
+              />
             )}
           </section>
 

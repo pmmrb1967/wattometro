@@ -20,6 +20,7 @@
     "deploy:server": "wrangler deploy -c server/wrangler.toml",
     "user:create": "tsx scripts/create-user.ts",
     "erse:sync": "tsx scripts/erse-sync.ts",
+    "omie:sync": "tsx scripts/omie-sync.ts",
     "ml:backtest": "tsx scripts/ml-backtest.ts",
     "ml:anomalies": "tsx scripts/ml-anomalies.ts",
     "ai:eval": "tsx scripts/ai-eval.ts",

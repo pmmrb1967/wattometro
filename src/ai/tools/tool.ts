@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import type { PeakMinute } from '../../domain/contracted-power';
 import type { Offer } from '../../domain/erse';
+import type { OmieFile } from '../../domain/omie';
 import type { Tariff } from '../../domain/tariff';
 import type { Interval, MinuteVoltage, Outage, QualityZone } from '../../domain/voltage';
 import type { RecentAppliances } from '../../nilm/recent';
@@ -52,6 +53,8 @@ export interface ToolContext {
   daily: ReadonlyMap<LocalDate, TenthsCelsius> | null;
   /** The ERSE offers (public/data/erse-offers.json); null when they cannot be read. */
   offers: () => Promise<readonly Offer[] | null>;
+  /** The OMIE prices (public/data/omie-pt.json); without them, indexed offers keep the ERSE estimate. */
+  omie?: () => Promise<OmieFile | null>;
   /** Asked from the Worker only when a tool needs them; null when unavailable. */
   power: () => Promise<PowerFacts | null>;
   quality: () => Promise<QualityFacts | null>;

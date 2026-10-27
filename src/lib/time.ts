@@ -89,6 +89,15 @@ export function startOfLisbonDay(date: LocalDate): EpochSeconds {
 }
 
 /**
+ * The instant a day starts in Spain's peninsular time (CET/CEST), the time of
+ * the OMIE files (docs/omie.md). Spain and mainland Portugal change clocks at
+ * the same instant (01:00 UTC), so Madrid is always one hour ahead of Lisbon.
+ */
+export function startOfMadridDay(date: LocalDate): EpochSeconds {
+  return startOfLisbonDay(date) - HOUR;
+}
+
+/**
  * The instant a Lisbon wall-clock time happens on a day, or null if the clocks
  * skip it (01:00–01:59 on the last Sunday of March). A time that happens twice
  * (01:00–01:59 on the last Sunday of October) gives the first, summer one.

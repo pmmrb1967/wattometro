@@ -16,6 +16,7 @@ import {
 import { annualUsage, compareOffers, type OfferResult } from '../../domain/compare';
 import { addDays, monthDates } from '../../domain/consumption';
 import { energyByPeriod, type Cost, type EnergyByPeriod } from '../../domain/electricity-cost';
+import { dynamicAdjust, profileEffect } from '../../domain/indexed';
 import { monthlyReport, monthUsage } from '../../domain/monthly-report';
 import { tariffOn, type BillingPeriod, type Tariff } from '../../domain/tariff';
 import { t } from '../../i18n/pt-PT';
@@ -181,6 +182,11 @@ function offerText(result: OfferResult) {
     perYear: formatCents(result.annualCents),
     savingPerYear: formatCents(result.savingCents),
     loyalty: result.offer.loyalty,
+    ...(result.offer.indexedPrices && {
+      indexed: result.adjusted
+        ? 'Priced at each quarter hour: adjusted to the hours this house consumes'
+        : 'Indexed to the market (the ERSE estimate)',
+    }),
   };
 }
 
@@ -208,11 +214,14 @@ const simulateTariffs = defineTool({
         (!excludeLoyalty || !offer.loyalty) &&
         (!excludeServices || offer.servicesPerYearWithVat === 0),
     );
+    const omie = (await context.omie?.()) ?? null;
+    const effect = omie ? profileEffect(quarters, omie, tariff.periodsMap) : null;
     const comparison = compareOffers({
       usage,
       current: tariff,
       offers: chosen,
       today: context.today,
+      adjust: dynamicAdjust(effect),
     });
     const bestOf = (option: Tariff['option']) => {
       const best = comparison.results.find((result) => result.option === option);
@@ -232,6 +241,10 @@ const simulateTariffs = defineTool({
       cheapest: comparison.results.slice(0, TOP_OFFERS).map(offerText),
       cheapestByOption: { simple: bestOf('simple'), bi: bestOf('bi'), tri: bestOf('tri') },
       moveToEmpty: { bi: shift('bi'), tri: shift('tri') },
+      ...(effect &&
+        effect.average > 0 && {
+          marketHours: `On the wholesale market (OMIE), this house's energy cost ${Math.round((effect.weighted / effect.average - 1) * 100)} % more than the plain average of all hours (negative: less). Offers priced at each quarter hour include this; the others keep the ERSE estimate.`,
+        }),
     };
   },
 });

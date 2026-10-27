@@ -1080,6 +1080,27 @@ export const t = {
     tagLoyalty: 'fidelização',
     tagServices: 'serviços incluídos',
     tagIndexed: 'preço indexado',
+    tagDynamic: 'preço à hora, ajustado ao teu consumo',
+    tagAverage: 'preço indexado à média do mês',
+    indexed: {
+      title: 'Tarifários indexados',
+      dearer: (weighted: string, pct: number, average: string) =>
+        `Consomes mais nas horas caras: no mercado grossista (OMIE), a tua energia custou em média ${weighted}, ${pct} % acima da média de todas as horas (${average}). Nas ofertas com preço à hora, pagas mais do que a estimativa da ERSE.`,
+      cheaper: (weighted: string, pct: number, average: string) =>
+        `Consomes mais nas horas baratas: no mercado grossista (OMIE), a tua energia custou em média ${weighted}, ${pct} % abaixo da média de todas as horas (${average}). Nas ofertas com preço à hora, pagas menos do que a estimativa da ERSE.`,
+      same: (weighted: string, average: string) =>
+        `No mercado grossista (OMIE), a tua energia custou em média ${weighted}, quase o mesmo que a média de todas as horas (${average}): o teu horário não muda o preço das ofertas indexadas.`,
+      months: (low: string, lowMonth: string, high: string, highMonth: string) =>
+        `O risco: o preço do mercado muda todos os meses. No período medido, a média foi de ${low} em ${lowMonth} a ${high} em ${highMonth}, e nas ofertas indexadas a fatura acompanha-o.`,
+      how: 'A app junta o preço do mercado de cada quarto de hora ao teu consumo desse quarto de hora. A diferença entre o preço que pagarias e a média é somada ao preço estimado pela ERSE de cada período.',
+      dynamic: (suppliers: string) =>
+        `Ofertas com preço à hora (ajustadas ao teu consumo): ${suppliers}.`,
+      others:
+        'Nas ofertas indexadas à média do mês e nas que não dizem a fórmula, o horário não conta e fica o preço estimado pela ERSE.',
+      losses:
+        'Não inclui as perdas na rede, que os comercializadores somam ao preço do mercado: com elas, a diferença seria cerca de 15 % maior.',
+      source: 'Preços do mercado diário para Portugal: OMIE (omie.es), sem IVA.',
+    },
     shiftTitle: 'Mudar consumo para o vazio',
     shiftIntro:
       'Máquinas e termoacumulador à noite ou ao fim de semana: quanto teria de passar para o vazio para a opção ficar mais barata do que a simples mais barata para ti.',

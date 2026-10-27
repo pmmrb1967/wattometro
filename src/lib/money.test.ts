@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  formatPricePerKwh,
+  omieToMicro,
   bpToPtInput,
   centsToPtInput,
   divideRounded,
@@ -140,5 +142,13 @@ describe('formatWholeEuros', () => {
     expect(formatWholeEuros(6250)).toBe('63 €');
     expect(formatWholeEuros(0)).toBe('0 €');
     expect(() => formatWholeEuros(1.5)).toThrow(TypeError);
+  });
+});
+
+describe('OMIE prices', () => {
+  it('cents per MWh to micro-euros per kWh, and shown per kWh', () => {
+    expect(omieToMicro(9540)).toBe(95_400); // 95,40 €/MWh = 0,0954 €/kWh
+    expect(formatPricePerKwh(95_400)).toBe('0,095\u00a0€/kWh');
+    expect(formatPricePerKwh(omieToMicro(-1000))).toBe('-0,010\u00a0€/kWh');
   });
 });

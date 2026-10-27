@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { isDemo } from '../demo/mode';
 import { demoResponse } from '../demo/server';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
+import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
 import { installationSchema, type Installation } from '../domain/installation';
 
@@ -632,6 +633,16 @@ export async function fetchOffers(): Promise<OffersFile | null> {
   try {
     const response = await fetch(OFFERS_URL);
     return response.ok ? offersFileSchema.parse(await response.json()) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The OMIE prices served with the app (public/data/omie-pt.json); null when they cannot be read. */
+export async function fetchOmie(): Promise<OmieFile | null> {
+  try {
+    const response = await fetch(OMIE_URL);
+    return response.ok ? omieFileSchema.parse(await response.json()) : null;
   } catch {
     return null;
   }

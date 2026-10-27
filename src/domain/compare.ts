@@ -8,7 +8,7 @@
  * come from the household's own contract; prices and commercial terms from each
  * offer. An estimate for a year like the one measured, not a promise.
  */
-import { eurosToMicro, type Cents } from '../lib/money';
+import { eurosToMicro, type Cents, type MicroEuros } from '../lib/money';
 import type { EpochSeconds } from '../lib/time';
 import type { Wh } from '../lib/units';
 import { electricityCost, type EnergyByPeriod, type OfferTerms } from './electricity-cost';
@@ -87,6 +87,16 @@ const CYCLES_OF: Record<TariffOption, readonly Cycle[]> = {
 
 const pct = (value: number) => Math.round(value * 100);
 
+/**
+ * µ€/kWh to add to an offer's energy prices for this household (an indexed
+ * offer's profile effect, src/domain/indexed.ts), or null to keep them.
+ */
+export type EnergyAdjust = (
+  offer: Offer,
+  option: TariffOption,
+  cycle: Cycle,
+) => Partial<Record<BillingPeriod, MicroEuros>> | null;
+
 /** An offer's prices as a contract for the household, and its commercial terms. */
 export function offerContract(
   offer: Offer,
@@ -94,11 +104,14 @@ export function offerContract(
   option: TariffOption,
   cycle: Cycle,
   household: TariffInput,
+  adjust?: EnergyAdjust,
 ): { tariff: TariffInput; terms: OfferTerms } {
+  const extra = adjust?.(offer, option, cycle) ?? {};
   const energy: Partial<Record<BillingPeriod, number>> = {};
   for (const period of ['simple', 'offEmpty', 'empty', 'full', 'peak'] as const) {
     const price = prices[period];
-    if (price !== undefined) energy[period] = eurosToMicro(price);
+    if (price !== undefined)
+      energy[period] = Math.max(0, eurosToMicro(price) + (extra[period] ?? 0));
   }
   return {
     tariff: {
@@ -127,6 +140,8 @@ export interface OfferResult {
   annualCents: Cents;
   /** Positive: cheaper than the current contract. */
   savingCents: Cents;
+  /** The energy prices were adjusted to the household's hours (a dynamic indexed offer). */
+  adjusted: boolean;
 }
 
 /**
@@ -169,6 +184,7 @@ function shiftFor(
   usage: AnnualUsage,
   household: TariffInput,
   targetCents: Cents,
+  adjust?: EnergyAdjust,
 ): Shift | null {
   const best = results.find((result) => result.option === option);
   if (!best) return null;
@@ -177,7 +193,14 @@ function shiftFor(
   if (best.annualCents <= targetCents) return { best, neededWh: 0, targetCents, movableWh };
   const prices = best.offer.prices[powerKey(household.powerVa)]?.[option === 'bi' ? '2' : '3'];
   if (!prices || movableWh <= 0) return null;
-  const { tariff, terms } = offerContract(best.offer, prices, option, best.cycle, household);
+  const { tariff, terms } = offerContract(
+    best.offer,
+    prices,
+    option,
+    best.cycle,
+    household,
+    adjust,
+  );
   // The cost is linear in the energy moved (the total, and so the VAT split, stays the same).
   const allMoved = electricityCost(allToEmpty(energy, usage.totalWh), YEAR_DAYS, tariff, terms);
   const gainPerWh = (best.annualCents - allMoved.totalCents) / movableWh;
@@ -196,12 +219,13 @@ export function costWithMoved(
   usage: AnnualUsage,
   household: TariffInput,
   moved: Record<MeterPeriod, Wh>,
+  adjust?: EnergyAdjust,
 ): Cents | null {
   const { offer, option, cycle } = shift.best;
   if (option === 'simple') return null;
   const prices = offer.prices[powerKey(household.powerVa)]?.[option === 'bi' ? '2' : '3'];
   if (!prices) return null;
-  const { tariff, terms } = offerContract(offer, prices, option, cycle, household);
+  const { tariff, terms } = offerContract(offer, prices, option, cycle, household, adjust);
   const energy = energyFor(option, cycle, usage);
   // Never more than the year has in those periods.
   const full = Math.min(moved.full, usage.byCycle[cycle].full);
@@ -224,8 +248,9 @@ export function compareOffers(input: {
   offers: readonly Offer[];
   /** Lisbon day, for the offers' validity. */
   today: string;
+  adjust?: EnergyAdjust;
 }): Comparison {
-  const { usage, current, offers, today } = input;
+  const { usage, current, offers, today, adjust } = input;
   const currentCents = electricityCost(
     energyFor(current.option, current.cycle, usage),
     YEAR_DAYS,
@@ -243,7 +268,7 @@ export function compareOffers(input: {
       const option = OPTION_OF[code];
       let best: { cycle: Cycle; cents: Cents } | null = null;
       for (const cycle of CYCLES_OF[option]) {
-        const { tariff, terms } = offerContract(offer, prices, option, cycle, current);
+        const { tariff, terms } = offerContract(offer, prices, option, cycle, current, adjust);
         let cents: Cents;
         try {
           cents = electricityCost(
@@ -264,6 +289,7 @@ export function compareOffers(input: {
           cycle: best.cycle,
           annualCents: best.cents,
           savingCents: currentCents - best.cents,
+          adjusted: adjust?.(offer, option, best.cycle) != null,
         });
       }
     }
@@ -279,8 +305,8 @@ export function compareOffers(input: {
     currentCents,
     results,
     shift: {
-      bi: shiftFor(results, 'bi', usage, current, target),
-      tri: shiftFor(results, 'tri', usage, current, target),
+      bi: shiftFor(results, 'bi', usage, current, target, adjust),
+      tri: shiftFor(results, 'tri', usage, current, target, adjust),
     },
   };
 }

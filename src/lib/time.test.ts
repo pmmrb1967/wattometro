@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  startOfMadridDay,
   eredesQuarterStart,
   lisbonLocalTime,
   floorTo,
@@ -164,5 +165,12 @@ describe('lisbonLocalTime and eredesQuarterStart (docs/eredes-csv.md)', () => {
     expect(eredesQuarterStart('2026-03-29', 0, 45)).toBe(utc('2026-03-29T00:30:00Z'));
     expect(eredesQuarterStart('2026-03-29', 1, 0)).toBeNull();
     expect(eredesQuarterStart('2026-01-15', 10, 7)).toBeNull();
+  });
+});
+
+describe('startOfMadridDay', () => {
+  it('is one hour before Lisbon midnight, in winter and in summer', () => {
+    expect(startOfMadridDay('2026-01-06')).toBe(Date.parse('2026-01-05T23:00:00Z') / 1000);
+    expect(startOfMadridDay('2026-07-06')).toBe(Date.parse('2026-07-05T22:00:00Z') / 1000);
   });
 });

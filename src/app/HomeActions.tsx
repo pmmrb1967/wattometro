@@ -9,6 +9,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { baseloadCost, nightlyBaseload, recentBaseload } from '../domain/baseload';
 import { annualUsage, compareOffers } from '../domain/compare';
+import { dynamicAdjust, profileEffect } from '../domain/indexed';
+import type { OmieFile } from '../domain/omie';
 import {
   annualFixedCents,
   DEFAULT_MARGIN_PCT,
@@ -23,7 +25,7 @@ import { formatCents, type Cents } from '../lib/money';
 import { lisbonToday } from '../lib/time';
 import { formatKva, formatPower } from '../lib/units';
 import { loadPower } from './ai-context';
-import { fetchOffers } from './api';
+import { fetchOffers, fetchOmie } from './api';
 import { lastYear, type HouseholdEnergy } from './household-energy';
 
 const texts = t.home.actions;
@@ -81,11 +83,15 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
   const quarters = useMemo(() => (all ? lastYear(all, window) : null), [all, window]);
   const [offers, setOffers] = useState<Offer[] | null | undefined>(undefined);
   const [power, setPower] = useState<PowerAction | null | undefined>(undefined);
+  const [omie, setOmie] = useState<OmieFile | null | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
     void fetchOffers().then((file) => {
       if (active) setOffers(file ? file.offers : null);
+    });
+    void fetchOmie().then((file) => {
+      if (active) setOmie(file);
     });
     return () => {
       active = false;
@@ -106,13 +112,16 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
   }, [tariff, offers]);
 
   const best = useMemo(() => {
-    if (!quarters || !tariff || !offers) return null;
+    // Waits for the OMIE prices too, so the amount is the one "Tarifários" shows.
+    if (!quarters || !tariff || !offers || omie === undefined) return null;
     const usage = annualUsage(quarters, tariff.periodsMap);
     if (!usage) return null;
+    const adjust = dynamicAdjust(omie ? profileEffect(quarters, omie, tariff.periodsMap) : null);
     return (
-      compareOffers({ usage, current: tariff, offers, today: lisbonToday() }).results[0] ?? null
+      compareOffers({ usage, current: tariff, offers, today: lisbonToday(), adjust }).results[0] ??
+      null
     );
-  }, [quarters, tariff, offers]);
+  }, [quarters, tariff, offers, omie]);
 
   const baseload = useMemo(() => {
     if (!quarters || !tariff) return null;
