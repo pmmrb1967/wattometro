@@ -27,13 +27,36 @@ export const t = {
     locked: (count: number) => `Demasiadas tentativas. Tenta outra vez daqui a ${minutes(count)}.`,
     unavailable: 'Não foi possível contactar o servidor. Tenta outra vez.',
   },
+  landing: {
+    title: 'Onde a tua casa pode gastar menos, em euros',
+    examplesLabel: 'Exemplos de conclusões',
+    examples: [
+      [
+        'Baixar a potência para 6,9\u00a0kVA',
+        '−78\u00a0€/ano',
+        'Pelos picos ao segundo: o contador nunca teria cortado.',
+      ],
+      [
+        'Mudar de tarifário',
+        '−122\u00a0€/ano',
+        'A oferta mais barata da ERSE para o consumo real da casa.',
+      ],
+      [
+        'Consumo fantasma: 156\u00a0W',
+        '289\u00a0€/ano',
+        'O que fica ligado de noite, e quanto custa.',
+      ],
+    ],
+    examplesNote:
+      'Valores da casa de exemplo. Com o teu Shelly ou o ficheiro da E-Redes, são os da tua casa.',
+  },
   login: {
     title: 'Entrar',
     email: 'Email',
-    password: 'Password',
+    password: 'Palavra-passe',
     submit: 'Entrar',
     submitting: 'A entrar…',
-    invalid: 'Email ou password errados.',
+    invalid: 'Email ou palavra-passe errados.',
     noAccount: 'As contas são criadas pelo responsável da instalação.',
   },
   now: {
@@ -474,22 +497,22 @@ export const t = {
         `Valor inválido em "${field}": usa vírgula decimal, até 6 casas decimais.`,
     },
     password: {
-      title: 'Mudar a password',
-      current: 'Password atual',
-      next: (min: number) => `Nova password (mín. ${min} caracteres)`,
-      repeat: 'Repete a nova password',
-      submit: 'Mudar a password',
+      title: 'Mudar a palavra-passe',
+      current: 'Palavra-passe atual',
+      next: (min: number) => `Nova palavra-passe (mín. ${min} caracteres)`,
+      repeat: 'Repete a nova palavra-passe',
+      submit: 'Mudar a palavra-passe',
       submitting: 'A mudar…',
-      done: 'Password mudada. As sessões noutros dispositivos terminaram.',
-      wrong: 'A password atual está errada.',
-      tooShort: (min: number) => `A nova password tem de ter pelo menos ${min} caracteres.`,
-      mismatch: 'As novas passwords não coincidem.',
+      done: 'Palavra-passe mudada. As sessões noutros dispositivos terminaram.',
+      wrong: 'A palavra-passe atual está errada.',
+      tooShort: (min: number) => `A nova palavra-passe tem de ter pelo menos ${min} caracteres.`,
+      mismatch: 'As novas palavras-passe não coincidem.',
     },
   },
   power: {
     title: 'Potência contratada',
     intro:
-      'Qual o escalão mais baixo que não teria cortado a luz nos últimos 90 dias, simulando o contador inteligente da E-Redes segundo a segundo com os dados do teu Shelly.',
+      'A potência contratada mais baixa que não teria cortado a luz nos últimos 90 dias. A app simula o contador da E-Redes segundo a segundo, com os dados do teu Shelly.',
     meter: 'Contador',
     margin: 'Margem de segurança (%)',
     marginHint:
@@ -634,16 +657,16 @@ export const t = {
       weekColumns: {
         week: 'Semana de',
         evaluated: 'Valores de 10 min',
-        outside: 'Fora de ± 10 %',
+        outside: 'Fora de 230 V ± 10 %',
         result: 'Resultado',
       },
       evaluated: (count: number, expected: number) => `${count} de ${expected}`,
       excluded: (count: number) =>
         `${count} ${count === 1 ? 'excluído' : 'excluídos'} por falha de energia`,
       meets: 'cumpre',
-      failsBand: 'mais de 5 % fora de ± 10 %',
+      failsBand: 'mais de 5 % fora de 230 V ± 10 %',
       failsLimits: 'valores fora de − 15 % / + 10 %',
-      episodesTitle: 'Episódios fora de ± 10 % (valores de cada minuto)',
+      episodesTitle: 'Episódios fora de 230 V ± 10 % (valores de cada minuto)',
       minMinutes: 'Duração mínima (minutos)',
       episodeColumns: {
         start: 'Início',
@@ -893,7 +916,7 @@ export const t = {
       noNights: 'Ainda não há noites com dados suficientes (entre as 0 h e as 6 h).',
       monthsTitle: 'Mês a mês',
       method:
-        'Em cada noite, entre as 0 h e as 6 h, a app vê a potência média de cada quarto de hora e fica com um dos valores mais baixos (o percentil 10), para que um quarto de hora fora do normal não decida. O valor de cada mês é o das noites típicas desse mês.',
+        'Em cada noite, entre as 0 h e as 6 h, a app vê a potência média de cada quarto de hora e fica com um dos valores mais baixos: o que só 1 em cada 10 quartos de hora fica abaixo. Assim, um quarto de hora fora do normal não decide. O valor de cada mês é o das noites típicas desse mês.',
       eredesNote:
         'Com os quartos de hora da E-Redes, as pausas curtas do frigorífico ficam na média: o valor real é um pouco mais baixo. Com o Shelly fica mais exato.',
       costNote:
@@ -1083,7 +1106,7 @@ export const t = {
     caveats: [
       'Estimativa para um ano igual ao medido; os preços são os da ERSE de hoje, sem IVA, e a app soma o IVA, as taxas, os serviços obrigatórios e os descontos de cada oferta.',
       'A tarifa social, o seu financiamento, o IEC, a contribuição audiovisual e a taxa DGEG são os do teu tarifário e iguais em todas as ofertas.',
-      'Descontos só para novos clientes e campanhas não estão incluídos. Muitas ofertas exigem débito direto ou fatura eletrónica (vem no nome).',
+      'Descontos só para novos clientes e campanhas não estão incluídos. Muitas ofertas exigem débito direto ou fatura eletrónica: no nome, «DD» e «FE».',
       'Ofertas "com gás" pedem o gás no mesmo comercializador; mudar só a eletricidade pode fazer perder o desconto dual que tens hoje.',
       'Bi e tri-horário: a app escolhe o ciclo (diário ou semanal) mais barato para ti; confirma com o comercializador qual oferece.',
     ],

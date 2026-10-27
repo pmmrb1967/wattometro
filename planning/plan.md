@@ -280,11 +280,11 @@ Revisão de 27/10/2026 (todas as páginas a 390×844 e 1280×800, claro e escuro
 - [x] Consumo: gráfico primeiro; "Quanto custam os aparelhos", "Ao segundo" e calibração em Consumo › Aparelhos (`/consumo/aparelhos`); a previsão fica inteira (o Início liga para `#previsao`)
 - [x] Definições: índice dos grupos (Tarifário, Dados e Shelly, Avisos, IA, Casa, Conta), com o tarifário primeiro; botões com a mesma largura; ficheiro com um botão estilizado. As ligações para uma parte de uma página (`/consumo#previsao`, `/definicoes#tarifario`) descem até ela (`use-hash-scroll.ts`)
 - [x] Relatório: sugestões logo a seguir ao custo; o consumo base com o custo do mês
-- [ ] Página de entrada: três conclusões de exemplo e "Experimentar com dados de exemplo" antes do login
-- [ ] Largura útil maior no computador (~960 px), com os números em duas colunas
+- [x] Página de entrada: título, três conclusões da casa de exemplo e "Experimentar com dados de exemplo" (botão principal) antes do login
+- [x] ~~Largura útil maior no computador~~: fica nos 640 px (ver Decisões)
 
 ### 10.3 Texto
-- [ ] "Palavra-passe" em vez de "password"; explicar "DD+FE", "percentil", "± 10 %", "escalão"; partir frases com mais de ~25 palavras
+- [x] "Palavra-passe" em vez de "password"; explicar "DD+FE", "percentil", "± 10 %" (230 V ± 10 %); a introdução da Potência partida em duas frases
 
 ---
 
@@ -394,3 +394,4 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 - 2026-10-26 — **Aparelhos com nome (8.3).** Um aparelho é um nome e um descritor (potência a 230 V, potência de cada fase, pulsos), guardado no servidor para todos os aparelhos da conta verem o mesmo. Nasce de "O que é?" num grupo de ciclos ou de uma calibração. A classificação corre no browser sobre os ciclos de cada dia; a tolerância (25 W ou 5 %) é um pouco mais larga do que o agrupamento de um dia (20 W ou 3 %), pela variação entre dias, e foi apertada depois de, na demonstração, um televisor de 150 W passar por frigorífico de 110 W com 40 W. Por agora não guarda os ciclos classificados (tabela `events`): recalcula-se a partir dos valores ao segundo, o que também deixa reprocessar quando o algoritmo melhorar.
 - 2026-10-26 — **Deploy automático pelo CI.** A pedido do utilizador, como no faturometro: num push ao `main`, depois das verificações, o job `deploy` aplica as migrações D1 e publica o `api` e a `app`, com um token de conta guardado no segredo `CLOUDFLARE_API_TOKEN` (Workers Scripts, D1 e Workers Routes, Edit). Sem o segredo, o job só deixa um aviso. Substitui o deploy manual de 2026-10-21.
 - 2026-10-26 — **Duração dos ciclos no reconhecimento.** A primeira calibração real (máquina de lavar, 26/10 13:29–14:57) deu um só ciclo útil: o aquecimento, 1,96 kW durante 11 min. Só pela potência, apanharia a chaleira e outros aparelhos resistivos de ~2 kW. O utilizador lembrou que as máquinas de lavar e de secar têm programas de durações diferentes: por isso a duração é um intervalo largo (metade a dobro) que se alarga sempre que se dá o mesmo nome a outro ciclo, e não um valor fixo.
+- 2026-10-27 — **Largura da página no computador fica nos 640 px.** A revisão de design sugeria ~960 px; com texto corrido, linhas de 900 px passam bem dos ~80 caracteres que se leem bem, e os cartões são sobretudo texto e tabelas curtas. Volta-se a isto se houver um painel com vários números lado a lado.

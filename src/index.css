@@ -440,11 +440,6 @@ h2 {
   margin: 0;
 }
 
-.tagline {
-  margin: 0;
-  color: var(--muted);
-}
-
 .badge {
   display: inline-block;
   margin: 0;
@@ -454,6 +449,13 @@ h2 {
   background: var(--surface);
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+/* The page before signing in: what the app concludes, then the demo. */
+.landing-title {
+  font-size: clamp(1.75rem, 6vw, 2.25rem);
+  line-height: 1.15;
+  text-wrap: balance;
 }
 
 /* "Início": the conclusions of each page, a link to it. */

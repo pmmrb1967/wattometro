@@ -220,15 +220,26 @@ export function AppShell() {
             {me === undefined && <p className="hint">{t.loading}</p>}
             {me === null && (
               <>
-                <p className="tagline">{t.tagline}</p>
-                <Login onSignedIn={setMe} />
+                <h1 className="landing-title">{t.landing.title}</h1>
+                <p className="lead">{t.tagline}</p>
+                <section className="actions" aria-label={t.landing.examplesLabel}>
+                  {t.landing.examples.map(([title, value, hint]) => (
+                    <div key={title} className="action">
+                      <span className="action-title">{title}</span>
+                      <span className="action-value">{value}</span>
+                      <span className="action-hint">{hint}</span>
+                    </div>
+                  ))}
+                </section>
+                <p className="hint">{t.landing.examplesNote}</p>
                 <section className="card">
                   <h2>{t.demo.title}</h2>
                   <p className="hint">{t.demo.intro}</p>
-                  <button type="button" className="secondary" onClick={startDemo}>
+                  <button type="button" className="primary" onClick={startDemo}>
                     {t.demo.enter}
                   </button>
                 </section>
+                <Login onSignedIn={setMe} />
                 <InstallSection />
               </>
             )}
