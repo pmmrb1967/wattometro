@@ -151,6 +151,7 @@ export const t = {
       get_anomalies: 'dias fora do habitual',
       forecast_month_bill: 'previsão da fatura',
       get_voltage_events: 'qualidade da energia',
+      get_appliances: 'custo dos aparelhos',
     } as Record<string, string>,
   },
   explain: {
@@ -717,6 +718,25 @@ export const t = {
     error: 'Não foi possível guardar. Tenta outra vez.',
     recognise: 'Reconhecer nos outros dias',
     recognised: (label: string) => `Reconhecido como "${label}".`,
+  },
+  recentAppliances: {
+    title: 'Quanto custam os aparelhos',
+    working: 'A analisar os últimos dias ao segundo…',
+    error: 'Não foi possível ler os valores ao segundo dos últimos dias. Tenta mais tarde.',
+    noDays: 'Ainda não há um dia inteiro com valores ao segundo.',
+    intro: (days: number, first: string, last: string) =>
+      days === 1
+        ? `No dia ${first}, e um mês igual a esse dia.`
+        : `Nos últimos ${days} dias inteiros (${first} a ${last}), e um mês igual a estes dias.`,
+    none: 'Nenhum aparelho com nome trabalhou nestes dias.',
+    appliance: 'Aparelho',
+    uses: 'Usos',
+    energy: 'Energia',
+    cost: 'Custo',
+    perMonth: 'Num mês',
+    how: 'Custo da energia com o teu tarifário, à hora de cada uso, com IEC e IVA (a potência contratada paga-se na mesma). O mês é uma projeção destes dias: um dia com mais lavagens, ou menos, muda-a.',
+    onlyNamed:
+      'Só conta os aparelhos com nome, e só os dias com valores ao segundo quase completos. Para dar nome a um aparelho, usa "O que é?" em "Ao segundo".',
   },
   knownAppliances: {
     title: 'Aparelhos que a app reconhece',

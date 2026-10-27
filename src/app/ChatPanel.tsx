@@ -84,7 +84,7 @@ export function ChatPanel({
   const energy = useHouseholdEnergy();
   const [today] = useState(lisbonToday);
   const weather = useWeather(today);
-  const context = toolContext(energy, weather);
+  const context = toolContext(energy, weather, me.householdId);
 
   const [question, setQuestion] = useState('');
   const [exchanges, setExchanges] = useState<Exchange[]>([]);

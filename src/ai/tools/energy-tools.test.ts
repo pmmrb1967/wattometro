@@ -91,6 +91,7 @@ const context: ToolContext = {
   offers: async () => offers,
   power: async () => null,
   quality: async () => null,
+  appliances: async () => null,
 };
 
 async function call(name: string, input: unknown = {}) {

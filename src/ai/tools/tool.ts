@@ -11,6 +11,7 @@ import type { PeakMinute } from '../../domain/contracted-power';
 import type { Offer } from '../../domain/erse';
 import type { Tariff } from '../../domain/tariff';
 import type { Interval, MinuteVoltage, Outage, QualityZone } from '../../domain/voltage';
+import type { RecentAppliances } from '../../nilm/recent';
 import type { EpochSeconds, LocalDate } from '../../lib/time';
 import type { TenthsCelsius, Wh } from '../../lib/units';
 
@@ -54,6 +55,8 @@ export interface ToolContext {
   /** Asked from the Worker only when a tool needs them; null when unavailable. */
   power: () => Promise<PowerFacts | null>;
   quality: () => Promise<QualityFacts | null>;
+  /** The named appliances over the last whole days (src/nilm/recent.ts); null without them. */
+  appliances: () => Promise<RecentAppliances | null>;
 }
 
 export interface AiTool<Input = unknown> {

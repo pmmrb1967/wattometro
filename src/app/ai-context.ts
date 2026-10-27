@@ -2,14 +2,24 @@
 /**
  * The data the AI's tools work on (src/ai/tools/), from what the pages
  * already loaded (the house's quarters, tariffs and weather) plus what
- * "Potência" and "Qualidade" ask the Worker for, with their default periods.
- * Those two are only asked for when a tool needs them, once per question.
+ * "Potência" and "Qualidade" ask the Worker for, with their default periods,
+ * and the named appliances of the last days. Those are only asked for when a
+ * tool needs them, once per question.
  */
 import type { PowerFacts, QualityFacts, ToolContext } from '../ai/tools/tool';
 import { decodePeaks, periodPeak } from '../domain/contracted-power';
 import { mondayOf, outagesFromBoots, VOLTAGE_LIMITS } from '../domain/voltage';
 import { lisbonDate, lisbonParts, lisbonToday, startOfLisbonDay } from '../lib/time';
-import { fetchBoots, fetchOffers, fetchPeakRecords, fetchPower, fetchQuality } from './api';
+import type { RecentAppliances } from '../nilm/recent';
+import {
+  fetchAppliances,
+  fetchBoots,
+  fetchOffers,
+  fetchPeakRecords,
+  fetchPower,
+  fetchQuality,
+} from './api';
+import { loadRecentAppliances } from './recent-appliances';
 import type { HouseholdEnergy } from './household-energy';
 import { shellyName } from './meters';
 import type { Weather } from './use-weather';
@@ -81,10 +91,29 @@ function once<T>(load: () => Promise<T>): () => Promise<T> {
   return () => (promise ??= load());
 }
 
+/** The named appliances over the last days, as on "Consumo"; null without a Shelly or names. */
+async function loadAppliances(
+  householdId: string,
+  energy: HouseholdEnergy,
+): Promise<RecentAppliances | null> {
+  if (!energy.houseShelly) return null;
+  const named = await fetchAppliances();
+  if (!named.ok || named.appliances.length === 0) return null;
+  return loadRecentAppliances({
+    householdId,
+    meter: energy.houseShelly,
+    today: lisbonToday(),
+    shellyFrom: energy.shellyFrom,
+    tariffs: energy.tariffs,
+    appliances: named.appliances,
+  });
+}
+
 /** Null while the house's data is still loading. */
 export function toolContext(
   energy: HouseholdEnergy,
   weather: Weather | undefined,
+  householdId: string,
 ): ToolContext | null {
   if (
     !energy.quarters ||
@@ -103,5 +132,6 @@ export function toolContext(
     offers: once(async () => (await fetchOffers())?.offers ?? null),
     power: once(() => loadPower(now)),
     quality: once(() => loadQuality(now)),
+    appliances: once(() => loadAppliances(householdId, energy)),
   };
 }

@@ -78,6 +78,8 @@ const context: ToolContext = {
   offers: async () => offersFile.offers,
   power: async () => ({ kind: 'eredes', maxQuarterW: maxQuarterWh * 4 }),
   quality: async () => null,
+  // An E-Redes export has no per-second values.
+  appliances: async () => null,
 };
 
 /** The month before "today". */

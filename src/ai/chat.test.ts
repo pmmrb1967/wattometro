@@ -17,6 +17,7 @@ const context: ToolContext = {
   offers: async () => null,
   power: async () => null,
   quality: async () => null,
+  appliances: async () => null,
 };
 
 const toolUse = (id: string, name: string, input: unknown) => ({
@@ -69,7 +70,7 @@ describe('askWattometro', () => {
       output_config: { effort: 'medium' },
       cache_control: { type: 'ephemeral' },
     });
-    expect((first?.body.tools as unknown[]).length).toBe(8);
+    expect((first?.body.tools as unknown[]).length).toBe(9);
     const messages = second?.body.messages as { role: string; content: unknown }[];
     expect(messages.map((item) => item.role)).toEqual(['user', 'assistant', 'user']);
     expect(String(messages[0]?.content)).toContain(

@@ -15,27 +15,15 @@ import {
   formatLisbonTime,
   formatLocalDate,
   lisbonToday,
-  nextDate,
-  startOfLisbonDay,
   type LocalDate,
 } from '../lib/time';
 import { formatKwh, formatPower } from '../lib/units';
-import {
-  applianceTotals,
-  classify,
-  confusable,
-  describeGroup,
-  groupAppliance,
-  seriesEnergyWh,
-  seriesQuarters,
-} from '../nilm/appliances';
-import { applianceCostCents, spreadOverQuarters } from '../domain/appliance-cost';
+import { confusable, describeGroup, groupAppliance } from '../nilm/appliances';
 import { tariffOn } from '../domain/tariff';
 import { formatCents } from '../lib/money';
-import { detectEvents } from '../nilm/events';
-import { findCycles } from '../nilm/pipeline';
-import { decodeSecondsRecords, toSeries } from '../nilm/series';
-import { groupCycles, type CycleGroup } from '../nilm/summary';
+import { analyseDay, nameDay } from '../nilm/day';
+import { decodeSecondsRecords } from '../nilm/series';
+import type { CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
 import { addAppliance, useAppliances } from './appliances-store';
 import type { HouseholdEnergy } from './household-energy';
@@ -181,45 +169,15 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
 
   const result = useMemo(() => {
     if (!loaded || 'error' in loaded) return null;
-    const minutes = decodeSecondsRecords(loaded.records);
-    const series = toSeries(
-      minutes,
-      startOfLisbonDay(loaded.day),
-      startOfLisbonDay(nextDate(loaded.day)),
-    );
-    const events = detectEvents(series);
-    const cycles = findCycles(events, series);
-    return {
-      minutes: minutes.length,
-      events,
-      cycles,
-      groups: groupCycles(cycles),
-      energyWh: seriesEnergyWh(series),
-      quarters: seriesQuarters(series),
-    };
+    return analyseDay(decodeSecondsRecords(loaded.records), loaded.day);
   }, [loaded]);
 
   const appliances = known.kind === 'ready' ? known.appliances : null;
   const tariff = loaded && energy.tariffs ? tariffOn(energy.tariffs, loaded.day) : null;
-  const named = useMemo(() => {
-    if (!result || !appliances) return null;
-    const byCycle = classify(result.cycles, appliances);
-    const { totals, explainedPct } = applianceTotals(result.cycles, byCycle, result.energyWh);
-    return {
-      byCycle,
-      explainedPct,
-      totals: totals.map((total) => ({
-        ...total,
-        costCents: tariff
-          ? applianceCostCents(
-              spreadOverQuarters(total.energyWh, total.spans),
-              result.quarters,
-              tariff,
-            )
-          : null,
-      })),
-    };
-  }, [result, appliances, tariff]);
+  const named = useMemo(
+    () => (result && appliances ? nameDay(result, appliances, tariff) : null),
+    [result, appliances, tariff],
+  );
 
   if (!meter || days.length === 0) return null;
   const pending = !loaded || loaded.day !== day;

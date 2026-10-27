@@ -171,7 +171,7 @@ Antes de dar uma tarefa por concluída: `pnpm typecheck && pnpm lint && pnpm tes
 ## IA
 
 - Sempre por `src/ai/` (abstração `AiProvider`). Nada de chamadas diretas ao SDK espalhadas pela app.
-- Tool use com ferramentas executadas **no browser** sobre dados já calculados: `get_consumption_summary`, `get_cost_breakdown`, `simulate_tariffs`, `recommend_contracted_power`, `get_baseload`, `get_anomalies`, `forecast_month_bill`, `get_voltage_events`.
+- Tool use com ferramentas executadas **no browser** sobre dados já calculados: `get_consumption_summary`, `get_cost_breakdown`, `simulate_tariffs`, `recommend_contracted_power`, `get_baseload`, `get_anomalies`, `forecast_month_bill`, `get_voltage_events`, `get_appliances`.
 - Saída estruturada validada com zod; uma nova tentativa no máximo.
 - Mostrar o custo estimado antes de enviar (salvo se o utilizador ativou o envio automático).
 - Prompts em `src/ai/prompts/`, versionados, em pt-PT.

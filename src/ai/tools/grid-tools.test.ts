@@ -43,6 +43,7 @@ function context(power: PowerFacts | null, quality: QualityFacts | null = null):
     offers: async () => [],
     power: async () => power,
     quality: async () => quality,
+    appliances: async () => null,
   };
 }
 

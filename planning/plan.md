@@ -232,6 +232,7 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 ### 8.4 Resultados
 - [x] Energia por aparelho com nome e percentagem da energia do dia explicada (métrica honesta), no cartão "Ao segundo" (`applianceTotals`)
 - [x] Custo por aparelho (`src/domain/appliance-cost.ts`): a energia de cada aparelho espalhada pelos quartos de hora dos seus usos; custo = fatura do dia (energia, IEC, IVA, com o tarifário em vigor nesse dia) menos a fatura do dia sem o aparelho, como no consumo de fundo e nos dias fora do habitual. Em "Aparelhos reconhecidos neste dia"; sem tarifário, uma ligação para o indicar
+- [x] "Quanto custam os aparelhos" em Consumo (`src/nilm/recent.ts`, `src/app/recent-appliances.ts`): os aparelhos com nome nos últimos 7 dias inteiros (só os dias com ≥90 % dos minutos), com usos, energia, custo e um mês igual a esses dias (× 365 / 12 / dias). A análise de um dia (`src/nilm/day.ts`) é a mesma de "Ao segundo"; ~80 ms por dia. Ferramenta da IA `get_appliances` com os mesmos números
 - [ ] Ciclos por aparelho para a saúde de aparelhos (Fase 6): duty cycle do frigorífico, duração do aquecimento do termoacumulador
 
 **Limite assumido:** com ~1 amostra por segundo não há transitórios ao milissegundo nem harmónicos; isso exigiria outro hardware e fica fora do âmbito.
