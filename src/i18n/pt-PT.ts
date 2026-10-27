@@ -649,8 +649,11 @@ export const t = {
     name: 'Guardar',
     cancel: 'Cancelar',
     named: 'Aparelhos reconhecidos neste dia',
-    namedRow: (count: number, energy: string) =>
-      `${count === 1 ? '1 vez' : `${count} vezes`}, ${energy}`,
+    namedRow: (count: number, energy: string, cost: string | null) =>
+      `${count === 1 ? '1 vez' : `${count} vezes`}, ${energy}${cost === null ? '' : `, ${cost}`}`,
+    costNote:
+      'Custo da energia com o teu tarifário, à hora de cada uso, com IEC e IVA: o que a fatura deste dia teria a menos sem o aparelho. A potência contratada paga-se na mesma.',
+    noTariff: 'Para ver quanto custou cada aparelho, indica o teu tarifário.',
     explained: (percent: number, energy: string) =>
       `Os aparelhos com nome explicam ${percent} % da energia deste dia (${energy}). O resto é o consumo de fundo e o que ainda não tem nome.`,
     nameFailed: 'Não foi possível guardar o nome. Tenta outra vez.',

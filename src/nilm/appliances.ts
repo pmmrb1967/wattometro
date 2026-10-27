@@ -23,6 +23,7 @@
  * only an appliance with as many heatings: a dishwasher heating four times is
  * not a washing machine heating once.
  */
+import { QUARTER_HOUR } from '../lib/time';
 import { MISSING, type SecondsSeries } from './series';
 import type { Cycle } from './cycles';
 import { overlapCappedWh } from './energy';
@@ -212,10 +213,27 @@ export function seriesEnergyWh(series: SecondsSeries): number {
   return Math.round(joules / 3600);
 }
 
+/** The series' energy by quarter hour (by its start), Wh; the series starts on a quarter. */
+export function seriesQuarters(series: SecondsSeries): { ts: number; energyWh: number }[] {
+  const quarters: { ts: number; energyWh: number }[] = [];
+  for (let from = 0; from < series.power.length; from += QUARTER_HOUR) {
+    let joules = 0;
+    const to = Math.min(series.power.length, from + QUARTER_HOUR);
+    for (let index = from; index < to; index++) {
+      const watts = series.power[index] as number;
+      if (watts !== MISSING && watts > 0) joules += watts;
+    }
+    quarters.push({ ts: series.start + from, energyWh: Math.round(joules / 3600) });
+  }
+  return quarters;
+}
+
 export interface ApplianceTotal {
   appliance: Appliance;
   cycles: number;
   energyWh: number;
+  /** When it was on: its cycles' spans (for the hour of each, src/domain/appliance-cost.ts). */
+  spans: { start: number; end: number }[];
 }
 
 /**
@@ -241,8 +259,9 @@ export function applianceTotals(
   const totals = new Map<string, ApplianceTotal>();
   for (const { appliance, cycles: own } of byDescriptor.values()) {
     const key = appliance.label.trim().toLocaleLowerCase('pt');
-    const total = totals.get(key) ?? { appliance, cycles: 0, energyWh: 0 };
+    const total = totals.get(key) ?? { appliance, cycles: 0, energyWh: 0, spans: [] };
     total.cycles += own.length;
+    total.spans.push(...own.map(({ start, end }) => ({ start, end })));
     total.energyWh += overlapCappedWh(own, appliance.powerW);
     totals.set(key, total);
   }

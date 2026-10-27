@@ -27,7 +27,11 @@ import {
   describeGroup,
   groupAppliance,
   seriesEnergyWh,
+  seriesQuarters,
 } from '../nilm/appliances';
+import { applianceCostCents, spreadOverQuarters } from '../domain/appliance-cost';
+import { tariffOn } from '../domain/tariff';
+import { formatCents } from '../lib/money';
 import { detectEvents } from '../nilm/events';
 import { findCycles } from '../nilm/pipeline';
 import { decodeSecondsRecords, toSeries } from '../nilm/series';
@@ -191,15 +195,31 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       cycles,
       groups: groupCycles(cycles),
       energyWh: seriesEnergyWh(series),
+      quarters: seriesQuarters(series),
     };
   }, [loaded]);
 
   const appliances = known.kind === 'ready' ? known.appliances : null;
+  const tariff = loaded && energy.tariffs ? tariffOn(energy.tariffs, loaded.day) : null;
   const named = useMemo(() => {
     if (!result || !appliances) return null;
     const byCycle = classify(result.cycles, appliances);
-    return { byCycle, ...applianceTotals(result.cycles, byCycle, result.energyWh) };
-  }, [result, appliances]);
+    const { totals, explainedPct } = applianceTotals(result.cycles, byCycle, result.energyWh);
+    return {
+      byCycle,
+      explainedPct,
+      totals: totals.map((total) => ({
+        ...total,
+        costCents: tariff
+          ? applianceCostCents(
+              spreadOverQuarters(total.energyWh, total.spans),
+              result.quarters,
+              tariff,
+            )
+          : null,
+      })),
+    };
+  }, [result, appliances, tariff]);
 
   if (!meter || days.length === 0) return null;
   const pending = !loaded || loaded.day !== day;
@@ -234,7 +254,13 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                 {named.totals.map((total) => (
                   <li key={total.appliance.id}>
                     <strong>{total.appliance.label}</strong>
-                    <span>{texts.namedRow(total.cycles, formatKwh(total.energyWh, 2))}</span>
+                    <span>
+                      {texts.namedRow(
+                        total.cycles,
+                        formatKwh(total.energyWh, 2),
+                        total.costCents === null ? null : formatCents(total.costCents),
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -242,6 +268,15 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                 <p className="hint">
                   {texts.explained(named.explainedPct, formatKwh(result.energyWh, 2))}
                 </p>
+              )}
+              {tariff ? (
+                <p className="hint">{texts.costNote}</p>
+              ) : (
+                energy.tariffs !== null && (
+                  <p className="hint">
+                    <Link to="/tarifarios">{texts.noTariff}</Link>
+                  </p>
+                )
               )}
             </div>
           )}
