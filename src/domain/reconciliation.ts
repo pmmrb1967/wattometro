@@ -2,13 +2,15 @@
 /**
  * The Shelly against E-Redes on the days both measured whole: E-Redes is the
  * billing reference, so the difference is the Shelly's, as a share of E-Redes.
- * A Shelly day counts only with every minute of its Lisbon day (1440, or 1380
- * and 1500 when the clocks change); a day it missed minutes would understate it.
+ * A day counts only with every minute of its Lisbon day (1440, or 1380 and
+ * 1500 when the clocks change) on both sides: a day the Shelly missed minutes,
+ * or an E-Redes export that ends early in the day (26/10/2026: 2 quarter
+ * hours, which made the Shelly measure "2686 % more"), would distort it.
  * From the daily totals (GET /v1/energy/days): integer Wh, a ratio only at the end.
  */
 import { nextDate, startOfLisbonDay, type LocalDate } from '../lib/time';
 
-/** [date, Wh, minutes with data or null] */
+/** [date, Wh, minutes with data (E-Redes: its quarter hours × 15) or null when unknown] */
 export type DayEnergy = readonly [LocalDate, number, number | null];
 
 /** A day this far (in tenths of a percentage point) from the overall difference is shown apart. */
@@ -29,7 +31,7 @@ export interface Reconciliation {
   shellyWh: number;
   /** Over all those days; null without any (or with E-Redes at zero). */
   tenths: number | null;
-  /** Days both have, left out because the Shelly missed minutes. */
+  /** Days both have, left out because one of them is not whole. */
   incomplete: number;
   /** Days far from the overall difference (UNUSUAL_TENTHS), largest first. */
   unusual: ReconciledDay[];
@@ -50,10 +52,11 @@ export function reconcile(
   const ofShelly = new Map(shelly.map(([date, wh, minutes]) => [date, { wh, minutes }]));
   const days: ReconciledDay[] = [];
   let incomplete = 0;
-  for (const [date, eredesWh] of eredes) {
+  for (const [date, eredesWh, eredesMinutes] of eredes) {
     const day = ofShelly.get(date);
     if (!day) continue;
-    if (day.minutes !== dayMinutes(date) || eredesWh <= 0) {
+    const eredesWhole = eredesMinutes === null || eredesMinutes === dayMinutes(date);
+    if (day.minutes !== dayMinutes(date) || !eredesWhole || eredesWh <= 0) {
       incomplete += 1;
       continue;
     }

@@ -8,6 +8,7 @@ import {
   lisbonDate,
   lisbonParts,
   nextDate,
+  QUARTER_HOUR,
   startOfLisbonDay,
   type EpochSeconds,
   type LocalDate,
@@ -66,6 +67,9 @@ export function dayTotal(date: LocalDate, quarters: readonly PricedQuarter[]): D
  * E-Redes up to its last day (what is billed), the Shelly on the days after it
  * (the E-Redes export arrives later, imported by hand). Days the E-Redes data
  * lacks before its last one stay empty: the two are not mixed within the record.
+ * An export often ends early in a day (26/10/2026: the first quarter hours
+ * only); when the Shelly has that day, it is the Shelly's, whole, and the few
+ * E-Redes quarters are left out (they would make the day look nearly empty).
  * `shellyFrom` is the first day taken from the Shelly; null when none is.
  */
 export function houseQuarters(
@@ -76,14 +80,23 @@ export function houseQuarters(
     (latest, { ts }) => (latest === null || ts > latest ? ts : latest),
     null,
   );
-  const cut = last === null ? null : startOfLisbonDay(nextDate(lisbonDate(last)));
+  const lastDay = last === null ? null : lisbonDate(last);
+  const from = lastDay === null ? null : startOfLisbonDay(lastDay);
+  const partial =
+    from !== null &&
+    lastDay !== null &&
+    eredes.filter(({ ts }) => ts >= from).length * QUARTER_HOUR <
+      startOfLisbonDay(nextDate(lastDay)) - from &&
+    shelly.some(({ ts }) => ts >= from && ts < startOfLisbonDay(nextDate(lastDay)));
+  const cut = lastDay === null ? null : partial ? from : startOfLisbonDay(nextDate(lastDay));
+  const kept = partial ? eredes.filter(({ ts }) => cut === null || ts < cut) : eredes;
   const after = shelly.filter(({ ts }) => cut === null || ts >= cut);
   const first = after.reduce<EpochSeconds | null>(
     (earliest, { ts }) => (earliest === null || ts < earliest ? ts : earliest),
     null,
   );
   return {
-    quarters: [...eredes, ...after].sort((a, b) => a.ts - b.ts),
+    quarters: [...kept, ...after].sort((a, b) => a.ts - b.ts),
     shellyFrom: first === null ? null : lisbonDate(first),
   };
 }

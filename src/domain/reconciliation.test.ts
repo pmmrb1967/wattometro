@@ -45,6 +45,23 @@ describe('reconcile', () => {
     expect(result.unusual.map((day) => day.date)).toEqual(['2026-11-04']);
   });
 
+  it('leaves out a day the E-Redes export only began (26/10/2026)', () => {
+    const result = reconcile(
+      [
+        ['2026-10-25', 6_320, 1500],
+        ['2026-10-26', 321, 30],
+      ],
+      [
+        ['2026-10-25', 6_074, 1500],
+        ['2026-10-26', 8_943, 1440],
+      ],
+    );
+    expect(result.days.map((item) => item.date)).toEqual(['2026-10-25']);
+    expect(result.incomplete).toBe(1);
+    // (6074 − 6320) / 6320 = −3,9 %.
+    expect(result.tenths).toBe(-39);
+  });
+
   it('has nothing to say without days in common', () => {
     const result = reconcile([['2026-10-20', 9_000, null]], [['2026-10-25', 9_000, 1500]]);
     expect(result).toMatchObject({ days: [], tenths: null, incomplete: 0, unusual: [] });

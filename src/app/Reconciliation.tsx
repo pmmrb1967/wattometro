@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { reconcile, type DayEnergy } from '../domain/reconciliation';
 import { t } from '../i18n/pt-PT';
+import { lisbonDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
 
 const texts = t.consumption.reconcile;
@@ -28,13 +29,27 @@ export function Reconciliation({
   compare,
   shellyName,
 }: {
-  compare: { eredesDays: readonly DayEnergy[]; shellyDays: readonly DayEnergy[] };
+  compare: {
+    eredes: readonly { ts: number }[];
+    eredesDays: readonly DayEnergy[];
+    shellyDays: readonly DayEnergy[];
+  };
   shellyName: string;
 }) {
-  const result = useMemo(
-    () => reconcile(compare.eredesDays, compare.shellyDays),
-    [compare.eredesDays, compare.shellyDays],
-  );
+  const result = useMemo(() => {
+    // The E-Redes days' minutes, from their quarter hours (the daily totals do not say).
+    const quarters = new Map<string, number>();
+    for (const { ts } of compare.eredes) {
+      const date = lisbonDate(ts);
+      quarters.set(date, (quarters.get(date) ?? 0) + 1);
+    }
+    const eredesDays = compare.eredesDays.map(([date, wh]): DayEnergy => [
+      date,
+      wh,
+      (quarters.get(date) ?? 0) * 15,
+    ]);
+    return reconcile(eredesDays, compare.shellyDays);
+  }, [compare.eredes, compare.eredesDays, compare.shellyDays]);
   const firstShelly = compare.shellyDays[0]?.[0];
   return (
     <section className="card form">

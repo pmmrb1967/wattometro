@@ -101,6 +101,18 @@ describe('hourlyProfile', () => {
 });
 
 describe('houseQuarters', () => {
+  it('gives the Shelly a day the E-Redes export only began (26/10/2026)', () => {
+    // E-Redes: 25/10 whole and the first 2 quarters of 26/10; the Shelly: 25 and 26/10 whole.
+    const partial = [...day('2026-10-25', () => 60), ...day('2026-10-26', () => 160).slice(0, 2)];
+    const both = [...day('2026-10-25', () => 61), ...day('2026-10-26', () => 90)];
+    const { quarters, shellyFrom } = houseQuarters(partial, both);
+    expect(shellyFrom).toBe('2026-10-26');
+    // 25/10: 100 quarters (25 h) of E-Redes; 26/10: 96 of the Shelly.
+    expect(quarters.reduce((sum, quarter) => sum + quarter.energyWh, 0)).toBe(100 * 60 + 96 * 90);
+    // Without the Shelly that day, the E-Redes quarters stay.
+    expect(houseQuarters(partial, []).quarters).toHaveLength(102);
+  });
+
   const eredes = [...day('2026-10-20', () => 100), ...day('2026-10-22', () => 100)];
   const shelly = [
     ...day('2026-10-21', () => 7),

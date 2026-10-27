@@ -887,7 +887,7 @@ export const t = {
       totals: (days: number, eredes: string, shelly: string) =>
         `Em ${days} ${days === 1 ? 'dia completo' : 'dias completos'}: E-Redes ${eredes}, Shelly ${shelly}.`,
       incomplete: (days: number) =>
-        `${days} ${days === 1 ? 'dia em comum ficou' : 'dias em comum ficaram'} de fora porque o Shelly perdeu minutos (falha de luz, de rede ou do servidor).`,
+        `${days} ${days === 1 ? 'dia em comum ficou' : 'dias em comum ficaram'} de fora porque um dos dois não tem o dia inteiro: o Shelly perdeu minutos (falha de luz, de rede ou do servidor), ou o ficheiro da E-Redes acaba a meio do dia.`,
       unusualTitle: 'Dias fora do habitual',
       unusualIntro:
         'Afastam-se mais de 3 pontos da diferença habitual: costuma ser uma falha de um dos lados (por exemplo, valores estimados pela E-Redes).',
@@ -895,7 +895,7 @@ export const t = {
       none: (from: string) =>
         `Ainda não há dias medidos pelos dois. O Shelly mede desde ${from}: a comparação aparece quando importares um ficheiro da E-Redes que inclua dias desde então.`,
       onlyIncomplete: (days: number) =>
-        `Há ${days} ${days === 1 ? 'dia' : 'dias'} com dados dos dois, mas o Shelly perdeu minutos ${days === 1 ? 'nesse dia' : 'em todos'}: ainda não dá para comparar.`,
+        `Há ${days} ${days === 1 ? 'dia' : 'dias'} com dados dos dois, mas ${days === 1 ? 'não está inteiro' : 'nenhum está inteiro'} num dos lados (o Shelly perdeu minutos, ou o ficheiro da E-Redes acaba a meio do dia): ainda não dá para comparar.`,
       rule: 'Nos totais, na previsão, no consumo base e nos tarifários conta a E-Redes até ao último dia importado e o Shelly a partir daí: os dois nunca se somam.',
       normal:
         'Uma diferença pequena e estável é normal: são aparelhos diferentes, com tolerâncias próprias.',
