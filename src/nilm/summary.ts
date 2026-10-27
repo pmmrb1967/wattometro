@@ -25,6 +25,8 @@ export interface CycleGroup {
   statesW: number[];
   /** Runs of pulses (periodic.ts), not single cycles. */
   pulsing: boolean;
+  /** Heatings of each of the group's whole programmes (programmes.ts); null for other cycles. */
+  heats: number | null;
   cycles: Cycle[];
 }
 
@@ -38,11 +40,13 @@ function median(values: readonly number[]): number {
 
 /**
  * The same number of states, each of a similar power (the kettle is not a washing
- * machine), and both runs of pulses or neither (the kettle is not the hob).
+ * machine), both runs of pulses or neither (the kettle is not the hob), and
+ * programmes with as many heatings (the dishwasher is not the washing machine).
  */
 function sameStates(a: Cycle, b: Cycle): boolean {
   return (
     (a.pulses === undefined) === (b.pulses === undefined) &&
+    a.heats?.count === b.heats?.count &&
     a.states.length === b.states.length &&
     a.states.every(
       (state, index) =>
@@ -75,6 +79,7 @@ export function groupCycles(cycles: readonly Cycle[]): CycleGroup[] {
       cycles: list.sort((a, b) => a.start - b.start),
       statesW: (list[0] as Cycle).states.map((state) => state.powerW),
       pulsing: (list[0] as Cycle).pulses !== undefined,
+      heats: (list[0] as Cycle).heats?.count ?? null,
     }))
     .sort((a, b) => b.energyWh - a.energyWh);
 }

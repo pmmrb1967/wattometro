@@ -47,6 +47,7 @@ const appliance = (
   pulsing: false,
   minDurationS: null,
   maxDurationS: null,
+  heats: null,
   ...extra,
 });
 
@@ -107,6 +108,7 @@ describe('classify', () => {
       pulsing: false,
       minDurationS: 600,
       maxDurationS: 2400,
+      heats: null,
     });
   });
 

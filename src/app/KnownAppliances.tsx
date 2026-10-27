@@ -20,7 +20,9 @@ function describeAppliance(appliance: Appliance): string {
       ? appliance.statesW.map((watts) => formatPower(watts)).join(' → ')
       : appliance.pulsing
         ? t.dayEvents.pulsing(formatPower(appliance.powerW))
-        : formatPower(appliance.powerW);
+        : appliance.heats !== null
+          ? t.dayEvents.programme(formatPower(appliance.powerW), appliance.heats)
+          : formatPower(appliance.powerW);
   if (appliance.minDurationS === null || appliance.maxDurationS === null) return power;
   return texts.withDurations(
     power,

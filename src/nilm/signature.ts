@@ -8,10 +8,9 @@
  * widened by SLACK_S on each side.
  */
 import type { EpochSeconds } from '../lib/time';
-import { pairCycles, type Cycle } from './cycles';
-import { boundCycleEnergy } from './energy';
+import type { Cycle } from './cycles';
 import { detectEvents } from './events';
-import { mergePulses } from './periodic';
+import { findCycles } from './pipeline';
 import { toSeries, type MinuteSeconds } from './series';
 
 export const SLACK_S = 60;
@@ -29,7 +28,7 @@ export function signatureCycle(
   const first = Math.min(...minutes.map((minute) => minute.ts));
   const end = Math.max(...minutes.map((minute) => minute.ts)) + 60;
   const series = toSeries(minutes, first, end);
-  const cycles = boundCycleEnergy(mergePulses(pairCycles(detectEvents(series)), series), series);
+  const cycles = findCycles(detectEvents(series), series);
   const wide = { from: from - SLACK_S, to: to + SLACK_S };
   let best: Cycle | null = null;
   let bestScore = 0;

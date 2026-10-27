@@ -35,6 +35,7 @@ import { pairCycles, type Cycle } from '../src/nilm/cycles';
 import { detectEvents, DETECTOR_VERSION } from '../src/nilm/events';
 import { mergePulses } from '../src/nilm/periodic';
 import { boundCycleEnergy } from '../src/nilm/energy';
+import { mergeProgrammes } from '../src/nilm/programmes';
 import { decodeSecondsRecords, SECONDS_RECORD_BYTES, toSeries } from '../src/nilm/series';
 import { groupCycles } from '../src/nilm/summary';
 
@@ -140,7 +141,7 @@ function evaluate(): void {
     const series = toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
     const events = detectEvents(series);
     const pairs = pairCycles(events);
-    const cycles = boundCycleEnergy(mergePulses(pairs, series), series);
+    const cycles = mergeProgrammes(boundCycleEnergy(mergePulses(pairs, series), series), series);
     found.push({ day, cycles });
     console.log(
       `${name}: ${minutes.length} minutes, ${events.length} steps, ${cycles.length} cycles`,

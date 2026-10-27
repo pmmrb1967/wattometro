@@ -19,7 +19,9 @@
  * 60 °C), so the range starts at half to twice what was seen and widens with
  * every cycle the user names the same (nameAppliance). A programme of
  * another shape becomes a second descriptor with the same name; the energy
- * adds up by name (applianceTotals).
+ * adds up by name (applianceTotals). A whole programme (programmes.ts) fits
+ * only an appliance with as many heatings: a dishwasher heating four times is
+ * not a washing machine heating once.
  */
 import { MISSING, type SecondsSeries } from './series';
 import type { Cycle } from './cycles';
@@ -35,6 +37,8 @@ export interface ApplianceDescriptor {
   /** Range of its cycles' durations, s; null (named before there were ranges) fits any. */
   minDurationS: number | null;
   maxDurationS: number | null;
+  /** Heatings of a whole programme (programmes.ts); null for any other cycle. */
+  heats: number | null;
 }
 
 export interface Appliance extends ApplianceDescriptor {
@@ -69,6 +73,7 @@ export function describeGroup(group: CycleGroup): ApplianceDescriptor {
     pulsing: group.pulsing,
     minDurationS: minS,
     maxDurationS: maxS,
+    heats: group.heats,
   };
 }
 
@@ -80,6 +85,7 @@ export function describeCycle(cycle: Cycle): ApplianceDescriptor {
     pulsing: cycle.pulses !== undefined,
     minDurationS: minS,
     maxDurationS: maxS,
+    heats: cycle.heats?.count ?? null,
   };
 }
 
@@ -87,6 +93,7 @@ export function describeCycle(cycle: Cycle): ApplianceDescriptor {
 function sameShape(a: ApplianceDescriptor, b: ApplianceDescriptor): boolean {
   return (
     a.pulsing === b.pulsing &&
+    a.heats === b.heats &&
     a.statesW.length === b.statesW.length &&
     a.statesW.every(
       (watts, index) =>
@@ -144,6 +151,7 @@ export function nameAppliance(
 /** How far a cycle is from an appliance, W; null when it does not fit. */
 function distance(cycle: Cycle, appliance: ApplianceDescriptor): number | null {
   if ((cycle.pulses !== undefined) !== appliance.pulsing) return null;
+  if ((cycle.heats?.count ?? null) !== appliance.heats) return null;
   if (appliance.minDurationS !== null && cycle.durationS < appliance.minDurationS) return null;
   if (appliance.maxDurationS !== null && cycle.durationS > appliance.maxDurationS) return null;
   if (cycle.states.length !== appliance.statesW.length) return null;

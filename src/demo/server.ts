@@ -51,13 +51,14 @@ interface DemoAppliance {
   pulsing: boolean;
   minDurationS: number | null;
   maxDurationS: number | null;
+  heats: number | null;
   createdAt: number;
 }
 
 /** A descriptor as the server accepts it (server/src/app.ts, ApplianceBody). */
 function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'> | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { label, powerW, statesW, pulsing, minDurationS, maxDurationS } = value as Record<
+  const { label, powerW, statesW, pulsing, minDurationS, maxDurationS, heats } = value as Record<
     string,
     unknown
   >;
@@ -69,6 +70,8 @@ function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'>
     return null;
   }
   if (typeof pulsing !== 'boolean') return null;
+  const heatings = heats ?? null;
+  if (heatings !== null && (!Number.isInteger(heatings) || (heatings as number) < 1)) return null;
   const min = minDurationS ?? null;
   const max = maxDurationS ?? null;
   if ((min === null) !== (max === null)) return null;
@@ -85,6 +88,7 @@ function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'>
     pulsing,
     minDurationS: min as number | null,
     maxDurationS: max as number | null,
+    heats: heatings as number | null,
   };
 }
 

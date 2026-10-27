@@ -53,6 +53,17 @@ const FRIDGE = {
   pulsing: false,
   minDurationS: 540,
   maxDurationS: 2160,
+  heats: null,
+};
+
+const DISHWASHER = {
+  label: 'Máquina da loiça',
+  powerW: 2033,
+  statesW: [1998],
+  pulsing: false,
+  minDurationS: 1552,
+  maxDurationS: 6212,
+  heats: 4,
 };
 
 describe('/v1/appliances', () => {
@@ -95,6 +106,8 @@ describe('/v1/appliances', () => {
       { ...FRIDGE, pulsing: 'no' },
       { ...FRIDGE, minDurationS: null },
       { ...FRIDGE, minDurationS: 3000 },
+      { ...FRIDGE, heats: 0 },
+      { ...FRIDGE, heats: 2.5 },
     ]) {
       expect((await request(ana, 'POST', '/v1/appliances', bad)).status).toBe(400);
     }
@@ -104,13 +117,22 @@ describe('/v1/appliances', () => {
     expect((await request(ana, 'POST', '/v1/appliances', FRIDGE)).status).toBe(409);
   });
 
+  it('keeps the heatings of a whole programme (migration 0018)', async () => {
+    const ana = await signIn(0);
+    expect((await request(ana, 'POST', '/v1/appliances', DISHWASHER)).status).toBe(201);
+    const { appliances } = (await (await request(ana, 'GET', '/v1/appliances')).json()) as {
+      appliances: unknown[];
+    };
+    expect(appliances).toMatchObject([DISHWASHER]);
+  });
+
   it('accepts an appliance without durations (named before migration 0017)', async () => {
     const ana = await signIn(0);
     const { label, powerW, statesW, pulsing } = FRIDGE;
     const old = { label, powerW, statesW, pulsing };
     const created = await request(ana, 'POST', '/v1/appliances', old);
     expect(await created.json()).toMatchObject({
-      appliance: { minDurationS: null, maxDurationS: null },
+      appliance: { minDurationS: null, maxDurationS: null, heats: null },
     });
     // A change must change something.
     expect((await request(ana, 'PATCH', '/v1/appliances/x', {})).status).toBe(400);

@@ -121,7 +121,12 @@ function Library({
                             ? cycle.states.map((state) => formatPower(state.powerW)).join(' → ')
                             : cycle.pulses
                               ? t.dayEvents.pulsing(formatPower(cycle.powerW))
-                              : formatPower(cycle.powerW),
+                              : cycle.heats
+                                ? t.dayEvents.programme(
+                                    formatPower(cycle.powerW),
+                                    cycle.heats.count,
+                                  )
+                                : formatPower(cycle.powerW),
                           formatDuration(cycle.durationS),
                           formatKwh(cycle.energyWh, 2),
                         )}

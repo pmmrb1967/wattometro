@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * The house's named appliances (Phase 8.3, migrations 0016 and 0017): a label
+ * The house's named appliances (Phase 8.3, migrations 0016 to 0018): a label
  * and the descriptor the browser classifies cycles with
- * (src/nilm/appliances.ts), with the range of durations seen.
+ * (src/nilm/appliances.ts), with the range of durations seen and, for a whole
+ * programme, its number of heatings.
  */
 import { z } from 'zod';
 import type { Sql } from '../db';
@@ -18,6 +19,8 @@ export interface ApplianceInput {
   /** Range of its cycles' durations, s; null matches any duration. */
   minDurationS: number | null;
   maxDurationS: number | null;
+  /** Heatings of a whole programme (a dishwasher); null for anything else. */
+  heats: number | null;
 }
 
 export interface Appliance extends ApplianceInput {
@@ -36,9 +39,11 @@ export async function listAppliances(sql: Sql, householdId: string): Promise<App
     pulsing: number;
     min_duration_s: number | null;
     max_duration_s: number | null;
+    heats: number | null;
     created_at: number;
   }>(
-    `SELECT id, label, power_w, states_w, pulsing, min_duration_s, max_duration_s, created_at
+    `SELECT id, label, power_w, states_w, pulsing, min_duration_s, max_duration_s, heats,
+       created_at
      FROM appliances WHERE household_id = ? ORDER BY label`,
     householdId,
   );
@@ -50,6 +55,7 @@ export async function listAppliances(sql: Sql, householdId: string): Promise<App
     pulsing: row.pulsing === 1,
     minDurationS: row.min_duration_s,
     maxDurationS: row.max_duration_s,
+    heats: row.heats,
     createdAt: row.created_at,
   }));
 }
@@ -69,8 +75,8 @@ export async function createAppliance(
   const id = crypto.randomUUID();
   await sql.run(
     `INSERT INTO appliances (id, household_id, label, power_w, states_w, pulsing,
-       min_duration_s, max_duration_s, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       min_duration_s, max_duration_s, heats, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     householdId,
     input.label,
@@ -79,6 +85,7 @@ export async function createAppliance(
     input.pulsing ? 1 : 0,
     input.minDurationS,
     input.maxDurationS,
+    input.heats,
     now,
   );
   return { id, ...input, createdAt: now };

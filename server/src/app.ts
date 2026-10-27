@@ -61,8 +61,9 @@
  *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
  *   DELETE /v1/signatures/:id  → 204
  *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing,
- *                              minDurationS, maxDurationS, createdAt}]}
- *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?}
+ *                              minDurationS, maxDurationS, heats, createdAt}]}
+ *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?,
+ *                              heats?}
  *                              → 201 {appliance}; 409 too_many
  *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404
  *   DELETE /v1/appliances/:id  → 204
@@ -298,6 +299,7 @@ const ApplianceBody = z
     pulsing: z.boolean(),
     minDurationS: DurationS.nullable().default(null),
     maxDurationS: DurationS.nullable().default(null),
+    heats: z.number().int().min(1).max(20).nullable().default(null),
   })
   .refine(
     ({ minDurationS, maxDurationS }) =>

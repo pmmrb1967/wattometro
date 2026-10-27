@@ -480,6 +480,8 @@ const Appliance = z.object({
   pulsing: z.boolean(),
   minDurationS: int.nullable(),
   maxDurationS: int.nullable(),
+  // Missing from a server before migration 0018 (a cached response).
+  heats: int.nullable().default(null),
   createdAt: int,
 });
 export type Appliance = z.infer<typeof Appliance>;
@@ -503,6 +505,7 @@ export async function createAppliance(input: {
   pulsing: boolean;
   minDurationS: number | null;
   maxDurationS: number | null;
+  heats: number | null;
 }): Promise<{ ok: true; appliance: Appliance } | Failure> {
   const response = await send('POST', '/v1/appliances', input);
   if (response?.ok) {

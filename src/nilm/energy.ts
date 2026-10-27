@@ -9,7 +9,8 @@
  * boundCycleEnergy: second by second, a cycle can only count what the house
  * drew above its level before the cycle, and never more than its own power.
  * Uses of a pulsing appliance are left alone: mergePulses caps them already,
- * and two plates on at once draw twice the power of one.
+ * and two plates on at once draw twice the power of one; so are whole
+ * programmes (programmes.ts), which count what was drawn.
  *
  * overlapCappedWh: cycles of one group, or of one appliance, that overlap
  * count each second once (the same appliance cannot be on twice).
@@ -19,7 +20,7 @@ import { MISSING, type SecondsSeries } from './series';
 
 export function boundCycleEnergy(cycles: readonly Cycle[], series: SecondsSeries): Cycle[] {
   return cycles.map((cycle) => {
-    if (cycle.pulses !== undefined) return cycle;
+    if (cycle.pulses !== undefined || cycle.heats !== undefined) return cycle;
     const ceiling = Math.max(...cycle.states.map((state) => state.powerW), cycle.powerW);
     const first = Math.max(0, cycle.start - series.start);
     const last = Math.min(series.power.length, cycle.end - series.start);
@@ -51,6 +52,6 @@ function coveredSeconds(cycles: readonly Cycle[]): number {
 export function overlapCappedWh(cycles: readonly Cycle[], powerW: number): number {
   const sum = cycles.reduce((total, cycle) => total + cycle.energyWh, 0);
   // Pulsing uses already count only what was drawn (two plates at once included).
-  if (cycles.some((cycle) => cycle.pulses !== undefined)) return sum;
+  if (cycles.some((cycle) => cycle.pulses !== undefined || cycle.heats !== undefined)) return sum;
   return Math.min(sum, Math.round((Math.abs(powerW) * coveredSeconds(cycles)) / 3600));
 }

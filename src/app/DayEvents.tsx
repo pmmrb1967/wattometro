@@ -28,10 +28,8 @@ import {
   groupAppliance,
   seriesEnergyWh,
 } from '../nilm/appliances';
-import { pairCycles } from '../nilm/cycles';
-import { boundCycleEnergy } from '../nilm/energy';
 import { detectEvents } from '../nilm/events';
-import { mergePulses } from '../nilm/periodic';
+import { findCycles } from '../nilm/pipeline';
 import { decodeSecondsRecords, toSeries } from '../nilm/series';
 import { groupCycles, type CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
@@ -54,7 +52,9 @@ function groupPower(group: CycleGroup): string {
     ? group.statesW.map((watts) => formatPower(watts)).join(' → ')
     : group.pulsing
       ? texts.pulsing(formatPower(group.powerW))
-      : formatPower(group.powerW);
+      : group.heats !== null
+        ? texts.programme(formatPower(group.powerW), group.heats)
+        : formatPower(group.powerW);
 }
 
 /** Below this, groups sit near the detector's floor (MIN_STEP_W) and the house's own noise. */
@@ -184,7 +184,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       startOfLisbonDay(nextDate(loaded.day)),
     );
     const events = detectEvents(series);
-    const cycles = boundCycleEnergy(mergePulses(pairCycles(events), series), series);
+    const cycles = findCycles(events, series);
     return {
       minutes: minutes.length,
       events,

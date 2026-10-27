@@ -56,6 +56,8 @@ export interface Cycle {
   states: CycleState[];
   /** A run of pulses made one (periodic.ts): how many, and the seconds they were on. */
   pulses?: { count: number; onS: number };
+  /** A whole programme made one (programmes.ts): its heatings, and the seconds they were on. */
+  heats?: { count: number; onS: number };
 }
 
 interface Level {
