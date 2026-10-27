@@ -706,10 +706,18 @@ export const t = {
     limits:
       'Um aparelho que muda de fase sem desligar (máquina de lavar: aquecimento, depois motor) aparece com as potências de cada fase (2,00 kW → 400 W). Um que liga e desliga a mesma potência a cada poucos segundos ou minutos (placa de indução, forno a manter a temperatura) aparece como um só uso, "aos pulsos", com a energia dos pulsos. Os ciclos que passam a meia-noite não entram.',
   },
+  appliancesPage: {
+    title: 'Aparelhos',
+    open: 'Aparelhos',
+    back: '← Consumo',
+    intro:
+      'O que cada aparelho reconhecido gasta e custa, e os valores ao segundo de um dia, onde dás nome aos aparelhos.',
+    noShelly: 'Só com um Shelly no quadro: os aparelhos reconhecem-se pelos valores ao segundo.',
+  },
   calibrate: {
     title: 'Calibrar aparelhos',
     open: 'Calibrar um aparelho',
-    back: '← Consumo',
+    back: '← Aparelhos',
     intro:
       'Ensina a app a reconhecer os teus aparelhos: diz qual vais ligar, carrega em "Liguei" quando o ligares e em "Desliguei" quando o desligares. A app guarda os valores ao segundo desse intervalo, que de outra forma se apagam ao fim de 90 dias.',
     tip: 'Resulta melhor com o aparelho sozinho: evita ligar outros ao mesmo tempo. O frigorífico pode trabalhar à vontade.',
@@ -780,7 +788,7 @@ export const t = {
       'Cada um é reconhecido pela potência, pela forma e pela duração dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "O que é?" no cartão "Ao segundo" ou a partir de uma calibração. Um programa mais curto ou mais longo (máquina de lavar a 30 ou a 60 °C) que não seja reconhecido: dá-lhe o mesmo nome e a duração aceite alarga-se.',
     withDurations: (power: string, shortest: string, longest: string) =>
       `${power}, ciclos de ${shortest} a ${longest}`,
-    empty: 'Ainda nenhum. Dá nome a um grupo de ciclos no cartão "Ao segundo" do Consumo.',
+    empty: 'Ainda nenhum. Dá nome a um grupo de ciclos no cartão "Ao segundo", em Consumo › Aparelhos.',
     name: 'Nome do aparelho',
     rename: 'Guardar nome',
     forget: 'Esquecer',
@@ -972,8 +980,8 @@ export const t = {
     noSuggestions: 'Nada a assinalar neste mês.',
     see: (page: string) => `Ver ${page}.`,
     suggestions: {
-      baseload: (pct: number, power: string) =>
-        `O consumo base (${power}, sempre ligado) foi ${pct} % do consumo do mês. Vê o que fica ligado de noite: aparelhos em espera, um segundo frigorífico, bombas, desumidificadores.`,
+      baseload: (pct: number, power: string, cost: string | null) =>
+        `O consumo base (${power}, sempre ligado) foi ${pct} % do consumo do mês${cost ? `: ${cost}` : ''}. Vê o que fica ligado de noite: aparelhos em espera, um segundo frigorífico, bombas, desumidificadores.`,
       peak: (pct: number) =>
         `${pct} % do consumo foi na ponta, o período mais caro. Máquinas, termoacumulador e carregamentos rendem mais no vazio.`,
       offEmpty: (pct: number) =>
@@ -1061,7 +1069,7 @@ export const t = {
     machinesAlready: (names: string) =>
       `${names}: já trabalham quase só no vazio; não há o que mudar.`,
     machinesNone:
-      'Quando a app reconhecer as tuas máquinas (máquina de lavar, de loiça, de secar) em "Ao segundo", mostra aqui quanto pagarias com elas no vazio.',
+      'Quando a app reconhecer as tuas máquinas (máquina de lavar, de loiça, de secar) em "Ao segundo", mostra aqui quanto pagarias com elas no vazio (Consumo › Aparelhos).',
     caveats: [
       'Estimativa para um ano igual ao medido; os preços são os da ERSE de hoje, sem IVA, e a app soma o IVA, as taxas, os serviços obrigatórios e os descontos de cada oferta.',
       'A tarifa social, o seu financiamento, o IEC, a contribuição audiovisual e a taxa DGEG são os do teu tarifário e iguais em todas as ofertas.',

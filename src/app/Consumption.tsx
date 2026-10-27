@@ -13,8 +13,6 @@ import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatKwh, formatPower } from '../lib/units';
 import { AnomalyList } from './Anomalies';
-import { DayEvents } from './DayEvents';
-import { RecentAppliances } from './RecentAppliances';
 import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { lastYear, useHouseholdEnergy } from './household-energy';
@@ -116,10 +114,15 @@ export function Consumption() {
     <>
       <h1>{texts.title}</h1>
       <p className="lead">{texts.intro}</p>
-      <p>
+      <p className="button-row">
         <Link className="secondary button-link" to="/consumo/relatorio">
           {t.report.open}
         </Link>
+        {energy.houseShelly && (
+          <Link className="secondary button-link" to="/consumo/aparelhos">
+            {t.appliancesPage.open}
+          </Link>
+        )}
       </p>
     </>
   );
@@ -161,15 +164,6 @@ export function Consumption() {
       {!quarters && <p className="hint">{t.loading}</p>}
       {quarters && (
         <>
-          <BillForecastDetail energy={energy} />
-          <Baseload
-            quarters={quarters}
-            tariff={tariff ?? null}
-            eredes={meter === 'eredes' || meter === HOUSE_METER}
-          />
-          <AnomalyList energy={energy} />
-          <RecentAppliances energy={energy} />
-          <DayEvents energy={energy} />
           <ConsumptionCharts
             quarters={quarters}
             today={energy.today}
@@ -180,6 +174,13 @@ export function Consumption() {
             }
             periods={periods}
           />
+          <BillForecastDetail energy={energy} />
+          <Baseload
+            quarters={quarters}
+            tariff={tariff ?? null}
+            eredes={meter === 'eredes' || meter === HOUSE_METER}
+          />
+          <AnomalyList energy={energy} />
           {energy.compare && (
             <Reconciliation
               compare={energy.compare}

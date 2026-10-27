@@ -65,10 +65,19 @@ function Comparison({
   );
 }
 
-function suggestionText(suggestion: Suggestion): { text: string; link?: [string, string] } {
+function suggestionText(
+  suggestion: Suggestion,
+  baseloadCents: number | null,
+): { text: string; link?: [string, string] } {
   switch (suggestion.kind) {
     case 'baseload':
-      return { text: texts.suggestions.baseload(suggestion.pct, formatPower(suggestion.watts)) };
+      return {
+        text: texts.suggestions.baseload(
+          suggestion.pct,
+          formatPower(suggestion.watts),
+          baseloadCents === null ? null : formatCents(baseloadCents),
+        ),
+      };
     case 'peak':
       return { text: texts.suggestions.peak(suggestion.pct) };
     case 'offEmpty':
@@ -254,41 +263,13 @@ export function Report() {
       </section>
 
       <section className="card">
-        <h2>{texts.baseloadTitle}</h2>
-        {report.baseload ? (
-          <>
-            <p className="big">{formatPower(report.baseload.watts)}</p>
-            {report.baseload.cents !== null && (
-              <p>{texts.baseloadCost(formatCents(report.baseload.cents))}</p>
-            )}
-          </>
-        ) : (
-          <p className="hint">{t.consumption.baseload.noNights}</p>
-        )}
-      </section>
-
-      <section className="card">
-        <h2>{texts.peakTitle}</h2>
-        {report.peak && (
-          <>
-            <p className="big">{formatPower(report.peak.watts)}</p>
-            <p>
-              {texts.peakWhen(formatLisbonDateTime(report.peak.ts))}
-              {tariff ? ` ${texts.peakContracted(formatKva(tariff.powerVa))}` : ''}
-            </p>
-            <p className="hint">{texts.peakHint}</p>
-          </>
-        )}
-      </section>
-
-      <section className="card">
         <h2>{texts.suggestionsTitle}</h2>
         {report.suggestions.length === 0 ? (
           <p>{texts.noSuggestions}</p>
         ) : (
           <ul className="caveats">
             {report.suggestions.map((suggestion) => {
-              const { text, link } = suggestionText(suggestion);
+              const { text, link } = suggestionText(suggestion, report.baseload?.cents ?? null);
               return (
                 <li key={suggestion.kind}>
                   {text}
@@ -314,6 +295,34 @@ export function Report() {
             }
           />
         </div>
+      </section>
+
+      <section className="card">
+        <h2>{texts.baseloadTitle}</h2>
+        {report.baseload ? (
+          <>
+            <p className="big">{formatPower(report.baseload.watts)}</p>
+            {report.baseload.cents !== null && (
+              <p>{texts.baseloadCost(formatCents(report.baseload.cents))}</p>
+            )}
+          </>
+        ) : (
+          <p className="hint">{t.consumption.baseload.noNights}</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>{texts.peakTitle}</h2>
+        {report.peak && (
+          <>
+            <p className="big">{formatPower(report.peak.watts)}</p>
+            <p>
+              {texts.peakWhen(formatLisbonDateTime(report.peak.ts))}
+              {tariff ? ` ${texts.peakContracted(formatKva(tariff.powerVa))}` : ''}
+            </p>
+            <p className="hint">{texts.peakHint}</p>
+          </>
+        )}
       </section>
 
       <section className="card">

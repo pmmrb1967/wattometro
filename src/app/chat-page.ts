@@ -12,6 +12,7 @@ const PAGES: Record<string, ChatPage> = {
   '/consumo': 'consumption',
   '/consumo/relatorio': 'report',
   '/consumo/calibrar': 'consumption',
+  '/consumo/aparelhos': 'consumption',
   '/potencia': 'power',
   '/tarifarios': 'tariffs',
   '/qualidade': 'quality',

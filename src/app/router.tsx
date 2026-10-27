@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createBrowserRouter, Navigate } from 'react-router';
+import { Appliances } from './Appliances';
 import { AppShell } from './AppShell';
 import { Calibrate } from './Calibrate';
 import { WithChat } from './ChatDock';
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
           { path: 'consumo', element: <Consumption /> },
           { path: 'consumo/relatorio', element: <Report /> },
           { path: 'consumo/calibrar', element: <Calibrate /> },
+          { path: 'consumo/aparelhos', element: <Appliances /> },
           { path: 'potencia', element: <Power /> },
           { path: 'tarifarios', element: <Tariffs /> },
           { path: 'qualidade', element: <Quality /> },

@@ -274,12 +274,12 @@ Revisão de 27/10/2026 (todas as páginas a 390×844 e 1280×800, claro e escuro
 - [x] Botões desativados sem cursor de "a trabalhar"; ícone visível no modo escuro; `theme-color` para o modo escuro
 
 ### 10.2 Estrutura das páginas
-- [x] Cada página de análise (Potência, Tarifários, Qualidade, Relatório) abre com uma frase de conclusão: em euros, ou um veredicto sim/não (Potência, Tarifários e Qualidade; o Relatório fica com "Relatório: sugestões" abaixo). Potência: margem e preço em "Ajustar…", 5 momentos de maior potência; Qualidade: zona no fim; números e unidades sem quebra de linha (`UNIT_SPACE`)
+- [x] Cada página de análise (Potência, Tarifários, Qualidade, Relatório) abre com uma frase de conclusão: em euros, ou um veredicto sim/não (Potência, Tarifários e Qualidade; o Relatório na tarefa abaixo). Potência: margem e preço em "Ajustar…", 5 momentos de maior potência; Qualidade: zona no fim; números e unidades sem quebra de linha (`UNIT_SPACE`)
 - [x] As notas de cada cartão num "Como é calculado" que se abre (um componente comum)
 - [x] Tabelas no telemóvel como listas (Tarifários primeiro: a poupança tem de se ver; depois eventos e episódios de tensão)
-- [ ] Consumo: gráfico primeiro, previsão numa linha, "Ao segundo" e calibração numa subpágina
+- [x] Consumo: gráfico primeiro; "Quanto custam os aparelhos", "Ao segundo" e calibração em Consumo › Aparelhos (`/consumo/aparelhos`); a previsão fica inteira (o Início liga para `#previsao`)
 - [ ] Definições: índice ou separadores, com o tarifário primeiro; botões com a mesma largura; ficheiro com um botão estilizado
-- [ ] Relatório: sugestões logo a seguir ao custo, com euros
+- [x] Relatório: sugestões logo a seguir ao custo; o consumo base com o custo do mês
 - [ ] Página de entrada: três conclusões de exemplo e "Experimentar com dados de exemplo" antes do login
 - [ ] Largura útil maior no computador (~960 px), com os números em duas colunas
 

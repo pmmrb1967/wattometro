@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * get_appliances ("Consumo", "Quanto custam os aparelhos"): the appliances
+ * get_appliances ("Consumo › Aparelhos", "Quanto custam os aparelhos"): the appliances
  * the house named, over the last whole days with per-second values, with what
  * each cost and a month like these days, as the card shows them.
  */
@@ -12,7 +12,7 @@ import { defineTool } from './tool';
 const appliances = defineTool({
   name: 'get_appliances',
   description:
-    'As on "Consumo" ("Quanto custam os aparelhos"): the appliances the user named (recognised from the Shelly’s per-second values), over the last whole days: uses, energy, what they cost with the tariff (energy, IEC and VAT, at the hour of each use) and a month like those days. For whole programmes (washing machine, dishwasher), what a month would cost less with them always in the cheapest period of the tariff (zero with a simple tariff: then "Tarifários" says whether bi-hourly pays off). Only named appliances; the rest of the house is not in it.',
+    'As on "Consumo › Aparelhos" ("Quanto custam os aparelhos"): the appliances the user named (recognised from the Shelly’s per-second values), over the last whole days: uses, energy, what they cost with the tariff (energy, IEC and VAT, at the hour of each use) and a month like those days. For whole programmes (washing machine, dishwasher), what a month would cost less with them always in the cheapest period of the tariff (zero with a simple tariff: then "Tarifários" says whether bi-hourly pays off). Only named appliances; the rest of the house is not in it.',
   input: z.strictObject({}),
   async run(_input, context) {
     const recent = await context.appliances();

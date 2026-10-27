@@ -332,7 +332,7 @@ export function Calibrate() {
 
   return (
     <>
-      <Link to="/consumo">{texts.back}</Link>
+      <Link to="/consumo/aparelhos">{texts.back}</Link>
       <h1>{texts.title}</h1>
       <p className="lead">{texts.intro}</p>
 
