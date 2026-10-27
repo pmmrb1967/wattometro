@@ -118,31 +118,52 @@ function PasswordForm() {
   );
 }
 
+/** The page's groups, most used first: [id, name]. */
+const GROUPS = t.settings.groups;
+
 export function Settings() {
   const { me, signOut } = useSession();
   return (
     <>
       <h1>{t.settings.title}</h1>
+      <nav className="toc" aria-label={t.settings.tocLabel}>
+        {GROUPS.map(([id, name]) => (
+          <a key={id} href={`#${id}`}>
+            {name}
+          </a>
+        ))}
+      </nav>
 
-      <section className="card">
-        <h2>{t.settings.account.title}</h2>
-        <p>{t.settings.account.signedInAs(me.email)}</p>
-        <p className="hint">{t.settings.account.sessionNote}</p>
-        <button type="button" className="secondary" onClick={signOut}>
-          {t.settings.account.logout}
-        </button>
-      </section>
-
-      <HouseholdForm />
-      <LocationSection />
-      <InstallationSection />
-      <TariffSection />
-      <EredesImportSection />
-      <DevicesSection />
-      <InstallSection />
-      <AlertSection />
-      <AiSection />
-      <PasswordForm />
+      <div id="tarifario" className="group">
+        <TariffSection />
+      </div>
+      <div id="dados" className="group">
+        <EredesImportSection />
+        <DevicesSection />
+      </div>
+      <div id="avisos" className="group">
+        <AlertSection />
+      </div>
+      <div id="ia" className="group">
+        <AiSection />
+      </div>
+      <div id="casa" className="group">
+        <HouseholdForm />
+        <LocationSection />
+        <InstallationSection />
+      </div>
+      <div id="conta" className="group">
+        <section className="card">
+          <h2>{t.settings.account.title}</h2>
+          <p>{t.settings.account.signedInAs(me.email)}</p>
+          <p className="hint">{t.settings.account.sessionNote}</p>
+          <button type="button" className="secondary" onClick={signOut}>
+            {t.settings.account.logout}
+          </button>
+        </section>
+        <PasswordForm />
+        <InstallSection />
+      </div>
     </>
   );
 }

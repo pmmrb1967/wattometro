@@ -187,7 +187,7 @@ export function Tariffs() {
       <>
         {header}
         <p>
-          {texts.noTariff} <Link to="/definicoes">{texts.toSettings}</Link>
+          {texts.noTariff} <Link to="/definicoes#tarifario">{texts.toSettings}</Link>
         </p>
       </>
     );
@@ -197,7 +197,7 @@ export function Tariffs() {
       <>
         {header}
         <p>
-          {texts.noData} <Link to="/definicoes">{texts.toSettings}</Link>
+          {texts.noData} <Link to="/definicoes#dados">{texts.toSettings}</Link>
         </p>
       </>
     );

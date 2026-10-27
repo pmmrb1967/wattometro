@@ -64,7 +64,7 @@ function Baseload({
         <p>{texts.baseload.cost(formatCents(cost.annualCents), formatKwh(cost.annualWh, 0))}</p>
       ) : (
         <p className="hint">
-          {texts.baseload.noTariff} <Link to="/definicoes">{t.tariffs.toSettings}</Link>
+          {texts.baseload.noTariff} <Link to="/definicoes#tarifario">{t.tariffs.toSettings}</Link>
         </p>
       )}
       {months.length > 1 && (
@@ -147,7 +147,7 @@ export function Consumption() {
       <>
         {header}
         <p>
-          {t.tariffs.noData} <Link to="/definicoes">{t.tariffs.toSettings}</Link>
+          {t.tariffs.noData} <Link to="/definicoes#dados">{t.tariffs.toSettings}</Link>
         </p>
       </>
     );

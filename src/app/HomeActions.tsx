@@ -126,7 +126,7 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
       <section className="card">
         <h2>{texts.title}</h2>
         <p>
-          {texts.noTariff} <Link to="/definicoes">{texts.toSettings}</Link>
+          {texts.noTariff} <Link to="/definicoes#tarifario">{texts.toSettings}</Link>
         </p>
       </section>
     );

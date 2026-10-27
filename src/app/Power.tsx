@@ -191,7 +191,7 @@ function RecommendationSection({
       <h2>{texts.recommended}</h2>
       {!tariff && (
         <p className="hint">
-          <Link to="/definicoes">{texts.noTariff}</Link>
+          <Link to="/definicoes#tarifario">{texts.noTariff}</Link>
         </p>
       )}
 
@@ -490,7 +490,7 @@ export function Power() {
             <section className="card">
               <h2>{texts.nearTrip.title}</h2>
               <p className="hint">
-                <Link to="/definicoes">{texts.nearTrip.noTariff}</Link>
+                <Link to="/definicoes#tarifario">{texts.nearTrip.noTariff}</Link>
               </p>
             </section>
           )}

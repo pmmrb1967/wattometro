@@ -146,7 +146,7 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
           )}
           {!weather.location && !weather.notNeeded && (
             <li>
-              {texts.noLocation} <Link to="/definicoes">{texts.toSettings}</Link>
+              {texts.noLocation} <Link to="/definicoes#casa">{texts.toSettings}</Link>
             </li>
           )}
           {weather.failed && <li>{texts.weatherFailed}</li>}
@@ -164,7 +164,7 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
           {forecast.costCents !== null && <li>{texts.costNote}</li>}
           {forecast.costCents === null && (
             <li>
-              {texts.noTariff} <Link to="/definicoes">{texts.toSettings}</Link>
+              {texts.noTariff} <Link to="/definicoes#tarifario">{texts.toSettings}</Link>
             </li>
           )}
           {weather.daily && (

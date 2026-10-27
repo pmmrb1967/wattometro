@@ -27,7 +27,7 @@ function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
   if (!tariff) {
     return (
       <dd className="hint">
-        <Link to="/definicoes">{t.now.noTariff}</Link>
+        <Link to="/definicoes#tarifario">{t.now.noTariff}</Link>
       </dd>
     );
   }
@@ -205,7 +205,7 @@ export function Home() {
           {now.meters.length === 0 ? (
             <section className="card">
               <p>{t.now.noDevices}</p>
-              <Link to="/definicoes">{t.now.addDevice}</Link>
+              <Link to="/definicoes#dados">{t.now.addDevice}</Link>
             </section>
           ) : (
             now.meters.map((meter) => (

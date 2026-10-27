@@ -278,7 +278,7 @@ Revisão de 27/10/2026 (todas as páginas a 390×844 e 1280×800, claro e escuro
 - [x] As notas de cada cartão num "Como é calculado" que se abre (um componente comum)
 - [x] Tabelas no telemóvel como listas (Tarifários primeiro: a poupança tem de se ver; depois eventos e episódios de tensão)
 - [x] Consumo: gráfico primeiro; "Quanto custam os aparelhos", "Ao segundo" e calibração em Consumo › Aparelhos (`/consumo/aparelhos`); a previsão fica inteira (o Início liga para `#previsao`)
-- [ ] Definições: índice ou separadores, com o tarifário primeiro; botões com a mesma largura; ficheiro com um botão estilizado
+- [x] Definições: índice dos grupos (Tarifário, Dados e Shelly, Avisos, IA, Casa, Conta), com o tarifário primeiro; botões com a mesma largura; ficheiro com um botão estilizado. As ligações para uma parte de uma página (`/consumo#previsao`, `/definicoes#tarifario`) descem até ela (`use-hash-scroll.ts`)
 - [x] Relatório: sugestões logo a seguir ao custo; o consumo base com o custo do mês
 - [ ] Página de entrada: três conclusões de exemplo e "Experimentar com dados de exemplo" antes do login
 - [ ] Largura útil maior no computador (~960 px), com os números em duas colunas

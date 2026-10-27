@@ -15,6 +15,7 @@ import { clearEnergyCache } from './energy-cache';
 import { clearSecondsCache } from './seconds-cache';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
+import { useHashScroll } from './use-hash-scroll';
 
 type ServerState = 'checking' | 'ok' | 'unavailable' | 'limit';
 
@@ -94,6 +95,7 @@ function pageClass(signedIn: boolean, collapsed: boolean): string {
 export function AppShell() {
   const [server, resetsAt] = useServerState();
   const { pathname } = useLocation();
+  useHashScroll();
   const [me, setMe] = useMe();
 
   // Stable, so pages can depend on it in effects.

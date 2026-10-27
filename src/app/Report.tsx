@@ -159,7 +159,7 @@ export function Report() {
         {back}
         <h1>{texts.title}</h1>
         <p>
-          {t.tariffs.noData} <Link to="/definicoes">{t.tariffs.toSettings}</Link>
+          {t.tariffs.noData} <Link to="/definicoes#dados">{t.tariffs.toSettings}</Link>
         </p>
       </>
     );
@@ -255,7 +255,7 @@ export function Report() {
         ) : (
           <p className="hint">
             {texts.noTariff}{' '}
-            <Link className="no-print" to="/definicoes">
+            <Link className="no-print" to="/definicoes#tarifario">
               {t.tariffs.toSettings}
             </Link>
           </p>
