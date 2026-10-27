@@ -20,8 +20,9 @@ import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.settings.alerts;
-const ALL_ALERTS: PushAlerts = { stale: true, power: true, database: true };
-const KINDS = ['stale', 'power', 'database'] as const;
+// The cheap hours only matter with a price per hour: asked for, not on by default.
+const ALL_ALERTS: PushAlerts = { stale: true, power: true, database: true, cheapHours: false };
+const KINDS = ['stale', 'power', 'database', 'cheapHours'] as const;
 
 type View =
   | { kind: 'loading' }

@@ -137,6 +137,9 @@ export async function deleteSignature(sql: Sql, householdId: string, id: string)
       query: 'DELETE FROM signature_seconds WHERE signature_id = ? AND household_id = ?',
       params: [id, householdId],
     },
-    { query: 'DELETE FROM signatures WHERE id = ? AND household_id = ?', params: [id, householdId] },
+    {
+      query: 'DELETE FROM signatures WHERE id = ? AND household_id = ?',
+      params: [id, householdId],
+    },
   ]);
 }

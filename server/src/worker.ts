@@ -6,6 +6,7 @@ import { d1, type Sql } from './db';
 import { allowedOrigins, positiveInteger, vapidKeys, type Env } from './env';
 import { listHouseholdIds } from './repo/households';
 import { addRowsRead, utcDay } from './repo/usage';
+import { syncOmie } from './omie';
 import { runMaintenance } from './rollups';
 
 interface ScheduledEventLike {
@@ -44,7 +45,7 @@ export default {
     return response;
   },
 
-  /** Cron (server/wrangler.toml): rollups, retention, database size, then the alerts. */
+  /** Cron (server/wrangler.toml): rollups, retention, database size, tomorrow's prices, then the alerts. */
   async scheduled(event: ScheduledEventLike, env: Env): Promise<void> {
     const sql = d1(env.DB);
     try {
@@ -53,6 +54,7 @@ export default {
         retention1mDays: positiveInteger(env.RETENTION_1M_DAYS),
         retention1sDays: positiveInteger(env.RETENTION_1S_DAYS),
       });
+      await syncOmie(sql, now);
       const vapid = vapidKeys(env);
       if (vapid) {
         const rowsReadLimit = positiveInteger(env.ROWS_READ_LIMIT) ?? DEFAULT_ROWS_READ_LIMIT;

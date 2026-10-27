@@ -17,7 +17,7 @@
  *   PUT  /v1/ai-settings       {apiKey, model, autoSend} → 204
  *   DELETE /v1/ai-settings     → 204 (on every device)
  *   GET  /v1/push/key          → {publicKey} (VAPID, for the browser's subscription); 503 none
- *   GET  /v1/push/subscription?endpoint → {alerts: {stale, power, database}}; 404 not this user's
+ *   GET  /v1/push/subscription?endpoint → {alerts: {stale, power, database, cheapHours}}; 404 not this user's
  *   PUT  /v1/push/subscription {endpoint, keys: {p256dh, auth}, alerts} → 204 (a push service's
  *                              endpoint only: webpush.ts, isPushEndpoint)
  *   DELETE /v1/push/subscription {endpoint} → 204
@@ -67,6 +67,8 @@
  *                              → 201 {appliance}; 409 too_many
  *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404
  *   DELETE /v1/appliances/:id  → 204
+ *   GET  /v1/omie              → {days: [{date, start, step, prices}]}: the market prices of today
+ *                              and tomorrow, once published (omie.ts; cents per MWh)
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
  *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
@@ -117,6 +119,7 @@ import { databaseState } from './repo/health';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { omieDaysFrom } from './repo/omie';
 import { t } from '../../src/i18n/pt-PT';
 import { deleteAiSettings, getAiSettings, putAiSettings } from './repo/ai-settings';
 import {
@@ -210,7 +213,13 @@ const LoginBody = z.object({
   password: z.string().min(1).max(1024),
 });
 
-const PushAlerts = z.object({ stale: z.boolean(), power: z.boolean(), database: z.boolean() });
+const PushAlerts = z.object({
+  stale: z.boolean(),
+  power: z.boolean(),
+  database: z.boolean(),
+  // Absent from an app cached before migration 0019: off.
+  cheapHours: z.boolean().default(false),
+});
 const PushEndpoint = z.string().max(2000).refine(isPushEndpoint);
 const PushSubscriptionBody = z.object({
   endpoint: PushEndpoint,
@@ -588,6 +597,10 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     await setHouseholdInstallation(config.sql, householdId, parsed.data.installation, now());
     return c.body(null, 204);
   });
+
+  app.get('/v1/omie', requireUser, async (c) =>
+    c.json({ days: await omieDaysFrom(config.sql, lisbonDate(now())) }),
+  );
 
   app.get('/v1/devices', requireUser, async (c) => {
     const devices = await listDevices(config.sql, c.get('user').householdId);

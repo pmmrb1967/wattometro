@@ -11,6 +11,7 @@ import { hashPassword } from './password';
 import { createDevice } from './repo/devices';
 import { createHousehold } from './repo/households';
 import { minuteStatements } from './repo/readings';
+import { saveOmieDay } from './repo/omie';
 import { QUIET_STATE, saveSubscription } from './repo/push';
 import { saveTariff } from './repo/tariffs';
 import { addRowsRead, utcDay } from './repo/usage';
@@ -175,7 +176,7 @@ describe('a Cron run', () => {
     );
     await sql.batch(statements);
   };
-  const subscribe = (alerts = { stale: true, power: true, database: true }) =>
+  const subscribe = (alerts = { stale: true, power: true, database: true, cheapHours: false }) =>
     saveSubscription(sql, user, { endpoint: ENDPOINT, ...DEVICE_KEYS, alerts }, NOW);
 
   it('reads nothing more for a household nobody subscribed in', async () => {
@@ -204,7 +205,7 @@ describe('a Cron run', () => {
   });
 
   it('sends only the alerts a device chose', async () => {
-    await subscribe({ stale: false, power: true, database: false });
+    await subscribe({ stale: false, power: true, database: false, cheapHours: false });
     seen(NOW - 20 * 60);
     await addRowsRead(sql, utcDay(NOW), 4_500_000);
     await checkAlerts(sql, household, NOW, {
@@ -213,6 +214,17 @@ describe('a Cron run', () => {
       fetcher,
     });
     expect(sent).toHaveLength(0);
+  });
+
+  it("sends tomorrow's cheap hours once, to the devices that asked", async () => {
+    await subscribe({ stale: false, power: false, database: false, cheapHours: true });
+    // 27/10 starts at 00:00 in Madrid: 26/10 23:00 in Lisbon.
+    const prices = Array.from({ length: 96 }, (_, i) => (i >= 56 && i < 68 ? 1000 : 10000));
+    await saveOmieDay(sql, { date: '2026-10-27', step: 900, prices }, NOW + 5 * 3600, NOW);
+    const config = { vapid: await vapid(), rowsReadLimit: 5_000_000, fetcher };
+    await checkAlerts(sql, household, NOW, config);
+    await checkAlerts(sql, household, NOW + 300, config);
+    expect(sent).toHaveLength(1);
   });
 
   it('forgets a device the push service says is gone', async () => {
@@ -275,7 +287,7 @@ describe('/v1/push', () => {
     });
   const find = (as = cookie) =>
     call('GET', `/v1/push/subscription?endpoint=${encodeURIComponent(ENDPOINT)}`, undefined, as);
-  const alerts = { stale: true, power: false, database: true };
+  const alerts = { stale: true, power: false, database: true, cheapHours: true };
 
   it('gives the public key, keeps the subscription and sends a test', async () => {
     expect(
@@ -297,6 +309,16 @@ describe('/v1/push', () => {
       204,
     );
     expect((await find()).status).toBe(404);
+  });
+
+  it('leaves the cheap hours off for an app cached before them', async () => {
+    const older = { stale: true, power: false, database: true };
+    await call('PUT', '/v1/push/subscription', {
+      endpoint: ENDPOINT,
+      keys: DEVICE_KEYS,
+      alerts: older,
+    });
+    expect(await (await find()).json()).toEqual({ alerts: { ...older, cheapHours: false } });
   });
 
   it('refuses an endpoint that is not a push service', async () => {

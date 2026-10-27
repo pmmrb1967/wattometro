@@ -6,17 +6,30 @@
  * - power: a one-second peak above k × the contracted power, where the smart
  *   meter starts counting towards a cut (src/data/power-trip.json); at most
  *   one an hour;
- * - database: D1 has read DATABASE_SHARE of its daily rows; once a UTC day.
+ * - database: D1 has read DATABASE_SHARE of its daily rows; once a UTC day;
+ * - cheapHours: tomorrow's cheapest and dearest hours on the market (omie.ts),
+ *   once a day when the prices arrive.
  *
- * The decisions are pure (decideStale, decidePower, decideDatabase); a
+ * The decisions are pure (decideStale, decidePower, decideDatabase,
+ * decideCheapHours); a
  * condition that lasts is announced once, as alert_state remembers.
  */
 import trip from '../../src/data/power-trip.json';
 import { t } from '../../src/i18n/pt-PT';
-import { lisbonDate, formatLisbonTime } from '../../src/lib/time';
+import { priceWindows } from '../../src/domain/omie';
+import { formatPricePerKwh, omieToMicro } from '../../src/lib/money';
+import {
+  formatLisbonTime,
+  lisbonDate,
+  lisbonParts,
+  nextDate,
+  startOfLisbonDay,
+} from '../../src/lib/time';
 import { formatKva } from '../../src/lib/units';
 import type { Sql } from './db';
 import { MAX_CHANNEL } from './ingest';
+import { PUBLISHED_HOUR } from './omie';
+import { omieDaysFrom, type StoredOmieDay } from './repo/omie';
 import { listDevices } from './repo/devices';
 import {
   alertStates,
@@ -143,6 +156,42 @@ export function decideDatabase(
   };
 }
 
+const perKwh = (centsPerMwh: number) => formatPricePerKwh(omieToMicro(centsPerMwh));
+
+/**
+ * Tomorrow's cheapest and dearest hours, once: `since` remembers the day
+ * announced (its Lisbon midnight). Null `tomorrow`: not published yet.
+ */
+export function decideCheapHours(
+  state: AlertState,
+  tomorrow: StoredOmieDay | null,
+  now: number,
+): Decision {
+  const quiet = { state, message: null };
+  if (!tomorrow || lisbonParts(now).hour < PUBLISHED_HOUR) return quiet;
+  const midnight = startOfLisbonDay(tomorrow.date);
+  if (state.since === midnight) return quiet;
+  const windows = priceWindows(tomorrow.start, tomorrow.prices, midnight);
+  if (!windows) return quiet;
+  const { cheapest, dearest } = windows;
+  return {
+    state: { active: false, since: midnight, checkedUntil: null, sentAt: now },
+    message: {
+      title: t.alerts.cheapTitle,
+      body: t.alerts.cheapBody(
+        formatLisbonTime(cheapest.from),
+        formatLisbonTime(cheapest.to),
+        perKwh(cheapest.average),
+        formatLisbonTime(dearest.from),
+        formatLisbonTime(dearest.to),
+        perKwh(dearest.average),
+      ),
+      tag: 'cheap-hours',
+      url: '/tarifarios#amanha',
+    },
+  };
+}
+
 export interface AlertConfig {
   vapid: VapidKeys;
   rowsReadLimit: number;
@@ -212,6 +261,12 @@ export async function checkAlerts(
       'database',
       decideDatabase(states.database, rowsRead, config.rowsReadLimit, now),
     ]);
+  }
+
+  if (wants('cheapHours')) {
+    const tomorrow = nextDate(lisbonDate(now));
+    const day = (await omieDaysFrom(sql, tomorrow)).find((item) => item.date === tomorrow);
+    decisions.push(['cheapHours', decideCheapHours(states.cheapHours, day ?? null, now)]);
   }
 
   for (const [kind, decision] of decisions) {

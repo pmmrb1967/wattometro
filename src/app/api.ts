@@ -648,6 +648,24 @@ export async function fetchOmie(): Promise<OmieFile | null> {
   }
 }
 
+const OmieDays = z.object({
+  days: z.array(
+    z.object({
+      date: z.string(),
+      start: z.number().int(),
+      step: z.number().int(),
+      prices: z.array(z.number().int()),
+    }),
+  ),
+});
+export type OmieDays = z.infer<typeof OmieDays>['days'];
+
+/** Today's and tomorrow's market prices the Worker read (GET /v1/omie); null when unavailable. */
+export async function fetchOmieDays(): Promise<OmieDays | null> {
+  const response = await send('GET', '/v1/omie');
+  return response?.ok ? OmieDays.parse(await response.json()).days : null;
+}
+
 /** The user's AI settings kept in their account (GET /v1/ai-settings): the key opened by the server. */
 const AccountAiSettings = z.object({
   apiKey: z.string(),
@@ -681,7 +699,12 @@ export async function deleteAccountAiSettings(): Promise<{ ok: true } | Failure>
 }
 
 /** Which alerts this browser wants (server/src/alerts.ts). */
-const PushAlerts = z.object({ stale: z.boolean(), power: z.boolean(), database: z.boolean() });
+const PushAlerts = z.object({
+  stale: z.boolean(),
+  power: z.boolean(),
+  database: z.boolean(),
+  cheapHours: z.boolean(),
+});
 export type PushAlerts = z.infer<typeof PushAlerts>;
 
 /** The server's VAPID key; "invalid" when the server has none (503 not_configured). */

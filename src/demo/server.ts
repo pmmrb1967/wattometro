@@ -14,7 +14,7 @@ import { addDays } from '../domain/consumption';
 import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
-import { lisbonDate, lisbonToday, startOfLisbonDay } from '../lib/time';
+import { lisbonDate, lisbonToday, nextDate, startOfLisbonDay, startOfMadridDay } from '../lib/time';
 import { DEMO_DAYS, generateDemo, type DemoData } from './model';
 
 const MINUTE = 60;
@@ -494,6 +494,29 @@ function isDemoLocation(value: unknown): value is DemoLocation {
   );
 }
 
+/**
+ * Invented market prices for today and tomorrow (GET /v1/omie), € per MWh for
+ * each Lisbon hour: cheap at midday (sun), dear in the evening. Not OMIE's.
+ */
+const DEMO_MARKET = [
+  95, 90, 88, 86, 85, 88, 100, 120, 110, 80, 50, 30, 20, 18, 20, 35, 60, 110, 160, 190, 170, 140,
+  120, 105,
+];
+
+function demoOmieDays() {
+  const today = lisbonToday();
+  return [today, nextDate(today)].map((date, day) => ({
+    date,
+    start: startOfMadridDay(date),
+    step: 900,
+    // The OMIE day starts at 23:00 in Lisbon.
+    prices: Array.from(
+      { length: 96 },
+      (_, i) => (DEMO_MARKET[(23 + Math.floor(i / 4)) % 24] as number) * (100 + day * 5),
+    ),
+  }));
+}
+
 /** Answers one API request of the demonstration. */
 export function demoResponse(method: string, path: string, body?: unknown): Response {
   const url = new URL(path, 'https://demo.invalid');
@@ -565,6 +588,8 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     }
     case 'GET /v1/tariffs':
       return json({ tariffs: demo.tariffs });
+    case 'GET /v1/omie':
+      return json({ days: demoOmieDays() });
     case 'POST /v1/tariffs': {
       const parsed = tariffInputSchema.safeParse(body);
       if (!parsed.success) return invalid();

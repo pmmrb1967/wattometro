@@ -214,6 +214,16 @@ export const t = {
     databaseTitle: 'Base de dados perto do limite diário',
     databaseBody: (percent: number, resetsAt: string) =>
       `Hoje já se leram ${percent} % das linhas que o plano gratuito da Cloudflare permite por dia. Aos 100 %, a app deixa de gravar até às ${resetsAt}.`,
+    cheapTitle: 'Amanhã: as horas mais baratas',
+    cheapBody: (
+      from: string,
+      to: string,
+      price: string,
+      dearFrom: string,
+      dearTo: string,
+      dearPrice: string,
+    ) =>
+      `Das ${from} às ${to}, a energia no mercado custa em média ${price}. As mais caras: das ${dearFrom} às ${dearTo} (${dearPrice}). Só muda a fatura num tarifário com preço à hora.`,
     testTitle: 'Aviso de teste',
     testBody: 'Os avisos do Wattómetro chegam a este aparelho.',
   },
@@ -253,6 +263,7 @@ export const t = {
         stale: 'O Shelly deixa de enviar',
         power: 'A potência se aproxima do corte',
         database: 'A base de dados se aproxima do limite diário',
+        cheapHours: 'Saem as horas mais baratas de amanhã',
       },
       kindNotes: {
         stale: 'Ao fim de 15 minutos sem medições, e outra vez quando voltar.',
@@ -260,6 +271,8 @@ export const t = {
           'Quando passa de 1,2 × a potência contratada: o contador começa a contar para cortar a luz. No máximo um por hora.',
         database:
           'Aos 80 % das leituras que o plano gratuito permite por dia. Aos 100 %, a app deixa de gravar até à meia-noite (UTC).',
+        cheapHours:
+          'Por volta das 12:00, quando o mercado (OMIE) publica os preços de amanhã. Só muda a fatura num tarifário com preço à hora.',
       },
       saved: 'Escolha guardada.',
       test: 'Enviar aviso de teste',
@@ -1082,6 +1095,18 @@ export const t = {
     tagIndexed: 'preço indexado',
     tagDynamic: 'preço à hora, ajustado ao teu consumo',
     tagAverage: 'preço indexado à média do mês',
+    market: {
+      tomorrowTitle: 'Amanhã no mercado',
+      todayTitle: 'Hoje no mercado',
+      cheapest: (hours: number, from: string, to: string, price: string) =>
+        `As ${hours} horas mais baratas: das ${from} às ${to}, em média ${price}.`,
+      dearest: (from: string, to: string, price: string) =>
+        `As mais caras: das ${from} às ${to}, em média ${price}.`,
+      notYet: 'Os preços de amanhã saem por volta das 12:00.',
+      whoFor:
+        'Preços do mercado grossista (OMIE), sem IVA nem redes. Só mudam a fatura num tarifário com preço à hora.',
+      alertLink: 'Receber no telemóvel',
+    },
     indexed: {
       title: 'Tarifários indexados',
       dearer: (weighted: string, pct: number, average: string) =>

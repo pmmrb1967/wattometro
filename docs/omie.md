@@ -35,6 +35,12 @@ Corre no PC ou no CI, nunca na app: o browser só lê o ficheiro servido com a a
 
 Conversão para a fatura: 1 cêntimo/MWh = 10 µ€/kWh (`omieToMicro` em `src/lib/money.ts`).
 
+## Os preços de amanhã no Worker
+
+O Cron (a cada 5 minutos) chama `syncOmie` (`server/src/omie.ts`) e só pede ficheiros nas execuções de :00 e :30, para não carregar um site público: o de hoje se faltar e, a partir das 12:00 de Lisboa (o OMIE publica o dia seguinte por volta das 13:00 CET), o de amanhã até chegar. Guarda-os em `omie_days` (migração 0019; dados públicos, iguais para todas as casas, sem `household_id`) e apaga os dias com mais de uma semana. O pedido é um GET ao ficheiro público, sem nada da casa (regra 1 do CLAUDE.md, autorizada pelo utilizador a 2026-10-27).
+
+`GET /v1/omie` dá os dias de hoje e de amanhã à app: o cartão "Amanhã no mercado" em Tarifários e o aviso "Horas mais baratas de amanhã" (`docs/alerts.md`) mostram as `WINDOW_HOURS` (3) horas seguidas mais baratas e as mais caras, a partir da meia-noite de Lisboa (o dia OMIE começa às 23:00 de Lisboa). São preços do mercado, sem redes nem IVA: só mudam a fatura numa oferta com preço à hora.
+
 ## Ofertas indexadas da ERSE
 
 O ficheiro da ERSE (`docs/erse-data.md`) marca as ofertas indexadas (`FiltroPrecosIndex_ELE = S`) e dá-lhes um **preço estimado por período**, como às de preço fixo. A fórmula de cada uma vem só em texto livre, e quase nunca com todos os parâmetros (margem, custos de gestão, perdas). Por isso a app **não recalcula o preço** de cada oferta: usa a estimativa da ERSE e corrige-a apenas pelo que depende do horário da casa.

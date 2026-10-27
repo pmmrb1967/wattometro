@@ -2,8 +2,8 @@
 /** push_subscriptions and alert_state (migration 0015). */
 import type { Sql } from '../db';
 
-export type AlertKind = 'stale' | 'power' | 'database';
-export const ALERT_KINDS: readonly AlertKind[] = ['stale', 'power', 'database'];
+export type AlertKind = 'stale' | 'power' | 'database' | 'cheapHours';
+export const ALERT_KINDS: readonly AlertKind[] = ['stale', 'power', 'database', 'cheapHours'];
 
 export type AlertChoice = Record<AlertKind, boolean>;
 
@@ -21,6 +21,7 @@ interface SubscriptionRow {
   alert_stale: number;
   alert_power: number;
   alert_database: number;
+  alert_cheap_hours: number;
 }
 
 const fromRow = (row: SubscriptionRow): Subscription => ({
@@ -31,10 +32,12 @@ const fromRow = (row: SubscriptionRow): Subscription => ({
     stale: row.alert_stale === 1,
     power: row.alert_power === 1,
     database: row.alert_database === 1,
+    cheapHours: row.alert_cheap_hours === 1,
   },
 });
 
-const COLUMNS = 'endpoint, p256dh, auth, alert_stale, alert_power, alert_database';
+const COLUMNS =
+  'endpoint, p256dh, auth, alert_stale, alert_power, alert_database, alert_cheap_hours';
 
 /** Saves this browser's subscription for the user; the same endpoint again replaces it. */
 export async function saveSubscription(
@@ -46,12 +49,12 @@ export async function saveSubscription(
   const { alerts } = subscription;
   await sql.run(
     `INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth,
-       alert_stale, alert_power, alert_database, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       alert_stale, alert_power, alert_database, alert_cheap_hours, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (endpoint) DO UPDATE SET household_id = excluded.household_id,
        user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
        alert_stale = excluded.alert_stale, alert_power = excluded.alert_power,
-       alert_database = excluded.alert_database`,
+       alert_database = excluded.alert_database, alert_cheap_hours = excluded.alert_cheap_hours`,
     subscription.endpoint,
     user.householdId,
     user.id,
@@ -60,6 +63,7 @@ export async function saveSubscription(
     alerts.stale ? 1 : 0,
     alerts.power ? 1 : 0,
     alerts.database ? 1 : 0,
+    alerts.cheapHours ? 1 : 0,
     now,
   );
 }
@@ -134,7 +138,12 @@ export async function alertStates(
     'SELECT kind, active, since, checked_until, sent_at FROM alert_state WHERE household_id = ?',
     householdId,
   );
-  const states = { stale: QUIET_STATE, power: QUIET_STATE, database: QUIET_STATE };
+  const states = {
+    stale: QUIET_STATE,
+    power: QUIET_STATE,
+    database: QUIET_STATE,
+    cheapHours: QUIET_STATE,
+  };
   for (const row of rows) {
     states[row.kind] = {
       active: row.active === 1,

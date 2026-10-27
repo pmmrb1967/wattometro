@@ -9,6 +9,7 @@ Os avisos chegam ao telemóvel ou ao computador mesmo com a app fechada. O Cron 
 | O Shelly deixou de enviar | Nenhum dispositivo ativo enviou há `STALE_MINUTES` (15) | Uma vez; outra quando volta |
 | Potência perto do corte | Um segundo acima de `k × Sc`: o contador inteligente começa a contar para cortar (`k` = 1,2 em monofásico, `src/data/power-trip.json`, fonte em `docs/contracted-power.md`) | No máximo um por hora |
 | Base de dados perto do limite | O D1 já leu 80 % das linhas diárias do plano gratuito | Uma vez por dia UTC |
+| Horas mais baratas de amanhã | Saem os preços OMIE do dia seguinte (a partir das 12:00 de Lisboa): as 3 horas seguidas mais baratas e as mais caras (`docs/omie.md`). Desligado por omissão: só conta num tarifário com preço à hora | Uma vez por dia |
 
 Escolhido pelo utilizador a 2026-10-26: o limiar de potência é o do contador (120 %), não a potência contratada (100 %). O pico usado é o aparente ao segundo de cada minuto (`apparent_max_va`), ou o ativo quando o minuto não tem valores ao segundo. Cada aparelho escolhe os avisos que quer (Definições → Avisos). Quando o D1 já bloqueou, o próprio Cron não consegue ler e não há avisos: o aviso aos 80 % existe para isso.
 

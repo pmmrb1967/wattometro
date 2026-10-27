@@ -30,6 +30,7 @@ import { formatCents, formatPricePerKwh, omieToMicro } from '../lib/money';
 import { lisbonToday } from '../lib/time';
 import { formatKva, formatKwh } from '../lib/units';
 import { fetchOffers, fetchOmie } from './api';
+import { MarketHours } from './MarketHours';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
 import { MeterSelect } from './MeterSelect';
@@ -427,6 +428,7 @@ export function Tariffs() {
           </section>
 
           {effect && Array.isArray(offers) && <Indexed effect={effect} offers={offers} />}
+          <MarketHours />
 
           <section className="card form">
             <h2>{texts.shiftTitle}</h2>
