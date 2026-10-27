@@ -10,6 +10,19 @@ import {
   type OffersFile,
 } from '../../src/domain/erse';
 
+/**
+ * The CSV bytes as text. The ERSE files are Windows-1252 (Latin-1), not UTF-8:
+ * read as UTF-8, "NEGÓCIOS" came out as "NEG�CIOS". UTF-8 is kept if the
+ * bytes are valid UTF-8, in case the ERSE changes.
+ */
+export function decodeCsv(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
 export function parseCsv(text: string): Record<string, string>[] {
   const lines = text
     .replace(/^\uFEFF/, '')

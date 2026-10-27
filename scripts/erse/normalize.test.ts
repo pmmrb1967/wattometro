@@ -2,7 +2,7 @@
 // Adapted from Faturómetro (scripts/erse/normalize.test.ts).
 import { describe, expect, it } from 'vitest';
 import { OFFERS_SCHEMA_VERSION, OFFERS_URL, powerKey } from '../../src/domain/erse';
-import { dataDateFromName, isUpToDate, normalize, parseCsv } from './normalize';
+import { dataDateFromName, decodeCsv, isUpToDate, normalize, parseCsv } from './normalize';
 
 // Synthetic rows in the ERSE format (column names as in the real CSV).
 const CONDITIONS = [
@@ -25,6 +25,15 @@ const PRICES = [
   'ACME;;1;;ACME_DUAL;;;;;;0,11;0,095',
   'ACME;6,9;;;ACME_EMP;1;0,5;0,15;;;;',
 ].join('\r\n');
+
+describe('decodeCsv', () => {
+  it('reads the ERSE files as Windows-1252, and UTF-8 when it is valid', () => {
+    // "NEGÓCIOS" in Windows-1252: Ó is the single byte 0xD3.
+    const latin = Uint8Array.from([0x4e, 0x45, 0x47, 0xd3, 0x43, 0x49, 0x4f, 0x53]);
+    expect(decodeCsv(latin)).toBe('NEGÓCIOS');
+    expect(decodeCsv(new TextEncoder().encode('Atualização'))).toBe('Atualização');
+  });
+});
 
 describe('ERSE normalize', () => {
   const file = normalize(parseCsv(CONDITIONS), parseCsv(PRICES), {

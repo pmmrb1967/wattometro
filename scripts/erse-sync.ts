@@ -3,7 +3,7 @@
 /**
  * Downloads the ERSE offers and writes public/data/erse-offers.json.
  *
- *   pnpm erse:sync
+ *   pnpm erse:sync [--force]
  *
  * Source: the CSV ZIP linked from the ERSE price simulator, found through
  * https://simuladorprecos.erse.pt/config/Settings.json → csvPath
@@ -11,9 +11,9 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { strFromU8, unzipSync } from 'fflate';
+import { unzipSync } from 'fflate';
 import { z } from 'zod';
-import { dataDateFromName, isUpToDate, normalize, parseCsv } from './erse/normalize';
+import { dataDateFromName, decodeCsv, isUpToDate, normalize, parseCsv } from './erse/normalize';
 
 const SETTINGS_URL = 'https://simuladorprecos.erse.pt/config/Settings.json';
 const OUTPUT = resolve('public', 'data', 'erse-offers.json');
@@ -38,7 +38,8 @@ async function main(): Promise<void> {
       source?: string;
       schemaVersion?: number;
     };
-    if (isUpToDate(current, zipName)) {
+    // --force: rewrite it anyway (after a change in how it is read).
+    if (isUpToDate(current, zipName) && !process.argv.includes('--force')) {
       console.log(`Already up to date (${zipName}).`);
       return;
     }
@@ -54,7 +55,7 @@ async function main(): Promise<void> {
   if (!conditions || !prices)
     throw new Error(`ZIP without the expected CSV files: ${[...byName.keys()].join(', ')}`);
 
-  const file = normalize(parseCsv(strFromU8(conditions)), parseCsv(strFromU8(prices)), {
+  const file = normalize(parseCsv(decodeCsv(conditions)), parseCsv(decodeCsv(prices)), {
     source: zipName,
     dataDate,
     fetchedAt: new Date().toISOString(),
