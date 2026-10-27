@@ -52,7 +52,7 @@ describe('get_appliances', () => {
             name: 'Máquina da loiça',
             uses: 3,
             daysOn: 3,
-            energy: '3,72 kWh',
+            energy: '3,72\u00a0kWh',
             cost: formatCents(78),
             perMonth: formatCents(339),
             lessPerMonthInCheapestPeriod: formatCents(130),

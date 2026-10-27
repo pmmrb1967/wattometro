@@ -71,7 +71,7 @@ describe('recommend_contracted_power', () => {
     });
     const result = await call('recommend_contracted_power', context(facts));
     expect(result.recommended).toBe(formatKva(expected.recommendedVa!));
-    expect(result.current).toBe('6,9 kVA');
+    expect(result.current).toBe('6,9\u00a0kVA');
     expect(result.comparedWithCurrent).toBe('lower');
     // No ERSE offer matches the contract's fixed term: no saving claimed.
     expect(result.powerTermSavingPerYear).toBeNull();
@@ -83,7 +83,7 @@ describe('recommend_contracted_power', () => {
       'recommend_contracted_power',
       context({ kind: 'eredes', maxQuarterW: 3200 }),
     );
-    expect(result).toMatchObject({ highestQuarterAverage: '3,20 kW' });
+    expect(result).toMatchObject({ highestQuarterAverage: '3,20\u00a0kW' });
     expect(result.recommended).toBeUndefined();
   });
 
@@ -128,6 +128,6 @@ describe('get_voltage_events', () => {
     }[];
     expect(meter?.weeks).toEqual([expect.objectContaining({ meetsStandard: true })]);
     expect(meter?.episodes).toBe(voltageEpisodes(outside, VOLTAGE_LIMITS, 1).length);
-    expect(meter?.list[0]).toMatchObject({ kind: 'low', extreme: '200,0 V' });
+    expect(meter?.list[0]).toMatchObject({ kind: 'low', extreme: '200,0\u00a0V' });
   });
 });

@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { addDays } from '../domain/consumption';
 import { anomalyFacts } from '../ai/tools/energy-tools';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { lisbonToday, type LocalDate } from '../lib/time';
@@ -112,10 +113,12 @@ export function AnomalyList({ energy }: { energy: HouseholdEnergy }) {
           ))}
         </ul>
       )}
-      <ul className="hint caveats">
-        <li>{texts.method(REFERENCE_DAYS)}</li>
-        {anomalies.some((anomaly) => anomaly.temperatureMatched) && <li>{texts.temperature}</li>}
-      </ul>
+      <HowItWorks>
+        <ul className="hint caveats">
+          <li>{texts.method(REFERENCE_DAYS)}</li>
+          {anomalies.some((anomaly) => anomaly.temperatureMatched) && <li>{texts.temperature}</li>}
+        </ul>
+      </HowItWorks>
     </section>
   );
 }

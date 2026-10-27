@@ -8,6 +8,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents, formatWholeEuros } from '../lib/money';
 import { formatLocalDate, lisbonToday } from '../lib/time';
@@ -122,56 +123,60 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
       <h2>{texts.title(monthName(forecast.month))}</h2>
       <p className="lead">{texts.intro}</p>
       <Headline result={result} />
-      <ul className="hint caveats">
-        <li>
-          {forecast.method === 'naive' && choice !== 'naive'
-            ? texts.methodFewData
-            : choice === 'naive'
-              ? texts.methodNaive
-              : forecast.usesTemperature
-                ? texts.methodTemperature
-                : texts.methodType}
-        </li>
-        {choice !== 'temperature' && weather.daily && <li>{texts.temperatureLeftOut}</li>}
-        {late.length > 0 && (
-          <li>{texts.late(formatLocalDate(late[0]!.date), formatLocalDate(late.at(-1)!.date))}</li>
-        )}
-        {weather.notNeeded && <li>{texts.temperatureNotNeeded}</li>}
-        {weather.location && meanUpcoming !== null && (
-          <li>{texts.temperature(weather.location.name, formatCelsius(meanUpcoming))}</li>
-        )}
-        {!weather.location && !weather.notNeeded && (
+      <HowItWorks>
+        <ul className="hint caveats">
           <li>
-            {texts.noLocation} <Link to="/definicoes">{texts.toSettings}</Link>
+            {forecast.method === 'naive' && choice !== 'naive'
+              ? texts.methodFewData
+              : choice === 'naive'
+                ? texts.methodNaive
+                : forecast.usesTemperature
+                  ? texts.methodTemperature
+                  : texts.methodType}
           </li>
-        )}
-        {weather.failed && <li>{texts.weatherFailed}</li>}
-        {result.samples > 0 && (
-          <li>
-            {texts.backtest(
-              result.samples,
-              errors.temperature !== null && weather.daily ? pct(errors.temperature) : null,
-              errors.dayType !== null ? pct(errors.dayType) : null,
-              errors.naive !== null ? pct(errors.naive) : null,
-            )}
-          </li>
-        )}
-        {!result.range && <li>{texts.noRange}</li>}
-        {forecast.costCents !== null && <li>{texts.costNote}</li>}
-        {forecast.costCents === null && (
-          <li>
-            {texts.noTariff} <Link to="/definicoes">{texts.toSettings}</Link>
-          </li>
-        )}
-        {weather.daily && (
-          <li>
-            {texts.attribution}{' '}
-            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
-              Open-Meteo
-            </a>
-          </li>
-        )}
-      </ul>
+          {choice !== 'temperature' && weather.daily && <li>{texts.temperatureLeftOut}</li>}
+          {late.length > 0 && (
+            <li>
+              {texts.late(formatLocalDate(late[0]!.date), formatLocalDate(late.at(-1)!.date))}
+            </li>
+          )}
+          {weather.notNeeded && <li>{texts.temperatureNotNeeded}</li>}
+          {weather.location && meanUpcoming !== null && (
+            <li>{texts.temperature(weather.location.name, formatCelsius(meanUpcoming))}</li>
+          )}
+          {!weather.location && !weather.notNeeded && (
+            <li>
+              {texts.noLocation} <Link to="/definicoes">{texts.toSettings}</Link>
+            </li>
+          )}
+          {weather.failed && <li>{texts.weatherFailed}</li>}
+          {result.samples > 0 && (
+            <li>
+              {texts.backtest(
+                result.samples,
+                errors.temperature !== null && weather.daily ? pct(errors.temperature) : null,
+                errors.dayType !== null ? pct(errors.dayType) : null,
+                errors.naive !== null ? pct(errors.naive) : null,
+              )}
+            </li>
+          )}
+          {!result.range && <li>{texts.noRange}</li>}
+          {forecast.costCents !== null && <li>{texts.costNote}</li>}
+          {forecast.costCents === null && (
+            <li>
+              {texts.noTariff} <Link to="/definicoes">{texts.toSettings}</Link>
+            </li>
+          )}
+          {weather.daily && (
+            <li>
+              {texts.attribution}{' '}
+              <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
+                Open-Meteo
+              </a>
+            </li>
+          )}
+        </ul>
+      </HowItWorks>
     </section>
   );
 }

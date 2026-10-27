@@ -6,6 +6,7 @@ export const t = {
   appName: 'Wattómetro',
   tagline: 'O consumo elétrico da casa transformado em poupança concreta.',
   loading: 'A carregar…',
+  howItWorks: 'Como é calculado',
   infoLabel: 'Onde encontrar este valor',
   signOut: 'Sair',
   navToggle: {
@@ -489,13 +490,15 @@ export const t = {
       'Indica o teu tarifário em Definições para comparar com a potência atual e calcular a poupança.',
     computing: 'A simular…',
     recommended: 'Escalão recomendado',
-    recommendedValue: (kva: string) => `${kva}`,
+    verdictLower: (current: string, recommended: string) =>
+      `Podes baixar de ${current} para ${recommended}: nos últimos 90 dias o contador nunca teria cortado.`,
+    verdictSame: (current: string) =>
+      `Os teus ${current} estão certos: é o escalão mais baixo que não teria cortado nos últimos 90 dias.`,
+    verdictHigher: (current: string, recommended: string) =>
+      `Com ${current} o contador teria cortado (ou já cortou) nos últimos 90 dias. Considera subir para ${recommended}.`,
+    adjustMargin: (pct: number) => `Ajustar a margem de segurança (${pct} %)`,
+    otherPrice: 'Usar outro preço',
     tooHigh: 'Os picos ultrapassam o escalão mais alto em baixa tensão normal (41,4 kVA).',
-    same: 'A tua potência contratada é a mais baixa que não teria cortado.',
-    lower: 'Podes baixar a potência contratada sem que o contador tivesse cortado nestes 90 dias.',
-    higher:
-      'Com a potência atual o contador teria cortado nestes 90 dias (ou já cortou). Considera subir.',
-    savingTitle: 'Poupança estimada',
     saving: (euros: string) => `${euros} por ano`,
     savingHint: 'Só o termo de potência, com IVA, durante 365 dias.',
     priceFrom: (offer: string, supplier: string) =>
@@ -549,6 +552,19 @@ export const t = {
     ],
   },
   quality: {
+    verdict: {
+      outages: (year: number, long: number, short: number) =>
+        `Em ${year}: ${long} ${long === 1 ? 'corte longo' : 'cortes longos'} e ${short} ${short === 1 ? 'curto' : 'curtos'}. Indica a tua zona (no fim da página) para os comparar com o padrão.`,
+      outagesWithin: (year: number, long: number, short: number) =>
+        `Em ${year}: ${long} ${long === 1 ? 'corte longo' : 'cortes longos'} e ${short} ${short === 1 ? 'curto' : 'curtos'}, dentro do padrão da tua zona.`,
+      outagesOver: (year: number) =>
+        `Em ${year} os cortes já passam o padrão da tua zona: podes ter direito a compensação.`,
+      voltageMeets: (weeks: number) => `Tensão dentro da norma nas últimas ${weeks} semanas.`,
+      voltageFails: (weeks: number, failing: number) =>
+        `Tensão fora da norma em ${failing} das últimas ${weeks} semanas.`,
+      complain:
+        'Imprime esta página (botão no fim) e junta-a a uma reclamação ao teu comercializador ou à E-Redes.',
+    },
     title: 'Qualidade da energia',
     intro:
       'Falhas de energia e tensão medidas pelo teu Shelly, comparadas com os limites do Regulamento da Qualidade de Serviço da ERSE e da norma NP EN 50160.',
@@ -1001,6 +1017,9 @@ export const t = {
       `No ciclo diário: ${empty} % em vazio, ${full} % em cheias, ${peak} % em ponta.`,
     noOffers: 'Não consegui obter as ofertas da ERSE. Tenta mais tarde.',
     currentTitle: 'O que pagas hoje',
+    verdictBetter: (saving: string, offer: string, supplier: string) =>
+      `Podes poupar até ${saving} por ano com «${offer}» (${supplier}).`,
+    verdictBest: 'Já tens o tarifário mais barato para o teu consumo.',
     perYearCost: (euros: string) => `${euros} por ano`,
     yourContract: 'O teu contrato',
     currentHint: (supplier: string, option: string, power: string) =>

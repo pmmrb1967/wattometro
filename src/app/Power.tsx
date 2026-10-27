@@ -24,6 +24,7 @@ import {
 } from '../domain/contracted-power';
 import type { Offer } from '../domain/erse';
 import { tariffOn, type Tariff } from '../domain/tariff';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents, microToPtInput, parsePtPrice, type MicroEuros } from '../lib/money';
 import { formatLisbonDateTime, lisbonToday } from '../lib/time';
@@ -45,6 +46,9 @@ const VAT_POWER_LIMIT_VA = 6900;
 const SHOWN_PROGRESS_PCT = 50;
 
 type MeterData = PowerData['meters'][number];
+
+/** The highest quarter hours shown: the first few say it (the rest are alike). */
+const TOP_SHOWN = 5;
 
 function meterName(meter: string, devices: PowerData['devices']): string {
   const [deviceId, channel] = meter.split(':');
@@ -100,30 +104,33 @@ function Saving({ tariff, targetVa }: { tariff: Tariff; targetVa: number }) {
 
   return (
     <div className="form">
-      <h3>{texts.savingTitle}</h3>
       {saving !== null && (
         <>
-          <p className="big">{texts.saving(formatCents(saving))}</p>
+          <p className="big success">{texts.saving(formatCents(saving))}</p>
           <p className="hint">{texts.savingHint}</p>
         </>
       )}
-      {match && typedPrice === null && (
-        <p className="hint">{texts.priceFrom(match.offer.name, match.offer.supplier)}</p>
-      )}
-      {!match && <p className="hint">{texts.priceMissing}</p>}
-      <label>
-        {texts.priceLabel(formatKva(targetVa))}
-        <input
-          inputMode="decimal"
-          autoComplete="off"
-          value={typed}
-          placeholder={match ? microToPtInput(match.fixedPerDay) : '0,0000'}
-          onChange={(event) => setTyped(event.target.value)}
-        />
-      </label>
       {tariff.powerVa > VAT_POWER_LIMIT_VA && targetVa <= VAT_POWER_LIMIT_VA && (
         <p className="hint">{texts.vatNote}</p>
       )}
+      {/* Without a price from the ERSE offers, the field is the only way to a saving: open. */}
+      <details className="adjust" open={!match}>
+        <summary>{texts.otherPrice}</summary>
+        {match && typedPrice === null && (
+          <p className="hint">{texts.priceFrom(match.offer.name, match.offer.supplier)}</p>
+        )}
+        {!match && <p className="hint">{texts.priceMissing}</p>}
+        <label>
+          {texts.priceLabel(formatKva(targetVa))}
+          <input
+            inputMode="decimal"
+            autoComplete="off"
+            value={typed}
+            placeholder={match ? microToPtInput(match.fixedPerDay) : '0,0000'}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+        </label>
+      </details>
     </div>
   );
 }
@@ -182,24 +189,7 @@ function RecommendationSection({
   return (
     <section className="card">
       <h2>{texts.recommended}</h2>
-      <div className="form">
-        <label>
-          {texts.margin}
-          <input
-            type="number"
-            min={0}
-            max={50}
-            value={margin}
-            onChange={(event) =>
-              setMargin(Math.min(50, Math.max(0, Math.floor(Number(event.target.value)) || 0)))
-            }
-          />
-          <span className="hint">{texts.marginHint}</span>
-        </label>
-      </div>
-      {tariff ? (
-        <p>{texts.current(formatKva(tariff.powerVa))}</p>
-      ) : (
+      {!tariff && (
         <p className="hint">
           <Link to="/definicoes">{texts.noTariff}</Link>
         </p>
@@ -211,20 +201,21 @@ function RecommendationSection({
         <>
           {recommendedVa === null ? (
             <p className="error">{texts.tooHigh}</p>
-          ) : (
-            <p className="big">{texts.recommendedValue(formatKva(recommendedVa))}</p>
-          )}
-          {tariff && recommendedVa !== null && recommendedVa === tariff.powerVa && (
-            <p className="success">{texts.same}</p>
-          )}
-          {tariff && recommendedVa !== null && recommendedVa > tariff.powerVa && (
-            <p className="error">{texts.higher}</p>
-          )}
-          {tariff && recommendedVa !== null && recommendedVa < tariff.powerVa && (
+          ) : !tariff ? (
+            <p className="big">{formatKva(recommendedVa)}</p>
+          ) : recommendedVa < tariff.powerVa ? (
             <>
-              <p className="success">{texts.lower}</p>
+              <p className="verdict">
+                {texts.verdictLower(formatKva(tariff.powerVa), formatKva(recommendedVa))}
+              </p>
               <Saving tariff={tariff} targetVa={recommendedVa} />
             </>
+          ) : recommendedVa === tariff.powerVa ? (
+            <p className="verdict">{texts.verdictSame(formatKva(tariff.powerVa))}</p>
+          ) : (
+            <p className="verdict error">
+              {texts.verdictHigher(formatKva(tariff.powerVa), formatKva(recommendedVa))}
+            </p>
           )}
 
           {recommendation.evaluations.length > 0 && (
@@ -255,6 +246,22 @@ function RecommendationSection({
           {estimated > 0 && <p className="hint">{texts.estimated(estimated)}</p>}
         </>
       )}
+      <details className="adjust form">
+        <summary>{texts.adjustMargin(margin)}</summary>
+        <label>
+          {texts.margin}
+          <input
+            type="number"
+            min={0}
+            max={50}
+            value={margin}
+            onChange={(event) =>
+              setMargin(Math.min(50, Math.max(0, Math.floor(Number(event.target.value)) || 0)))
+            }
+          />
+          <span className="hint">{texts.marginHint}</span>
+        </label>
+      </details>
     </section>
   );
 }
@@ -394,7 +401,7 @@ function TopSection({ meter, tariff }: { meter: MeterData; tariff: Tariff | null
             </tr>
           </thead>
           <tbody>
-            {meter.top.map((quarter) => (
+            {meter.top.slice(0, TOP_SHOWN).map((quarter) => (
               <tr key={quarter.ts}>
                 <td>{formatLisbonDateTime(quarter.ts)}</td>
                 <td>
@@ -492,11 +499,13 @@ export function Power() {
       )}
 
       <section className="card">
-        <ul className="hint caveats">
-          {texts.caveats.map((caveat) => (
-            <li key={caveat}>{caveat}</li>
-          ))}
-        </ul>
+        <HowItWorks>
+          <ul className="hint caveats">
+            {texts.caveats.map((caveat) => (
+              <li key={caveat}>{caveat}</li>
+            ))}
+          </ul>
+        </HowItWorks>
       </section>
     </>
   );

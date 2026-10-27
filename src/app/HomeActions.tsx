@@ -28,9 +28,6 @@ import { lastYear, type HouseholdEnergy } from './household-energy';
 
 const texts = t.home.actions;
 
-/** A number and its unit stay on one line ("156 W", "6,9 kVA"). */
-const together = (value: string) => value.replace(' ', ' ');
-
 interface PowerAction {
   recommendedVa: number;
   savingCents: Cents | null;
@@ -142,7 +139,7 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
         (power.recommendedVa < tariff.powerVa ? (
           <Action
             to="/potencia"
-            title={texts.powerLower(together(formatKva(power.recommendedVa)))}
+            title={texts.powerLower(formatKva(power.recommendedVa))}
             value={power.savingCents === null ? '—' : texts.perYear(formatCents(power.savingCents))}
             hint={texts.powerHint(formatKva(tariff.powerVa))}
           />
@@ -173,7 +170,7 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
       {baseload && (
         <Action
           to="/consumo#consumo-base"
-          title={texts.baseload(together(formatPower(baseload.watts)))}
+          title={texts.baseload(formatPower(baseload.watts))}
           value={texts.costPerYear(formatCents(baseload.cents))}
           hint={texts.baseloadHint}
         />

@@ -5,6 +5,7 @@
  * one named appliance.
  */
 import { Link } from 'react-router';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatLocalDate } from '../lib/time';
@@ -74,21 +75,23 @@ export function RecentAppliances({ energy }: { energy: HouseholdEnergy }) {
               </table>
             </div>
           )}
-          <ul className="hint caveats">
-            <li>{texts.how}</li>
-            {shifts && <li>{texts.shiftNote}</li>}
-            {simple && recent.appliances.some((item) => item.shiftable) && (
-              <li>
-                {texts.simpleNote} <Link to="/tarifarios">{texts.toTariffs}</Link>
-              </li>
-            )}
-            <li>{texts.onlyNamed}</li>
-            {recent.appliances.some((item) => item.costCents === null) && (
-              <li>
-                <Link to="/tarifarios">{t.dayEvents.noTariff}</Link>
-              </li>
-            )}
-          </ul>
+          <HowItWorks>
+            <ul className="hint caveats">
+              <li>{texts.how}</li>
+              {shifts && <li>{texts.shiftNote}</li>}
+              {simple && recent.appliances.some((item) => item.shiftable) && (
+                <li>
+                  {texts.simpleNote} <Link to="/tarifarios">{texts.toTariffs}</Link>
+                </li>
+              )}
+              <li>{texts.onlyNamed}</li>
+              {recent.appliances.some((item) => item.costCents === null) && (
+                <li>
+                  <Link to="/tarifarios">{t.dayEvents.noTariff}</Link>
+                </li>
+              )}
+            </ul>
+          </HowItWorks>
         </>
       )}
     </section>

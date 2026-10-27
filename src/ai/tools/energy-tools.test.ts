@@ -149,7 +149,11 @@ describe('energy tools', () => {
   it('get_consumption_summary adds up a range and splits it by month', async () => {
     const result = await call('get_consumption_summary', { from: '2026-09-29', to: '2026-10-02' });
     // A weekday: 16 h × 600 W + 8 h × 120 W = 10,56 kWh; 2026-09-29 to 10-02 has no Sunday.
-    expect(result).toMatchObject({ daysWithData: 4, total: '42,2 kWh', perDay: '10,6 kWh' });
+    expect(result).toMatchObject({
+      daysWithData: 4,
+      total: '42,2\u00a0kWh',
+      perDay: '10,6\u00a0kWh',
+    });
     expect((result.months as unknown[]).length).toBe(2);
   });
 

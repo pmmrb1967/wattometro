@@ -38,22 +38,22 @@ describe('roundedKwh', () => {
 
 describe('formatting', () => {
   it('formats energy in kWh', () => {
-    expect(formatKwh(12_345)).toBe('12,3 kWh');
-    expect(formatKwh(500, 2)).toBe('0,50 kWh');
+    expect(formatKwh(12_345)).toBe('12,3\u00a0kWh');
+    expect(formatKwh(500, 2)).toBe('0,50\u00a0kWh');
     // pt-PT only groups thousands from five digits on.
-    expect(formatKwh(1_234_500)).toBe('1234,5 kWh');
+    expect(formatKwh(1_234_500)).toBe('1234,5\u00a0kWh');
     expect(plain(formatKwh(12_345_600))).toBe('12 345,6 kWh');
   });
 
   it('formats power in W or kW', () => {
-    expect(formatPower(850)).toBe('850 W');
-    expect(formatPower(3450)).toBe('3,45 kW');
-    expect(formatPower(6900)).toBe('6,90 kW');
+    expect(formatPower(850)).toBe('850\u00a0W');
+    expect(formatPower(3450)).toBe('3,45\u00a0kW');
+    expect(formatPower(6900)).toBe('6,90\u00a0kW');
   });
 
   it('formats voltage from decivolts', () => {
-    expect(formatVolts(2305)).toBe('230,5 V');
-    expect(formatVolts(2530)).toBe('253,0 V');
+    expect(formatVolts(2305)).toBe('230,5\u00a0V');
+    expect(formatVolts(2530)).toBe('253,0\u00a0V');
   });
 
   it('rejects non-integer input', () => {
@@ -65,9 +65,9 @@ describe('formatting', () => {
 
 describe('formatKva', () => {
   it('shows the ERSE tiers as on invoices', () => {
-    expect(formatKva(6900)).toBe('6,9 kVA');
-    expect(formatKva(10350)).toBe('10,35 kVA');
-    expect(formatKva(41400)).toBe('41,4 kVA');
+    expect(formatKva(6900)).toBe('6,9\u00a0kVA');
+    expect(formatKva(10350)).toBe('10,35\u00a0kVA');
+    expect(formatKva(41400)).toBe('41,4\u00a0kVA');
   });
 });
 
@@ -76,9 +76,9 @@ describe('temperature', () => {
     expect(toTenthsCelsius(12.3)).toBe(123);
     expect(toTenthsCelsius(-0.4)).toBe(-4);
     expect(toTenthsCelsius(18.05)).toBe(181);
-    expect(formatCelsius(123)).toBe('12,3 °C');
-    expect(formatCelsius(-4)).toBe('-0,4 °C');
-    expect(formatCelsius(155, 0)).toBe('16 °C');
+    expect(formatCelsius(123)).toBe('12,3\u00a0°C');
+    expect(formatCelsius(-4)).toBe('-0,4\u00a0°C');
+    expect(formatCelsius(155, 0)).toBe('16\u00a0°C');
     expect(() => formatCelsius(1.5)).toThrow(TypeError);
   });
 });

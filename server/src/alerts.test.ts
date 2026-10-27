@@ -60,7 +60,7 @@ describe('the decisions', () => {
     // 1.2 × 6900 VA = 8280 VA.
     const first = decidePower(QUIET_STATE, peaks, 6_900, NOW);
     expect(first.message?.body).toBe(
-      'Às 17:57 chegaste a 8,4 kVA, acima de 1,2 × a potência contratada (6,9 kVA): o contador começou a contar para cortar a luz.',
+      'Às 17:57 chegaste a 8,4\u00a0kVA, acima de 1,2 × a potência contratada (6,9\u00a0kVA): o contador começou a contar para cortar a luz.',
     );
     expect(first.state.checkedUntil).toBe(NOW - 60);
     // The same minutes again (looked at once more) and a new one within the hour: quiet.

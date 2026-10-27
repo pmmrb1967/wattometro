@@ -21,6 +21,7 @@ import type { RecentAppliances } from '../nilm/recent';
 import type { HouseholdEnergy } from './household-energy';
 import { useRecentAppliances } from './use-recent-appliances';
 import type { Offer } from '../domain/erse';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { lisbonToday } from '../lib/time';
@@ -210,6 +211,30 @@ export function Tariffs() {
   return (
     <>
       {header}
+      {comparison && (
+        <section className="card form">
+          {comparison.results[0] && comparison.results[0].savingCents > 0 ? (
+            <p className="verdict success">
+              {texts.verdictBetter(
+                formatCents(comparison.results[0].savingCents),
+                comparison.results[0].offer.name,
+                comparison.results[0].offer.supplier,
+              )}
+            </p>
+          ) : (
+            <p className="verdict">{texts.verdictBest}</p>
+          )}
+          <h2>{texts.currentTitle}</h2>
+          <p className="big">{texts.perYearCost(formatCents(comparison.currentCents))}</p>
+          <p className="hint">
+            {texts.currentHint(
+              tariff.supplier ?? texts.yourContract,
+              t.settings.tariff.options[tariff.option],
+              formatKva(tariff.powerVa),
+            )}
+          </p>
+        </section>
+      )}
 
       <section className="card form">
         <h2>{texts.usageTitle}</h2>
@@ -239,18 +264,6 @@ export function Tariffs() {
 
       {comparison && (
         <>
-          <section className="card form">
-            <h2>{texts.currentTitle}</h2>
-            <p className="big">{texts.perYearCost(formatCents(comparison.currentCents))}</p>
-            <p className="hint">
-              {texts.currentHint(
-                tariff.supplier ?? texts.yourContract,
-                t.settings.tariff.options[tariff.option],
-                formatKva(tariff.powerVa),
-              )}
-            </p>
-          </section>
-
           <section className="card form">
             <h2>{texts.offersTitle}</h2>
             <div className="filters">
@@ -285,7 +298,7 @@ export function Tariffs() {
             </div>
             <p className="hint">{texts.count(results.length)}</p>
             <div className="table-wrap">
-              <table className="table">
+              <table className="table stacked">
                 <thead>
                   <tr>
                     <th>{texts.colOffer}</th>
@@ -324,9 +337,14 @@ export function Tariffs() {
                           </span>
                         )}
                       </td>
-                      <td>{optionLabel(result)}</td>
-                      <td className="number">{formatCents(result.annualCents)}</td>
-                      <td className={result.savingCents > 0 ? 'number success' : 'number'}>
+                      <td className="stacked-sub">{optionLabel(result)}</td>
+                      <td className="number" data-label={texts.colYear}>
+                        {formatCents(result.annualCents)}
+                      </td>
+                      <td
+                        className={result.savingCents > 0 ? 'number success' : 'number'}
+                        data-label={texts.colSaving}
+                      >
                         {formatCents(result.savingCents)}
                       </td>
                     </tr>
@@ -349,11 +367,13 @@ export function Tariffs() {
           </section>
 
           <section className="card">
-            <ul className="hint caveats">
-              {texts.caveats.map((caveat) => (
-                <li key={caveat}>{caveat}</li>
-              ))}
-            </ul>
+            <HowItWorks>
+              <ul className="hint caveats">
+                {texts.caveats.map((caveat) => (
+                  <li key={caveat}>{caveat}</li>
+                ))}
+              </ul>
+            </HowItWorks>
           </section>
         </>
       )}

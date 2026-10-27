@@ -16,6 +16,7 @@ import {
   type Outage,
   type QualityZone,
 } from '../domain/voltage';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import {
   formatDuration,
@@ -151,7 +152,7 @@ function OutagesSection({
             <p>{texts.outages.none}</p>
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table stacked">
                 <thead>
                   <tr>
                     <th>{texts.outages.columns.start}</th>
@@ -165,10 +166,16 @@ function OutagesSection({
                   {inYear.map((outage) => (
                     <tr key={outage.start} className={outage.excluded ? 'muted' : undefined}>
                       <td>{formatLisbonDateTime(outage.start)}</td>
-                      <td>{formatLisbonDateTime(outage.end)}</td>
-                      <td>{formatDuration(outage.seconds)}</td>
-                      <td>{outage.long ? texts.outages.kindLong : texts.outages.kindShort}</td>
-                      <td>
+                      <td data-label={texts.outages.columns.end}>
+                        {formatLisbonDateTime(outage.end)}
+                      </td>
+                      <td data-label={texts.outages.columns.duration}>
+                        {formatDuration(outage.seconds)}
+                      </td>
+                      <td data-label={texts.outages.columns.kind}>
+                        {outage.long ? texts.outages.kindLong : texts.outages.kindShort}
+                      </td>
+                      <td data-label={texts.outages.columns.count}>
                         <input
                           type="checkbox"
                           className="no-print"
@@ -186,11 +193,13 @@ function OutagesSection({
               </table>
             </div>
           )}
-          <ul className="hint caveats">
-            {texts.outages.caveats.map((caveat) => (
-              <li key={caveat}>{caveat}</li>
-            ))}
-          </ul>
+          <HowItWorks>
+            <ul className="hint caveats">
+              {texts.outages.caveats.map((caveat) => (
+                <li key={caveat}>{caveat}</li>
+              ))}
+            </ul>
+          </HowItWorks>
         </>
       )}
     </section>
@@ -226,7 +235,7 @@ function MeterVoltage({
     <>
       <h3>{name}</h3>
       <div className="table-wrap">
-        <table className="table">
+        <table className="table stacked">
           <thead>
             <tr>
               <th>{columns.week}</th>
@@ -239,14 +248,17 @@ function MeterVoltage({
             {weeks.map((week) => (
               <tr key={week.week}>
                 <td>{formatLocalDate(week.week)}</td>
-                <td>
+                <td data-label={columns.evaluated}>
                   {texts.voltage.evaluated(week.evaluated, week.expected)}
                   {week.excluded > 0 && (
                     <span className="hint"> · {texts.voltage.excluded(week.excluded)}</span>
                   )}
                 </td>
-                <td>{week.outsideBand}</td>
-                <td className={week.meetsBand && week.meetsLimits ? 'success' : 'error'}>
+                <td data-label={columns.outside}>{week.outsideBand}</td>
+                <td
+                  className={week.meetsBand && week.meetsLimits ? 'success' : 'error'}
+                  data-label={columns.result}
+                >
                   {[
                     !week.meetsBand && texts.voltage.failsBand,
                     !week.meetsLimits && texts.voltage.failsLimits,
@@ -265,7 +277,7 @@ function MeterVoltage({
         <p className="hint">{texts.voltage.noEpisodes}</p>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table stacked">
             <thead>
               <tr>
                 <th>{episodeColumns.start}</th>
@@ -278,9 +290,13 @@ function MeterVoltage({
               {episodes.map((episode) => (
                 <tr key={`${episode.kind}:${episode.start}`}>
                   <td>{formatLisbonDateTime(episode.start)}</td>
-                  <td>{formatDuration(episode.end - episode.start)}</td>
-                  <td>{episode.kind === 'low' ? texts.voltage.low : texts.voltage.high}</td>
-                  <td>{formatVolts(episode.extremeDv)}</td>
+                  <td data-label={episodeColumns.duration}>
+                    {formatDuration(episode.end - episode.start)}
+                  </td>
+                  <td data-label={episodeColumns.kind}>
+                    {episode.kind === 'low' ? texts.voltage.low : texts.voltage.high}
+                  </td>
+                  <td data-label={episodeColumns.value}>{formatVolts(episode.extremeDv)}</td>
                 </tr>
               ))}
             </tbody>
@@ -288,6 +304,53 @@ function MeterVoltage({
         </div>
       )}
     </>
+  );
+}
+
+/** The page's conclusion first: outages against the zone, the voltage against the standard. */
+function QualityVerdict({
+  data,
+  outages,
+  zone,
+  year,
+  weeks,
+}: {
+  data: QualityData | null;
+  outages: Outage[] | null;
+  zone: QualityZone | null;
+  year: number;
+  weeks: number;
+}) {
+  if (outages === null || data === null) return null;
+  const summary = yearSummary(outages, year, zone);
+  const over = summary.overCount || summary.overHours;
+  const failing = data.intervals.reduce(
+    (count, { intervals }) =>
+      count +
+      weeklyCompliance(
+        intervals.map(([ts, , avgDv]) => ({ ts, avgDv })),
+        outages,
+        VOLTAGE_LIMITS,
+      ).filter((week) => !week.meetsBand || !week.meetsLimits).length,
+    0,
+  );
+  const verdict = texts.verdict;
+  return (
+    <section className="card">
+      <p className={over ? 'verdict error' : 'verdict'}>
+        {summary.standard
+          ? over
+            ? verdict.outagesOver(year)
+            : verdict.outagesWithin(year, summary.longCount, summary.shortCount)
+          : verdict.outages(year, summary.longCount, summary.shortCount)}
+      </p>
+      {data.intervals.length > 0 && (
+        <p className={failing > 0 ? 'verdict error' : 'verdict'}>
+          {failing > 0 ? verdict.voltageFails(weeks, failing) : verdict.voltageMeets(weeks)}
+        </p>
+      )}
+      {(over || failing > 0) && <p className="hint">{verdict.complain}</p>}
+    </section>
   );
 }
 
@@ -354,11 +417,13 @@ function VoltageSection({
         ))
       )}
       {data?.outsideTruncated && <p className="error">{texts.voltage.truncated}</p>}
-      <ul className="hint caveats">
-        {texts.voltage.caveats.map((caveat) => (
-          <li key={caveat}>{caveat}</li>
-        ))}
-      </ul>
+      <HowItWorks>
+        <ul className="hint caveats">
+          {texts.voltage.caveats.map((caveat) => (
+            <li key={caveat}>{caveat}</li>
+          ))}
+        </ul>
+      </HowItWorks>
     </section>
   );
 }
@@ -441,7 +506,7 @@ export function Quality() {
       </div>
       <StatusLine status={status} />
 
-      <ZoneSection zone={zone} onChange={setZone} />
+      <QualityVerdict data={data} outages={outages} zone={zone} year={year} weeks={weeks} />
       <OutagesSection
         outages={outages}
         zone={zone}
@@ -449,6 +514,7 @@ export function Quality() {
         onExclude={(outage, excluded) => void exclude(outage, excluded)}
       />
       <VoltageSection data={data} weeks={weeks} onWeeks={setWeeks} outages={outages ?? []} />
+      <ZoneSection zone={zone} onChange={setZone} />
 
       <section className="card">
         <h2>{texts.sourcesTitle}</h2>

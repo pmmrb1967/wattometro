@@ -2,6 +2,7 @@
 /** "Consumo" with the house chosen: how far the Shelly is from E-Redes (src/domain/reconciliation.ts). */
 import { useMemo } from 'react';
 import { reconcile, type DayEnergy } from '../domain/reconciliation';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { lisbonDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
@@ -91,10 +92,12 @@ export function Reconciliation({
           )}
         </>
       )}
-      <ul className="hint caveats">
-        {result.tenths !== null && <li>{texts.normal}</li>}
-        <li>{texts.rule}</li>
-      </ul>
+      <HowItWorks>
+        <ul className="hint caveats">
+          {result.tenths !== null && <li>{texts.normal}</li>}
+          <li>{texts.rule}</li>
+        </ul>
+      </HowItWorks>
     </section>
   );
 }

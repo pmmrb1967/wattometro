@@ -33,9 +33,12 @@ const decimal = (digits: number) =>
   new Intl.NumberFormat('pt-PT', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 /** Energy for display only (e.g. 12345 → "12,3 kWh"). */
+/** Between a number and its unit: no line break inside "6,9 kVA" (as the euro amounts). */
+const UNIT_SPACE = '\u00a0';
+
 export function formatKwh(wh: Wh, digits = 1): string {
   assertInteger(wh, 'Wh');
-  return `${decimal(digits).format(wh / 1000)} kWh`;
+  return `${decimal(digits).format(wh / 1000)}${UNIT_SPACE}kWh`;
 }
 
 /** Average power over a quarter hour from its energy (Wh × 4 = W). */
@@ -62,20 +65,20 @@ export function kwhTick(wh: Wh): string {
 export function formatPower(watts: Watts): string {
   assertInteger(watts, 'W');
   return Math.abs(watts) < 1000
-    ? `${decimal(0).format(watts)} W`
-    : `${decimal(2).format(watts / 1000)} kW`;
+    ? `${decimal(0).format(watts)}${UNIT_SPACE}W`
+    : `${decimal(2).format(watts / 1000)}${UNIT_SPACE}kW`;
 }
 
 /** Voltage for display only (e.g. 2305 → "230,5 V"). */
 export function formatVolts(decivolts: Decivolts): string {
   assertInteger(decivolts, 'dV');
-  return `${decimal(1).format(decivolts / 10)} V`;
+  return `${decimal(1).format(decivolts / 10)}${UNIT_SPACE}V`;
 }
 
 /** Contracted power for display only (e.g. 6900 VA → "6,9 kVA", 10350 → "10,35 kVA"). */
 export function formatKva(va: number): string {
   assertInteger(va, 'VA');
-  return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 }).format(va / 1000)} kVA`;
+  return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 }).format(va / 1000)}${UNIT_SPACE}kVA`;
 }
 
 /** °C as received (e.g. from Open-Meteo, one decimal) → tenths of a degree (12.3 → 123). */
@@ -86,5 +89,5 @@ export function toTenthsCelsius(celsius: number): TenthsCelsius {
 /** Temperature for display only (e.g. 123 → "12,3 °C"). */
 export function formatCelsius(tenths: TenthsCelsius, digits = 1): string {
   assertInteger(tenths, '0.1 °C');
-  return `${decimal(digits).format(tenths / 10)} °C`;
+  return `${decimal(digits).format(tenths / 10)}${UNIT_SPACE}°C`;
 }

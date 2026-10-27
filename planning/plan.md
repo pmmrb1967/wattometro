@@ -274,9 +274,9 @@ Revisão de 27/10/2026 (todas as páginas a 390×844 e 1280×800, claro e escuro
 - [x] Botões desativados sem cursor de "a trabalhar"; ícone visível no modo escuro; `theme-color` para o modo escuro
 
 ### 10.2 Estrutura das páginas
-- [ ] Cada página de análise (Potência, Tarifários, Qualidade, Relatório) abre com uma frase de conclusão: em euros, ou um veredicto sim/não
-- [ ] As notas de cada cartão num "Como é calculado" que se abre (um componente comum)
-- [ ] Tabelas no telemóvel como listas (Tarifários primeiro: a poupança tem de se ver; depois eventos e episódios de tensão)
+- [x] Cada página de análise (Potência, Tarifários, Qualidade, Relatório) abre com uma frase de conclusão: em euros, ou um veredicto sim/não (Potência, Tarifários e Qualidade; o Relatório fica com "Relatório: sugestões" abaixo). Potência: margem e preço em "Ajustar…", 5 momentos de maior potência; Qualidade: zona no fim; números e unidades sem quebra de linha (`UNIT_SPACE`)
+- [x] As notas de cada cartão num "Como é calculado" que se abre (um componente comum)
+- [x] Tabelas no telemóvel como listas (Tarifários primeiro: a poupança tem de se ver; depois eventos e episódios de tensão)
 - [ ] Consumo: gráfico primeiro, previsão numa linha, "Ao segundo" e calibração numa subpágina
 - [ ] Definições: índice ou separadores, com o tarifário primeiro; botões com a mesma largura; ficheiro com um botão estilizado
 - [ ] Relatório: sugestões logo a seguir ao custo, com euros

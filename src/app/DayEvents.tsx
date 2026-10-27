@@ -8,6 +8,7 @@
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { addDays } from '../domain/consumption';
 import {
@@ -240,7 +241,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
           )}
           {result.groups.length > 0 && (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table stacked">
                 <thead>
                   <tr>
                     <th>{texts.appliance}</th>
@@ -288,19 +289,19 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                               </button>
                             ) : null}
                           </td>
-                          <td>
+                          <td data-label={texts.power}>
                             {groupPower(group)}
                             {Math.abs(group.powerW) < RELIABLE_W && (
                               <span className="hint appliance-range">{texts.unreliable}</span>
                             )}
                           </td>
-                          <td>
+                          <td data-label={texts.times}>
                             {group.count === 1
                               ? formatLisbonTime(group.cycles[0]!.start)
                               : texts.count(group.count)}
                           </td>
-                          <td>{formatDuration(group.durationS)}</td>
-                          <td>{formatKwh(group.energyWh, 2)}</td>
+                          <td data-label={texts.duration}>{formatDuration(group.durationS)}</td>
+                          <td data-label={texts.energy}>{formatKwh(group.energyWh, 2)}</td>
                         </tr>
                         {naming === first && (
                           <tr>
@@ -320,11 +321,13 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
               </table>
             </div>
           )}
-          <ul className="hint caveats">
-            <li>{texts.how}</li>
-            <li>{texts.limits}</li>
-            <li>{texts.unreliableNote}</li>
-          </ul>
+          <HowItWorks>
+            <ul className="hint caveats">
+              <li>{texts.how}</li>
+              <li>{texts.limits}</li>
+              <li>{texts.unreliableNote}</li>
+            </ul>
+          </HowItWorks>
         </>
       )}
     </section>

@@ -8,6 +8,7 @@ import { Link } from 'react-router';
 import type { Periods } from '../domain/consumption';
 import { baseloadCost, monthlyBaseload, nightlyBaseload, recentBaseload } from '../domain/baseload';
 import type { Tariff } from '../domain/tariff';
+import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatKwh, formatPower } from '../lib/units';
@@ -87,11 +88,13 @@ function Baseload({
           </ul>
         </>
       )}
-      <ul className="hint caveats">
-        <li>{texts.baseload.method}</li>
-        {eredes && <li>{texts.baseload.eredesNote}</li>}
-        {cost && <li>{texts.baseload.costNote}</li>}
-      </ul>
+      <HowItWorks>
+        <ul className="hint caveats">
+          <li>{texts.baseload.method}</li>
+          {eredes && <li>{texts.baseload.eredesNote}</li>}
+          {cost && <li>{texts.baseload.costNote}</li>}
+        </ul>
+      </HowItWorks>
     </section>
   );
 }

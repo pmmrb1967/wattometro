@@ -1255,6 +1255,24 @@ a.button-link {
   padding-left: 1.2em;
 }
 
+/* "Como é calculado": a card's notes, closed. */
+.how {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.how summary {
+  width: fit-content;
+  min-height: 32px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.how .caveats {
+  margin-bottom: 0;
+}
+
 .caveats li + li {
   margin-top: 4px;
 }
@@ -1558,6 +1576,62 @@ a.button-link {
   margin: 4px 0;
   font-size: 1.75rem;
   font-weight: 700;
+}
+
+/* Phones: a table of a few columns as a list of rows, each value with its label. */
+@media (max-width: 559px) {
+  .table.stacked thead {
+    display: none;
+  }
+
+  .table.stacked tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table.stacked td {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+
+  .table.stacked td:not([data-label]) {
+    grid-column: 1 / -1;
+  }
+
+  .table.stacked .stacked-sub {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .table.stacked td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .table.stacked td.success {
+    font-weight: 700;
+  }
+}
+
+/* "Ajustar…": settings that change a result, after it. */
+.adjust summary {
+  width: fit-content;
+  min-height: 32px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adjust[open] summary {
+  margin-bottom: 8px;
 }
 
 /* A conclusion in a sentence: stands out without outweighing the amounts. */
