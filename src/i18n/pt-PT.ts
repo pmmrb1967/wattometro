@@ -65,13 +65,26 @@ export const t = {
     status: 'Em construção',
     intro:
       'O Wattómetro vai ler o consumo do teu quadro elétrico (Shelly) e os dados da E-Redes para te dizer, em euros, onde podes poupar.',
-    comingTitle: 'O que vem aí',
-    coming: [
-      'A potência contratada certa para a tua casa',
-      'O tarifário mais barato para o teu consumo real',
-      'Quanto te custa o consumo fantasma',
-      'Os dias em que gastaste fora do habitual',
-    ],
+    actions: {
+      title: 'Onde podes poupar',
+      noTariff: 'Indica o teu tarifário para veres, em euros, onde podes poupar.',
+      toSettings: 'Indicar o tarifário',
+      perYear: (amount: string) => `−${amount}/ano`,
+      costPerYear: (amount: string) => `${amount}/ano`,
+      ok: 'Já está',
+      powerLower: (power: string) => `Baixar a potência para ${power}`,
+      powerHint: (current: string) =>
+        `Hoje tens ${current}; nos últimos 90 dias nunca precisaste de mais.`,
+      powerRight: 'A potência contratada está certa',
+      powerRightHint: 'Pelos picos ao segundo dos últimos 90 dias.',
+      tariffBetter: (supplier: string) => `Mudar de tarifário (${supplier})`,
+      tariffHint: 'A oferta mais barata da ERSE para o teu consumo do último ano.',
+      tariffBest: 'Já tens o tarifário mais barato',
+      tariffBestHint: 'Comparado com todas as ofertas da ERSE, para o teu consumo.',
+      baseload: (power: string) => `Consumo fantasma: ${power}`,
+      baseloadHint:
+        'O que a casa gasta de noite sem nada a uso: frigorífico, router, aparelhos em espera.',
+    },
   },
   ask: {
     title: 'Pergunta ao Wattómetro',

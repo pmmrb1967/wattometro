@@ -165,7 +165,7 @@ export function AppShell() {
       {context && isDemo() && (
         <div className="demo-banner" role="status">
           <span>{t.demo.banner}</span>
-          <button type="button" className="signout" onClick={signOut}>
+          <button type="button" className="demo-exit" onClick={signOut}>
             {t.demo.exit}
           </button>
         </div>

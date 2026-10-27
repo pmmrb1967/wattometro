@@ -56,7 +56,7 @@ function Baseload({
   }
   const highest = Math.max(...months.map((month) => month.watts), 1);
   return (
-    <section className="card form">
+    <section className="card form" id="consumo-base">
       <h2>{texts.baseload.title}</h2>
       <p className="lead">{texts.baseload.intro}</p>
       <p className="big">{formatPower(recent.watts)}</p>

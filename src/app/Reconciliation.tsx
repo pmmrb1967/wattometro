@@ -65,7 +65,7 @@ export function Reconciliation({
         </p>
       ) : (
         <>
-          <p className="big">
+          <p className="verdict">
             {texts.result(Math.sign(result.tenths) as 1 | 0 | -1, pct(result.tenths, false))}
           </p>
           <p>

@@ -267,11 +267,11 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 Revisão de 27/10/2026 (todas as páginas a 390×844 e 1280×800, claro e escuro). O que está bem: um só cartão, paleta sóbria, modo escuro, sem scroll horizontal da página. O problema: as conclusões em euros ficam por baixo de campos, leituras ao vivo e listas de notas.
 
 ### 10.1 Rápidas
-- [ ] Início: trocar "O que vem aí" (desatualizado) por blocos de ação com o valor em euros e ligação à página (potência, tarifário, consumo base); fatura prevista antes da leitura ao vivo
-- [ ] Contraste: rebordo dos campos ≥3:1 (hoje 1,3:1) e fundo dos campos igual ao do cartão; texto de destaque sobre fundo de destaque ≥4,5:1 (hoje 4,0:1); claro e escuro
-- [ ] Avisos do topo (servidor e demonstração) numa só faixa; o botão "Perguntar à IA" não tapa conteúdo no telemóvel; estado do servidor com texto, não só cor
-- [ ] Texto dos gráficos ≥11 px no ecrã (hoje ~8,5 px); a frase "O Shelly mede X %" com o tamanho normal
-- [ ] Botões desativados sem cursor de "a trabalhar"; ícone visível no modo escuro; `theme-color` para o modo escuro
+- [x] Início: trocar "O que vem aí" (desatualizado) por blocos de ação com o valor em euros e ligação à página (potência, tarifário, consumo base); fatura prevista antes da leitura ao vivo
+- [x] Contraste: rebordo dos campos ≥3:1 (hoje 1,3:1) e fundo dos campos igual ao do cartão; texto de destaque sobre fundo de destaque ≥4,5:1 (hoje 4,0:1); claro e escuro
+- [x] Avisos do topo (servidor e demonstração) numa só faixa; o botão "Perguntar à IA" não tapa conteúdo no telemóvel; estado do servidor com texto, não só cor
+- [x] Texto dos gráficos ≥11 px no ecrã (hoje ~8,5 px); a frase "O Shelly mede X %" com o tamanho normal
+- [x] Botões desativados sem cursor de "a trabalhar"; ícone visível no modo escuro; `theme-color` para o modo escuro
 
 ### 10.2 Estrutura das páginas
 - [ ] Cada página de análise (Potência, Tarifários, Qualidade, Relatório) abre com uma frase de conclusão: em euros, ou um veredicto sim/não

@@ -77,6 +77,7 @@ function ChatDock() {
           type="button"
           className="chat-launcher"
           onClick={show}
+          title={t.ask.open}
           aria-haspopup="dialog"
         >
           <NavIcon section="ask" />

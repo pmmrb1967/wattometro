@@ -5,9 +5,12 @@
   --text: #1d1a2b;
   --muted: #5f5b70;
   --border: #dedbe6;
+  /* Form fields: ≥3:1 against the card (WCAG 1.4.11). */
+  --field-border: #8a849c;
   --brand: #2e2250;
   --on-brand: #ffffff;
-  --accent: #127f86;
+  /* ≥4.5:1 on --accent-soft too (the active menu item). */
+  --accent: #0f7076;
   --ok: #1b7a43;
   --danger: #b3261e;
   --accent-soft: #dcefef;
@@ -33,6 +36,7 @@
     --text: #ebe8f2;
     --muted: #a7a2b8;
     --border: #312b45;
+    --field-border: #6e6787;
     --brand: #5fdde3;
     --on-brand: #15121f;
     --accent: #5fdde3;
@@ -110,6 +114,13 @@ a {
 
 .brand img {
   border-radius: 9px;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* The purple tile would vanish into the dark bar. */
+  .brand img {
+    box-shadow: 0 0 0 1px var(--field-border);
+  }
 }
 
 /* Phones: tab bar fixed at the bottom, icon over name (as in Faturómetro). Fixed, not
@@ -227,23 +238,50 @@ a {
 .demo-banner {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
-  gap: 8px 12px;
-  padding: 8px 16px;
+  gap: 2px 10px;
+  padding: 6px 16px;
   background: var(--accent-soft);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   text-align: center;
+}
+
+/* "Sair da demonstração": a link, not another button in the strip. */
+.demo-banner .demo-exit {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .server-banner {
   margin: 0;
-  padding: 8px 16px;
+  padding: 6px 16px;
   background: var(--danger-soft);
   color: var(--danger);
+  font-size: 0.8125rem;
   font-weight: 600;
   text-align: center;
+}
+
+/* Not connected: the word next to the dot, not the colour alone (on phones the banner says it). */
+@media (min-width: 480px) {
+  .server-unavailable .server-label,
+  .server-limit .server-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    color: var(--danger);
+    font-weight: 600;
+  }
 }
 
 /* Wide screens: the menu at the side, collapsible to its icons (as in Faturómetro). */
@@ -418,13 +456,45 @@ h2 {
   font-size: 0.875rem;
 }
 
-.coming {
-  margin: 0;
-  padding-left: 1.25em;
+/* "Início": the conclusions of each page, a link to it. */
+.actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
 }
 
-.coming li + li {
-  margin-top: 4px;
+.action {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.action:hover {
+  border-color: var(--accent);
+}
+
+.action-title {
+  font-weight: 600;
+}
+
+.action-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.action-hint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.875rem;
 }
 
 .card {
@@ -562,9 +632,9 @@ h2 {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-border);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 400;
@@ -670,6 +740,22 @@ h2 {
 
 .chat-launcher .nav-icon {
   padding: 0;
+}
+
+/* Phones: a round icon button, so it covers less of the page. */
+@media (max-width: 767px) {
+  .chat-launcher {
+    padding: 12px;
+  }
+
+  .chat-launcher span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .chat-launcher:focus-visible {
@@ -1079,7 +1165,12 @@ a.button-link {
 }
 
 .primary:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Busy (a request on its way), not just unavailable. */
+.primary[aria-busy='true'] {
   cursor: progress;
 }
 
@@ -1172,13 +1263,14 @@ a.button-link {
 .chart {
   display: block;
   width: 100%;
-  max-width: 640px;
+  max-width: 520px;
   height: auto;
 }
 
+/* In viewBox units (320 wide): about 10 px on a phone. */
 .chart-text {
   fill: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .chart-grid {
@@ -1466,6 +1558,13 @@ a.button-link {
   margin: 4px 0;
   font-size: 1.75rem;
   font-weight: 700;
+}
+
+/* A conclusion in a sentence: stands out without outweighing the amounts. */
+.verdict {
+  margin: 4px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
 }
 
 /* A secret field (the AI key) with the eye that shows it, inside on the right. */

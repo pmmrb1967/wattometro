@@ -10,7 +10,7 @@ const PLOT = 140;
 const AXIS = 16;
 const TOP = 22;
 /** Room for the value labels left of the plot. */
-const LEFT = 26;
+const LEFT = 30;
 const PLOT_WIDTH = WIDTH - LEFT;
 
 /** A value axis from zero: round values (the last one is the top) and the unit. */

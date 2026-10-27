@@ -30,7 +30,7 @@ const POWER_PERIOD_DAYS = 90;
 /** As on "Qualidade" by default. */
 const QUALITY_WEEKS = 4;
 
-async function loadPower(now: number): Promise<PowerFacts | null> {
+export async function loadPower(now: number): Promise<PowerFacts | null> {
   const from = now - POWER_PERIOD_DAYS * DAY;
   const outcome = await fetchPower(from, now);
   if (!outcome.ok) return null;
