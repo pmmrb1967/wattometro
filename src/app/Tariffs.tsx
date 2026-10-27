@@ -7,7 +7,19 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { annualUsage, compareOffers, type OfferResult, type Shift } from '../domain/compare';
+import {
+  annualUsage,
+  compareOffers,
+  costWithMoved,
+  type AnnualUsage,
+  type Comparison,
+  type OfferResult,
+  type Shift,
+} from '../domain/compare';
+import type { Cycle, MeterPeriod, TariffInput } from '../domain/tariff';
+import type { RecentAppliances } from '../nilm/recent';
+import type { HouseholdEnergy } from './household-energy';
+import { useRecentAppliances } from './use-recent-appliances';
 import type { Offer } from '../domain/erse';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
@@ -25,6 +37,73 @@ const optionLabel = (result: OfferResult) =>
   result.option === 'simple'
     ? t.settings.tariff.options.simple
     : `${t.settings.tariff.options[result.option]} · ${t.settings.tariff.cycles[result.cycle].toLowerCase()}`;
+
+/** Wh per year in each meter period of a cycle, from the recent days' machines. */
+function machinesPerYear(recent: RecentAppliances, cycle: Cycle): Record<MeterPeriod, number> {
+  const days = recent.days.length;
+  const sum = { empty: 0, full: 0, peak: 0 };
+  for (const item of recent.appliances) {
+    if (!item.shiftable || !item.periods) continue;
+    for (const period of ['empty', 'full', 'peak'] as const)
+      sum[period] += item.periods[cycle][period];
+  }
+  const year = (wh: number) => (days === 0 ? 0 : Math.round((wh * 365) / days));
+  return { empty: year(sum.empty), full: year(sum.full), peak: year(sum.peak) };
+}
+
+/** "Tarifários": what bi- or tri-hourly would cost with the machines the app recognised in empty. */
+function Machines({
+  comparison,
+  usage,
+  tariff,
+  energy,
+}: {
+  comparison: Comparison;
+  usage: AnnualUsage;
+  tariff: TariffInput;
+  energy: HouseholdEnergy;
+}) {
+  const { active, recent } = useRecentAppliances(energy);
+  if (active && !recent) return null;
+  const machines = recent?.appliances.filter((item) => item.shiftable && item.periods) ?? [];
+  if (!recent || machines.length === 0) return <p className="hint">{texts.machinesNone}</p>;
+  const names = machines.map((item) => item.label).join(', ');
+  const daily = machinesPerYear(recent, 'daily');
+  const outside = daily.full + daily.peak;
+  // Under 1 kWh a year outside the empty period: nothing to move.
+  if (outside < 1000) return <p>{texts.machinesAlready(names)}</p>;
+  return (
+    <>
+      <h3>{texts.machinesTitle}</h3>
+      <p>{texts.machinesIntro(names, formatKwh(outside, 0), recent.days.length)}</p>
+      <ul>
+        {(['bi', 'tri'] as const).map((option) => {
+          const shift = comparison.shift[option];
+          if (!shift) return null;
+          const cents = costWithMoved(
+            shift,
+            usage,
+            tariff,
+            machinesPerYear(recent, shift.best.cycle),
+          );
+          if (cents === null) return null;
+          const difference = comparison.currentCents - cents;
+          return (
+            <li key={option}>
+              {texts.machinesLine(
+                t.settings.tariff.options[option],
+                shift.best.offer.supplier,
+                formatCents(cents),
+                formatCents(Math.abs(difference)),
+                difference > 0,
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 
 function ShiftLine({ option, shift }: { option: 'bi' | 'tri'; shift: Shift | null }) {
   const name = t.settings.tariff.options[option];
@@ -264,6 +343,9 @@ export function Tariffs() {
               <ShiftLine option="bi" shift={comparison.shift.bi} />
               <ShiftLine option="tri" shift={comparison.shift.tri} />
             </ul>
+            {usage && (
+              <Machines comparison={comparison} usage={usage} tariff={tariff} energy={energy} />
+            )}
           </section>
 
           <section className="card">

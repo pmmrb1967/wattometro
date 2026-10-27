@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { annualUsage, compareOffers, energyFor, type AnnualUsage } from './compare';
+import { annualUsage, compareOffers, costWithMoved, energyFor, type AnnualUsage } from './compare';
 import type { CyclePrices, Offer } from './erse';
 import type { TariffInput } from './tariff';
 
@@ -132,6 +132,18 @@ describe('compareOffers', () => {
     expect(shift?.movableWh).toBe(2_100_000);
     expect(Math.abs((shift?.neededWh ?? 0) - 500_000)).toBeLessThan(100);
     expect(comparison.shift.tri).toBeNull();
+  });
+
+  it('prices a year with some appliances run in the empty period instead', () => {
+    // 500 kWh of the weekly cycle's full and peak moved to empty with offer B:
+    // 1 600 × 0,25 + 1 400 × 0,10 = 540 € × m = 589,74 €, as much as offer A.
+    const shift = comparison.shift.bi;
+    if (!shift) throw new Error('No shift');
+    const moved = { empty: 50_000, full: 300_000, peak: 200_000 };
+    expect(costWithMoved(shift, usage, current, moved)).toBe(58_974);
+    // Never more than the year has: all of full and peak, 3 000 kWh in empty: 300 € × m.
+    const everything = { empty: 0, full: 9_000_000, peak: 9_000_000 };
+    expect(costWithMoved(shift, usage, current, everything)).toBe(32_763);
   });
 
   it('splits the year the way each option bills it', () => {

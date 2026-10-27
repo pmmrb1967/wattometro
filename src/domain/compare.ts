@@ -186,6 +186,37 @@ function shiftFor(
   return neededWh > movableWh ? null : { best, neededWh, targetCents, movableWh };
 }
 
+/**
+ * A year with the best offer of a shift's option and `moved` (Wh per year in
+ * each meter period of its cycle, e.g. the dishwasher's) run in the empty
+ * period instead: cents per year, or null when the offer has no prices here.
+ */
+export function costWithMoved(
+  shift: Shift,
+  usage: AnnualUsage,
+  household: TariffInput,
+  moved: Record<MeterPeriod, Wh>,
+): Cents | null {
+  const { offer, option, cycle } = shift.best;
+  if (option === 'simple') return null;
+  const prices = offer.prices[powerKey(household.powerVa)]?.[option === 'bi' ? '2' : '3'];
+  if (!prices) return null;
+  const { tariff, terms } = offerContract(offer, prices, option, cycle, household);
+  const energy = energyFor(option, cycle, usage);
+  // Never more than the year has in those periods.
+  const full = Math.min(moved.full, usage.byCycle[cycle].full);
+  const peak = Math.min(moved.peak, usage.byCycle[cycle].peak);
+  const shifted: EnergyByPeriod =
+    option === 'bi'
+      ? { empty: (energy.empty ?? 0) + full + peak, offEmpty: (energy.offEmpty ?? 0) - full - peak }
+      : {
+          empty: (energy.empty ?? 0) + full + peak,
+          full: (energy.full ?? 0) - full,
+          peak: (energy.peak ?? 0) - peak,
+        };
+  return electricityCost(shifted, YEAR_DAYS, tariff, terms).totalCents;
+}
+
 export function compareOffers(input: {
   usage: AnnualUsage;
   /** The household's contract: current prices and the charges common to every offer. */

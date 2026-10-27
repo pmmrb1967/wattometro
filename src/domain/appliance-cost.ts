@@ -7,6 +7,10 @@
  * quarter hours its uses covered, in proportion to their seconds in each, so a
  * dishwasher at night is priced at the empty-period price and one at dinner at
  * the peak price (with a bi- or tri-hourly option).
+ *
+ * shiftSavingCents: what the day would have cost less with all of it in the
+ * cheapest period of the tariff (nothing with a simple tariff, where the hour
+ * does not change the price).
  */
 import type { Cents } from '../lib/money';
 import { floorTo, QUARTER_HOUR, type EpochSeconds } from '../lib/time';
@@ -61,6 +65,41 @@ export function spreadOverQuarters(
   return quarters;
 }
 
+const without = (all: EnergyByPeriod, own: EnergyByPeriod): EnergyByPeriod => {
+  const rest: EnergyByPeriod = {};
+  for (const [period, wh] of Object.entries(all) as [BillingPeriod, Wh][]) {
+    // Never below zero: the day's energy may miss seconds the appliance's has.
+    rest[period] = Math.max(0, wh - (own[period] ?? 0));
+  }
+  return rest;
+};
+
+/** The period with the lowest energy price; null for a simple tariff. */
+export function cheapestPeriod(tariff: TariffInput): BillingPeriod | null {
+  if (tariff.option === 'simple') return null;
+  const prices = Object.entries(tariff.energy) as [BillingPeriod, number][];
+  return prices.reduce((best, entry) => (entry[1] < best[1] ? entry : best))[0];
+}
+
+/** What the day would have cost less with the appliance's energy all in the cheapest period. */
+export function shiftSavingCents(
+  appliance: readonly { ts: EpochSeconds; energyWh: Wh }[],
+  day: readonly { ts: EpochSeconds; energyWh: Wh }[],
+  tariff: TariffInput,
+): Cents {
+  const cheapest = cheapestPeriod(tariff);
+  if (cheapest === null) return 0;
+  const all = energyByPeriod(day, tariff);
+  const own = energyByPeriod(appliance, tariff);
+  const rest = without(all, own);
+  const ownWh = Object.values(own).reduce((sum: number, wh) => sum + (wh ?? 0), 0);
+  const moved = { ...rest, [cheapest]: (rest[cheapest] ?? 0) + ownWh };
+  return Math.max(
+    0,
+    electricityCost(all, 1, tariff).totalCents - electricityCost(moved, 1, tariff).totalCents,
+  );
+}
+
 /**
  * The appliance's cost on a day: the day's quarter hours (its whole energy)
  * with and without the appliance's.
@@ -71,14 +110,9 @@ export function applianceCostCents(
   tariff: TariffInput,
 ): Cents {
   const all = energyByPeriod(day, tariff);
-  const own = energyByPeriod(appliance, tariff);
-  const without: EnergyByPeriod = {};
-  for (const [period, wh] of Object.entries(all) as [BillingPeriod, Wh][]) {
-    // Never below zero: the day's energy may miss seconds the appliance's has.
-    without[period] = Math.max(0, wh - (own[period] ?? 0));
-  }
+  const rest = without(all, energyByPeriod(appliance, tariff));
   return Math.max(
     0,
-    electricityCost(all, 1, tariff).totalCents - electricityCost(without, 1, tariff).totalCents,
+    electricityCost(all, 1, tariff).totalCents - electricityCost(rest, 1, tariff).totalCents,
   );
 }

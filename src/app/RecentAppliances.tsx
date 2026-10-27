@@ -4,55 +4,26 @@
  * what each cost and a month like these days. Only with a Shelly and at least
  * one named appliance.
  */
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
-import { formatLocalDate, lisbonToday } from '../lib/time';
+import { formatLocalDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
-import type { RecentAppliances as Recent } from '../nilm/recent';
-import { useAppliances } from './appliances-store';
 import type { HouseholdEnergy } from './household-energy';
-import { loadRecentAppliances } from './recent-appliances';
-import { useSession } from './session';
+import { useRecentAppliances } from './use-recent-appliances';
 
 const texts = t.recentAppliances;
 
-type Loaded = { key: string; recent: Recent | null };
-
 export function RecentAppliances({ energy }: { energy: HouseholdEnergy }) {
-  const { me } = useSession();
-  const meter = energy.houseShelly;
-  const [today] = useState(lisbonToday);
-  const known = useAppliances(me.householdId);
-  const appliances = known.kind === 'ready' ? known.appliances : null;
-  const tariffs = energy.tariffs;
-  const waiting = tariffs === null && !energy.tariffsFailed;
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const key = JSON.stringify([meter, today, energy.shellyFrom, tariffs, appliances]);
-
-  useEffect(() => {
-    if (!meter || !appliances || appliances.length === 0 || waiting) return;
-    let current = true;
-    void loadRecentAppliances({
-      householdId: me.householdId,
-      meter,
-      today,
-      shellyFrom: energy.shellyFrom,
-      tariffs,
-      appliances,
-    }).then((recent) => {
-      if (current) setLoaded({ key, recent });
-    });
-    return () => {
-      current = false;
-    };
-  }, [key, me.householdId, meter, today, energy.shellyFrom, tariffs, appliances, waiting]);
-
-  if (!meter || !appliances || appliances.length === 0) return null;
-  const recent = loaded?.key === key ? loaded.recent : undefined;
+  const { active, recent } = useRecentAppliances(energy);
+  if (!active) return null;
   const first = recent?.days[0];
   const last = recent?.days.at(-1);
+  // A bi- or tri-hourly tariff: the machines could run in the empty period.
+  const simple = energy.tariff?.option === 'simple';
+  const shifts =
+    !simple &&
+    (recent?.appliances.some((item) => item.shiftable && item.savingCents !== null) ?? false);
 
   return (
     <section className="card form" id="aparelhos">
@@ -77,6 +48,7 @@ export function RecentAppliances({ energy }: { energy: HouseholdEnergy }) {
                     <th>{texts.energy}</th>
                     <th>{texts.cost}</th>
                     <th>{texts.perMonth}</th>
+                    {shifts && <th>{texts.inEmpty}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -89,6 +61,13 @@ export function RecentAppliances({ energy }: { energy: HouseholdEnergy }) {
                       <td>{formatKwh(item.energyWh, 2)}</td>
                       <td>{item.costCents === null ? '—' : formatCents(item.costCents)}</td>
                       <td>{item.perMonthCents === null ? '—' : formatCents(item.perMonthCents)}</td>
+                      {shifts && (
+                        <td className={item.perMonthSavingCents ? 'success' : undefined}>
+                          {item.shiftable && item.perMonthSavingCents !== null
+                            ? texts.savingPerMonth(formatCents(item.perMonthSavingCents))
+                            : '—'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -97,6 +76,12 @@ export function RecentAppliances({ energy }: { energy: HouseholdEnergy }) {
           )}
           <ul className="hint caveats">
             <li>{texts.how}</li>
+            {shifts && <li>{texts.shiftNote}</li>}
+            {simple && recent.appliances.some((item) => item.shiftable) && (
+              <li>
+                {texts.simpleNote} <Link to="/tarifarios">{texts.toTariffs}</Link>
+              </li>
+            )}
             <li>{texts.onlyNamed}</li>
             {recent.appliances.some((item) => item.costCents === null) && (
               <li>

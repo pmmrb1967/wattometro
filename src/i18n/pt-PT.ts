@@ -734,6 +734,13 @@ export const t = {
     energy: 'Energia',
     cost: 'Custo',
     perMonth: 'Num mês',
+    inEmpty: 'No vazio',
+    savingPerMonth: (cost: string) => `−${cost}/mês`,
+    shiftNote:
+      '"No vazio": quanto pagarias a menos por mês com as máquinas (programas inteiros) sempre no período mais barato do teu tarifário. O fogão, o frigorífico e o resto não mudam de hora.',
+    simpleNote:
+      'Com o tarifário simples a hora não muda o preço. Em Tarifários vês se o bi-horário compensa com as tuas máquinas no vazio.',
+    toTariffs: 'Ver em Tarifários',
     how: 'Custo da energia com o teu tarifário, à hora de cada uso, com IEC e IVA (a potência contratada paga-se na mesma). O mês é uma projeção destes dias: um dia com mais lavagens, ou menos, muda-a.',
     onlyNamed:
       'Só conta os aparelhos com nome, e só os dias com valores ao segundo quase completos. Para dar nome a um aparelho, usa "O que é?" em "Ao segundo".',
@@ -1008,6 +1015,21 @@ export const t = {
     shiftNeeded: (option: string, year: string, month: string, pct: number, supplier: string) =>
       `${option}: compensa se passares ${year} por ano para o vazio (cerca de ${month} por mês, ${pct} % do que gastas fora do vazio), com a melhor oferta dessa opção (${supplier}).`,
     shiftNever: (option: string) => `${option}: não compensa, mesmo com todo o consumo no vazio.`,
+    machinesTitle: 'Com as tuas máquinas no vazio',
+    machinesIntro: (names: string, outside: string, days: number) =>
+      `${names}: gastam cerca de ${outside} por ano fora do vazio (pelos últimos ${days} ${days === 1 ? 'dia medido' : 'dias medidos'} ao segundo). Se passassem a trabalhar só no vazio (à noite ou ao fim de semana):`,
+    machinesLine: (
+      option: string,
+      supplier: string,
+      year: string,
+      difference: string,
+      cheaper: boolean,
+    ) =>
+      `${option} (${supplier}): pagarias ${year} por ano, ${difference} ${cheaper ? 'a menos' : 'a mais'} do que hoje.`,
+    machinesAlready: (names: string) =>
+      `${names}: já trabalham quase só no vazio; não há o que mudar.`,
+    machinesNone:
+      'Quando a app reconhecer as tuas máquinas (máquina de lavar, de loiça, de secar) em "Ao segundo", mostra aqui quanto pagarias com elas no vazio.',
     caveats: [
       'Estimativa para um ano igual ao medido; os preços são os da ERSE de hoje, sem IVA, e a app soma o IVA, as taxas, os serviços obrigatórios e os descontos de cada oferta.',
       'A tarifa social, o seu financiamento, o IEC, a contribuição audiovisual e a taxa DGEG são os do teu tarifário e iguais em todas as ofertas.',

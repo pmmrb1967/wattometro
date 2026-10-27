@@ -59,6 +59,7 @@ async function load(input: RecentInput): Promise<RecentAppliances | null> {
       minutes: analysis.minutes,
       dayMinutes: lisbonDayLength(day) / 60,
       totals: nameDay(analysis, input.appliances, tariff).totals,
+      periodsMap: tariff?.periodsMap ?? null,
     });
     await breathe();
   }

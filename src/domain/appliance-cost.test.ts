@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { startOfLisbonDay } from '../lib/time';
-import { applianceCostCents, spreadOverQuarters } from './appliance-cost';
+import {
+  applianceCostCents,
+  cheapestPeriod,
+  shiftSavingCents,
+  spreadOverQuarters,
+} from './appliance-cost';
 import type { TariffInput } from './tariff';
 
 const simple: TariffInput = {
@@ -80,5 +85,27 @@ describe('applianceCostCents', () => {
   it('never prices more than the day had', () => {
     const day = [{ ts: at(3), energyWh: 500 }];
     expect(applianceCostCents([{ ts: at(3), energyWh: 1_000 }], day, tri)).toBe(6);
+  });
+});
+
+describe('shiftSavingCents', () => {
+  const day = [
+    { ts: at(3), energyWh: 5_000 },
+    { ts: at(19), energyWh: 5_000 },
+  ];
+  const dinner = [{ ts: at(19), energyWh: 1_000 }];
+
+  it('moves the appliance to the cheapest period of the tariff', () => {
+    expect(cheapestPeriod(tri)).toBe('empty');
+    // As it was: 5 kWh × 0,10 + 5 × 0,25 = 1,75 € × 1,23 = 215,25 → 215 cents.
+    // With the dinner kWh in empty: 6 × 0,10 + 4 × 0,25 = 1,60 € × 1,23 = 196,8 → 197.
+    expect(shiftSavingCents(dinner, day, tri)).toBe(18);
+    // Already in empty: nothing to save.
+    expect(shiftSavingCents([{ ts: at(3), energyWh: 1_000 }], day, tri)).toBe(0);
+  });
+
+  it('saves nothing with a simple tariff', () => {
+    expect(cheapestPeriod(simple)).toBeNull();
+    expect(shiftSavingCents(dinner, day, simple)).toBe(0);
   });
 });

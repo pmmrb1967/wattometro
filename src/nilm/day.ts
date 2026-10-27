@@ -5,7 +5,7 @@
  * with what each cost (nameDay). The same for the summary of the last days
  * (recent.ts) and the AI's get_appliances, so their numbers are the card's.
  */
-import { applianceCostCents, spreadOverQuarters } from '../domain/appliance-cost';
+import { applianceCostCents, shiftSavingCents, spreadOverQuarters } from '../domain/appliance-cost';
 import type { TariffInput } from '../domain/tariff';
 import type { Cents } from '../lib/money';
 import { nextDate, startOfLisbonDay, type EpochSeconds, type LocalDate } from '../lib/time';
@@ -51,8 +51,12 @@ export function analyseDay(minutes: readonly MinuteSeconds[], day: LocalDate): D
 }
 
 export interface NamedTotal extends ApplianceTotal {
+  /** Its energy by the quarter hours of its uses. */
+  quarters: { ts: EpochSeconds; energyWh: Wh }[];
   /** What it cost that day (src/domain/appliance-cost.ts); null without a tariff. */
   costCents: Cents | null;
+  /** What it would have cost less in the cheapest period; null without a tariff. */
+  savingCents: Cents | null;
 }
 
 export interface DayNames {
@@ -72,15 +76,14 @@ export function nameDay(
   return {
     byCycle,
     explainedPct,
-    totals: totals.map((total) => ({
-      ...total,
-      costCents: tariff
-        ? applianceCostCents(
-            spreadOverQuarters(total.energyWh, total.spans),
-            analysis.quarters,
-            tariff,
-          )
-        : null,
-    })),
+    totals: totals.map((total) => {
+      const quarters = spreadOverQuarters(total.energyWh, total.spans);
+      return {
+        ...total,
+        quarters,
+        costCents: tariff ? applianceCostCents(quarters, analysis.quarters, tariff) : null,
+        savingCents: tariff ? shiftSavingCents(quarters, analysis.quarters, tariff) : null,
+      };
+    }),
   };
 }
