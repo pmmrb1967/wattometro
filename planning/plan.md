@@ -34,6 +34,8 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 | 7 | IA | Perguntas em linguagem natural, relatório narrado, alertas explicados |
 | 8 | NILM | Deteção ao segundo no browser, calibração, rotulagem, custo por aparelho |
 | 9 | Crescimento | Plano pago, público, extensões |
+| 10 | Design e usabilidade | Conclusões no topo de cada página, legível no telemóvel, contraste AA |
+| 11 | Mercado | O que falta face às apps semelhantes (revisão de 27/10/2026) |
 
 **Primeiro marco útil:** fases 0 a 3.
 
@@ -259,6 +261,51 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - [ ] Tarifas indexadas (OMIE) e intensidade carbónica: indicação "hora verde e barata"
 - [ ] Ligação ao Faturómetro: reconciliar faturas com o consumo medido
 - [ ] Ponte Cuidote: rotinas a partir do consumo (consentimento explícito)
+
+## Fase 10 — Design e usabilidade
+
+Revisão de 27/10/2026 (todas as páginas a 390×844 e 1280×800, claro e escuro). O que está bem: um só cartão, paleta sóbria, modo escuro, sem scroll horizontal da página. O problema: as conclusões em euros ficam por baixo de campos, leituras ao vivo e listas de notas.
+
+### 10.1 Rápidas
+- [ ] Início: trocar "O que vem aí" (desatualizado) por blocos de ação com o valor em euros e ligação à página (potência, tarifário, consumo base); fatura prevista antes da leitura ao vivo
+- [ ] Contraste: rebordo dos campos ≥3:1 (hoje 1,3:1) e fundo dos campos igual ao do cartão; texto de destaque sobre fundo de destaque ≥4,5:1 (hoje 4,0:1); claro e escuro
+- [ ] Avisos do topo (servidor e demonstração) numa só faixa; o botão "Perguntar à IA" não tapa conteúdo no telemóvel; estado do servidor com texto, não só cor
+- [ ] Texto dos gráficos ≥11 px no ecrã (hoje ~8,5 px); a frase "O Shelly mede X %" com o tamanho normal
+- [ ] Botões desativados sem cursor de "a trabalhar"; ícone visível no modo escuro; `theme-color` para o modo escuro
+
+### 10.2 Estrutura das páginas
+- [ ] Cada página de análise (Potência, Tarifários, Qualidade, Relatório) abre com uma frase de conclusão: em euros, ou um veredicto sim/não
+- [ ] As notas de cada cartão num "Como é calculado" que se abre (um componente comum)
+- [ ] Tabelas no telemóvel como listas (Tarifários primeiro: a poupança tem de se ver; depois eventos e episódios de tensão)
+- [ ] Consumo: gráfico primeiro, previsão numa linha, "Ao segundo" e calibração numa subpágina
+- [ ] Definições: índice ou separadores, com o tarifário primeiro; botões com a mesma largura; ficheiro com um botão estilizado
+- [ ] Relatório: sugestões logo a seguir ao custo, com euros
+- [ ] Página de entrada: três conclusões de exemplo e "Experimentar com dados de exemplo" antes do login
+- [ ] Largura útil maior no computador (~960 px), com os números em duas colunas
+
+### 10.3 Texto
+- [ ] "Palavra-passe" em vez de "password"; explicar "DD+FE", "percentil", "± 10 %", "escalão"; partir frases com mais de ~25 palavras
+
+---
+
+## Fase 11 — Mercado
+
+Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, Loop, Home Assistant, app Shelly; em Portugal: Balcão Digital e app E-Redes, simuladores ERSE e DECO, apps dos comercializadores, indexados, Cleanwatts). Ninguém junta o perfil real a 15 min com as ofertas ERSE, a potência pelos picos ao segundo e o registo de tensão para reclamar; o mais parecido é o Ecojoko (França). Faltas: instalação técnica, importação manual da E-Redes, sem solar nem indexados. Cada valor regulatório novo precisa de fonte em `docs/` antes de implementar.
+
+- [ ] Tarifários indexados (OMIE horário/15 min) com o perfil real, comparados com os fixos e com o risco; fonte dos preços a confirmar
+- [ ] "Melhores horas de amanhã" pelo OMIE do dia seguinte, com aviso no telemóvel
+- [ ] Dossiê de reclamação: PDF com episódios de tensão, cortes, zona e referências; minuta para E-Redes/ERSE (confirmar o processo)
+- [ ] Compensações por interrupções (RQS): número e duração contra os limites da zona (confirmar os limites no regulamento)
+- [ ] Mudar de potência: poupança, risco de disparo e os passos (comercializador ou E-Redes)
+- [ ] E-Redes com menos trabalho: lembrete mensal, falhas nos dados, guia passo a passo; modo "só E-Redes" sem Shelly
+- [ ] Solar: dimensionar com o perfil real (PVGIS) e medir a produção no 2.º canal do Shelly (UPAC)
+- [ ] Relés Shelly: termoacumulador e outras cargas nas horas baratas (o browser decide, o Shelly só cumpre horários)
+- [ ] Carro elétrico: custo de carregar e a melhor hora e tarifário
+- [ ] Tarifa social: elegibilidade e desconto
+- [ ] Lembrete para rever o tarifário duas vezes por ano; orçamento mensal com aviso
+- [ ] Intensidade carbónica (REN Data Hub): "horas verdes"
+- [ ] Instalação guiada do Shelly (folha para o eletricista, verificação da pinça)
+- [ ] Acompanhar o acesso a dados da E-Redes por terceiros (Regulamento de Execução (UE) 2023/1162)
 
 ---
 
