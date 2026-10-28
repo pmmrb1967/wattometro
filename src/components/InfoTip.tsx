@@ -16,7 +16,7 @@ export function InfoTip({ text, inline = false }: { text: string; inline?: boole
       <button
         type="button"
         className="info-button"
-        aria-label={t.infoLabel}
+        aria-label={inline ? t.moreInfoLabel : t.infoLabel}
         aria-expanded={open}
         aria-describedby={id}
         onClick={() => setOpen(!open)}

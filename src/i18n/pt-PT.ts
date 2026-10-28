@@ -8,6 +8,7 @@ export const t = {
   loading: 'A carregar…',
   howItWorks: 'Como é calculado',
   infoLabel: 'Onde encontrar este valor',
+  moreInfoLabel: 'Mais informação',
   signOut: 'Sair',
   navToggle: {
     collapse: 'Recolher menu',
@@ -534,6 +535,10 @@ export const t = {
     noTariff:
       'Indica o teu tarifário em Definições para comparar com a potência atual e calcular a poupança.',
     computing: 'A simular…',
+    peakLine: (kva: string, kw: string) =>
+      `O teu maior pico num segundo: ${kva} de potência aparente; a potência ativa chegou a ${kw}.`,
+    peakInfo:
+      'O contador compara com a potência contratada a potência aparente (kVA): o que os aparelhos pedem à rede. Os que têm motor ou transformador pedem mais do que a energia que gastam (a diferença é a potência não ativa), por isso o pico em kVA é maior do que em kW. Na fatura, a energia conta em kWh; a potência contratada escolhe-se pelo pico em kVA.',
     recommended: 'Escalão recomendado',
     verdictLower: (current: string, recommended: string) =>
       `Podes baixar de ${current} para ${recommended}: nos últimos 90 dias o contador nunca teria cortado.`,
@@ -719,6 +724,9 @@ export const t = {
       `Guardado. Atenção: "${label}" e "${other}" têm ciclos quase iguais (mesma potência e duração parecida). A app fica com o mais próximo, mas pode trocá-los.`,
     close: 'Fechar',
     unreliable: 'pouco fiável',
+    loadKinds: { resistive: 'tipo resistência', motor: 'tipo motor' },
+    loadKindNote:
+      'O tipo vem da potência não ativa que o aparelho junta à da casa. Tipo resistência (até 10 % da potência ativa): chaleira, forno, aquecimento das máquinas, mas também a placa de indução. Tipo motor (15 % ou mais): frigorífico, tambor da máquina, micro-ondas. Diz como o aparelho puxa a corrente, não o que é: o compressor de uma máquina de secar com bomba de calor pode parecer uma resistência. Nos aparelhos pequenos e nos programas inteiros não aparece.',
     unreliableNote:
       'Grupos de menos de 60 W ("pouco fiável") estão perto do mínimo que a app consegue ver: o consumo da casa varia mais do que isso de segundo a segundo, e alguns ligares ficam emparelhados com o desligar errado. A energia deles é um máximo, não uma medida.',
     name: 'Guardar',

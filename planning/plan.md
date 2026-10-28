@@ -238,8 +238,8 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 - [x] Mudar as máquinas de hora: para os programas inteiros (`heats`), o que um mês custaria a menos com elas sempre no período mais barato do tarifário (`shiftSavingCents`, coluna "No vazio" com bi- ou tri-horário); com o simples, em Tarifários, quanto custaria a melhor bi- e tri-horária com essas máquinas no vazio (`costWithMoved`, energia por período de cada ciclo × 365 / dias). Também em `get_appliances`
 - [ ] Ciclos por aparelho para a saúde de aparelhos (Fase 6): duty cycle do frigorífico, duração do aquecimento do termoacumulador
 - [x] Deteção dos programas reais de 27/10 (`src/nilm/cycles.ts`, `src/nilm/programmes.ts`): aquecimento da máquina de lavar em pedaços (juntos, contam como um), tambor a rodar devagar no fim do programa, máquina de secar com bomba de calor (o compressor desliga com mais potência do que ligou, subindo aos degraus pequenos), desligar em dois degraus seguidos, motor e compressor a desligar no mesmo segundo. Com as notas de 26 e 27/10 (`pnpm nilm:eval`): lavagem, loiça, fogão, lavagem com centrifugação e secagem encontradas inteiras
-- [ ] Tipo de carga em cada aparelho: "resistência" ou "motor/compressor", pela potência não ativa do ciclo
-- [ ] Potência: dizer a diferença entre o pico aparente (kVA, o que conta para a potência contratada) e o ativo (kW)
+- [x] Tipo de carga em cada aparelho (`src/nilm/load-kind.ts`): "tipo resistência" (potência não ativa ≤ 10 % da ativa, ≥ 500 W) ou "tipo motor" (≥ 15 %, ≥ 30 var), com dois terços dos ciclos do grupo de acordo; nada nos programas inteiros, nos aparelhos com fases e entre os dois limites. Limiares medidos na casa real a 26 e 27/10
+- [x] Potência: o maior pico num segundo em kVA (o que o contador compara com a potência contratada) e o ativo em kW, com a explicação num ⓘ
 
 **Limite assumido:** com ~1 amostra por segundo não há transitórios ao milissegundo nem harmónicos; isso exigiria outro hardware e fica fora do âmbito.
 

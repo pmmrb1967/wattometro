@@ -29,6 +29,7 @@ import { t } from '../i18n/pt-PT';
 import { formatCents, microToPtInput, parsePtPrice, type MicroEuros } from '../lib/money';
 import { formatLisbonDateTime, lisbonToday } from '../lib/time';
 import { formatKva, formatPower } from '../lib/units';
+import { InfoTip } from '../components/InfoTip';
 import {
   fetchOffers,
   fetchPeakRecords,
@@ -189,6 +190,12 @@ function RecommendationSection({
   return (
     <section className="card">
       <h2>{texts.recommended}</h2>
+      {meter.apparentMaxVa !== null && meter.activeMaxW !== null && (
+        <p className="has-info">
+          {texts.peakLine(formatKva(meter.apparentMaxVa), formatPower(meter.activeMaxW))}
+          <InfoTip text={texts.peakInfo} inline />
+        </p>
+      )}
       {!tariff && (
         <p className="hint">
           <Link to="/definicoes#tarifario">{texts.noTariff}</Link>

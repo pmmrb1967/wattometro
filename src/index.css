@@ -1115,24 +1115,30 @@ h2 {
 }
 
 .info-tip.inline .info-text {
+  /* Under the whole value or sentence, however many lines it takes. */
+  top: calc(100% + 4px);
   right: auto;
   width: max-content;
   max-width: min(18rem, calc(100vw - 72px));
 }
 
+/* "Energia: 0,22 €": each amount right after its label, the amounts lined up. */
 .cost-parts {
   display: grid;
-  gap: 2px;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  gap: 2px 0.35em;
   margin: 0;
   padding: 0;
   list-style: none;
-  max-width: 11rem;
 }
 
 .cost-parts li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: contents;
+}
+
+.cost-parts li > :last-child {
+  text-align: right;
 }
 
 @media (hover: hover) {

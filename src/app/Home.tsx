@@ -51,7 +51,7 @@ function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
             ] as const
           ).map(([label, cents]) => (
             <li key={label}>
-              <span>{label}</span>
+              <span>{label}:</span>
               <span>{formatCents(cents)}</span>
             </li>
           ))}

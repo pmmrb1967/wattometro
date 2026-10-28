@@ -26,6 +26,7 @@ import { analyseDay, nameDay } from '../nilm/day';
 import { decodeSecondsRecords } from '../nilm/series';
 import type { CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
+import { groupLoadKind } from '../nilm/load-kind';
 import { addAppliance, useAppliances } from './appliances-store';
 import type { HouseholdEnergy } from './household-energy';
 import { loadDaySeconds } from './seconds-cache';
@@ -255,6 +256,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                   {result.groups.map((group) => {
                     const first = group.cycles[0]!.start;
                     const appliance = named ? groupAppliance(group, named.byCycle) : null;
+                    const kind = groupLoadKind(group);
                     return (
                       <Fragment key={`${group.powerW}-${first}`}>
                         <tr>
@@ -294,6 +296,9 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                             {Math.abs(group.powerW) < RELIABLE_W && (
                               <span className="hint appliance-range">{texts.unreliable}</span>
                             )}
+                            {kind && (
+                              <span className="hint appliance-range">{texts.loadKinds[kind]}</span>
+                            )}
                           </td>
                           <td data-label={texts.times}>
                             {group.count === 1
@@ -326,6 +331,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
               <li>{texts.how}</li>
               <li>{texts.limits}</li>
               <li>{texts.unreliableNote}</li>
+              <li>{texts.loadKindNote}</li>
             </ul>
           </HowItWorks>
         </>
