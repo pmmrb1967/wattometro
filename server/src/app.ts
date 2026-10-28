@@ -31,6 +31,7 @@
  *   PUT  /v1/household/installation {installation} → 204
  *   GET  /v1/devices           → {devices: DeviceView[]} (not revoked)
  *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
+ *   PUT    /v1/devices/:id     {name} → 204, renamed (the token stays)
  *   DELETE /v1/devices/:id     → 204, the device's token stops working
  *   GET  /v1/now               → {now, dayStart, meters: [{deviceId, deviceName, channel, lastSeenAt,
  *                              latest: minute | null, today: {minutes, energyWh, powerMaxW,
@@ -112,6 +113,7 @@ import {
   createDevice,
   findActiveDeviceByTokenHash,
   listDevices,
+  renameDevice,
   revokeDevice,
   type Device,
 } from './repo/devices';
@@ -621,6 +623,13 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       now(),
     );
     return c.json({ device: deviceView(device), token }, 201);
+  });
+
+  app.put('/v1/devices/:id', requireUser, async (c) => {
+    const parsed = await body(c, DeviceBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    await renameDevice(config.sql, c.get('user').householdId, c.req.param('id'), parsed.data.name);
+    return c.body(null, 204);
   });
 
   app.delete('/v1/devices/:id', requireUser, async (c) => {

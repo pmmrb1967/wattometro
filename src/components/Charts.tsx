@@ -8,7 +8,8 @@ import type { BillingPeriod } from '../domain/tariff';
 const WIDTH = 320;
 const PLOT = 140;
 const AXIS = 16;
-const TOP = 22;
+/** Room above the plot for what the values are, clear of the top value's label. */
+const TOP = 30;
 /** Room for the value labels left of the plot. */
 const LEFT = 30;
 const PLOT_WIDTH = WIDTH - LEFT;
@@ -24,7 +25,7 @@ function ValueAxis({ axis, caption }: { axis: Axis; caption: string }) {
   const top = axis.ticks.at(-1)?.value ?? 1;
   return (
     <>
-      <text className="chart-text" x={0} y={TOP - 5}>
+      <text className="chart-text" x={0} y={TOP - 16}>
         {caption}
       </text>
       {axis.ticks.map((tick) => {

@@ -574,6 +574,16 @@ h2 {
   border-top: 1px solid var(--border);
 }
 
+.device-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.device-rename {
+  flex: 1 1 100%;
+}
+
 .device:first-child {
   padding-top: 0;
   border-top: 0;

@@ -178,6 +178,12 @@ export async function createDevice(
   return failure(response, [400]);
 }
 
+export async function renameDevice(id: string, name: string): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', `/v1/devices/${encodeURIComponent(id)}`, { name });
+  if (response?.ok) return { ok: true };
+  return failure(response, [400]);
+}
+
 export async function revokeDevice(id: string): Promise<{ ok: true } | Failure> {
   const response = await send('DELETE', `/v1/devices/${encodeURIComponent(id)}`);
   if (response?.ok) return { ok: true };

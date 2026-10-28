@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonDateTime } from '../lib/time';
-import { createDevice, fetchDevices, revokeDevice, type Device } from './api';
+import { createDevice, fetchDevices, renameDevice, revokeDevice, type Device } from './api';
 import { SOURCE_URL } from './build-info';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
@@ -29,7 +29,54 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DeviceItem({ device, onRemove }: { device: Device; onRemove: () => void }) {
+function DeviceItem({
+  device,
+  onRemove,
+  onRename,
+}: {
+  device: Device;
+  onRemove: () => void;
+  /** Resolves to an error text, or null once renamed. */
+  onRename: (name: string) => Promise<string | null>;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [status, setStatus] = useState<Status>({ kind: 'idle' });
+
+  async function rename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = String(new FormData(event.currentTarget).get('name')).trim();
+    setStatus({ kind: 'busy' });
+    const error = await onRename(name);
+    if (error === null) {
+      setStatus({ kind: 'idle' });
+      setRenaming(false);
+    } else {
+      setStatus({ kind: 'error', text: error });
+    }
+  }
+
+  if (renaming) {
+    return (
+      <li className="device">
+        <form className="form device-rename" onSubmit={(event) => void rename(event)}>
+          <label>
+            {texts.name}
+            <input name="name" defaultValue={device.name} maxLength={60} required autoFocus />
+          </label>
+          <StatusLine status={status} />
+          <div className="actions">
+            <button type="submit" className="primary" disabled={status.kind === 'busy'}>
+              {texts.save}
+            </button>
+            <button type="button" className="secondary" onClick={() => setRenaming(false)}>
+              {texts.cancel}
+            </button>
+          </div>
+        </form>
+      </li>
+    );
+  }
+
   return (
     <li className="device">
       <div>
@@ -43,9 +90,14 @@ function DeviceItem({ device, onRemove }: { device: Device; onRemove: () => void
           <p className="hint">{texts.details(device.model, device.scriptVersion)}</p>
         )}
       </div>
-      <button type="button" className="secondary" onClick={onRemove}>
-        {texts.remove}
-      </button>
+      <div className="device-buttons">
+        <button type="button" className="secondary" onClick={() => setRenaming(true)}>
+          {texts.rename}
+        </button>
+        <button type="button" className="secondary" onClick={onRemove}>
+          {texts.remove}
+        </button>
+      </div>
     </li>
   );
 }
@@ -87,6 +139,17 @@ export function DevicesSection() {
     setCreated({ name: outcome.device.name, token: outcome.token });
   }
 
+  async function rename(device: Device, name: string): Promise<string | null> {
+    const outcome = await renameDevice(device.id, name);
+    if (!outcome.ok) {
+      const text = failureText(outcome, texts.invalid);
+      if (text === null) signOut();
+      return text ?? '';
+    }
+    setDevices((list) => (list ?? []).map((d) => (d.id === device.id ? { ...d, name } : d)));
+    return null;
+  }
+
   async function remove(device: Device) {
     if (!window.confirm(texts.removeConfirm(device.name))) return;
     const outcome = await revokeDevice(device.id);
@@ -106,7 +169,12 @@ export function DevicesSection() {
       ) : (
         <ul className="devices">
           {devices.map((device) => (
-            <DeviceItem key={device.id} device={device} onRemove={() => void remove(device)} />
+            <DeviceItem
+              key={device.id}
+              device={device}
+              onRemove={() => void remove(device)}
+              onRename={(name) => rename(device, name)}
+            />
           ))}
         </ul>
       )}

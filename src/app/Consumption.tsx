@@ -68,8 +68,8 @@ function Baseload({
         </p>
       )}
       {months.length > 1 && (
-        <>
-          <h3>{texts.baseload.monthsTitle}</h3>
+        <details className="adjust">
+          <summary>{texts.baseload.monthsTitle}</summary>
           <ul className="bar-list">
             {months.map((month) => (
               <li key={month.month}>
@@ -84,7 +84,7 @@ function Baseload({
               </li>
             ))}
           </ul>
-        </>
+        </details>
       )}
       <HowItWorks>
         <ul className="hint caveats">

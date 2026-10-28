@@ -33,6 +33,7 @@ import { fetchOffers, fetchOmie } from './api';
 import { MarketHours } from './MarketHours';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
+import { useSession } from './session';
 import { MeterSelect } from './MeterSelect';
 
 const texts = t.tariffs;
@@ -232,6 +233,7 @@ function ShiftLine({ option, shift }: { option: 'bi' | 'tri'; shift: Shift | nul
 }
 
 export function Tariffs() {
+  const { me } = useSession();
   const energy = useHouseholdEnergy();
   const { window, tariff, meters, devices, meter } = energy;
   const error = energy.error ?? (energy.tariffsFailed ? t.errors.unavailable : null);
@@ -363,7 +365,9 @@ export function Tariffs() {
             <p className="hint">
               {usage.extrapolated
                 ? texts.extrapolated(usage.days)
-                : texts.fullYear(meterLabel(meter ?? '', devices, energy.houseShelly))}
+                : texts.fullYear(
+                    meterLabel(meter ?? '', devices, energy.houseShelly, me.householdName),
+                  )}
             </p>
             <p className="hint">
               {texts.split(

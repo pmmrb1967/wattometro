@@ -164,11 +164,28 @@ describe('devices', () => {
     expect((await send(token, payload([minute(MINUTE)]))).status).toBe(401);
   });
 
+  it('renames a device; its token keeps working', async () => {
+    const cookie = await signIn();
+    const { device, token } = await register(cookie);
+    const renamed = await asUser(cookie, 'PUT', `/v1/devices/${device.id}`, { name: ' Cozinha ' });
+    expect(renamed.status).toBe(204);
+    const list = (await (await asUser(cookie, 'GET', '/v1/devices')).json()) as {
+      devices: { name: string }[];
+    };
+    expect(list.devices.map((d) => d.name)).toEqual(['Cozinha']);
+    expect((await send(token, payload([minute(MINUTE)]))).status).toBe(200);
+    expect((await asUser(cookie, 'PUT', `/v1/devices/${device.id}`, { name: '' })).status).toBe(
+      400,
+    );
+  });
+
   it('keeps households apart', async () => {
     const { device, token } = await register(await signIn());
     const other = await signIn('rui@example.pt');
     expect(await (await asUser(other, 'GET', '/v1/devices')).json()).toEqual({ devices: [] });
     await asUser(other, 'DELETE', `/v1/devices/${device.id}`);
+    await asUser(other, 'PUT', `/v1/devices/${device.id}`, { name: 'Outro' });
+    expect(db.prepare('SELECT name FROM devices').get()).toEqual({ name: 'Quadro' });
     expect((await send(token, payload([minute(MINUTE)]))).status).toBe(200);
   });
 });

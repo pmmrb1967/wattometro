@@ -10,9 +10,18 @@ export const HOUSE_METER = 'house';
  * Shelly's name (and channel) with "(Shelly)". `houseShelly` names the Shelly
  * of the house.
  */
-export function meterLabel(meter: string, devices: Device[], houseShelly?: string | null): string {
+/** `houseName`: the household's name (Definições), for the house as a whole. */
+export function meterLabel(
+  meter: string,
+  devices: Device[],
+  houseShelly: string | null | undefined,
+  houseName: string,
+): string {
   if (meter === HOUSE_METER) {
-    return t.tariffs.houseMeter(houseShelly ? shellyName(houseShelly, devices) : 'Shelly');
+    return t.tariffs.houseMeter(
+      houseName,
+      houseShelly ? shellyName(houseShelly, devices) : 'Shelly',
+    );
   }
   if (meter === 'eredes') return t.tariffs.eredesMeter;
   return t.tariffs.shellyMeter(shellyName(meter, devices));

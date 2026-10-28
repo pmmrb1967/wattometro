@@ -416,6 +416,9 @@ export const t = {
       lastSeen: (when: string) => `Último envio: ${when}`,
       neverSeen: 'Ainda não enviou dados.',
       details: (model: string, script: string) => `${model} · script ${script}`,
+      rename: 'Mudar o nome',
+      save: 'Guardar',
+      cancel: 'Cancelar',
       remove: 'Remover',
       removeConfirm: (name: string) =>
         `Remover "${name}"? O token deixa de funcionar e o Shelly deixa de conseguir enviar dados. As medições já guardadas ficam.`,
@@ -938,7 +941,7 @@ export const t = {
         `Cerca de ${euros} por ano (${kwh}) com o teu tarifário.`,
       noTariff: 'Para saberes quanto custa, indica o teu tarifário.',
       noNights: 'Ainda não há noites com dados suficientes (entre as 0 h e as 6 h).',
-      monthsTitle: 'Mês a mês',
+      monthsTitle: 'Ver mês a mês',
       method:
         'Em cada noite, entre as 0 h e as 6 h, a app vê a potência média de cada quarto de hora e fica com um dos valores mais baixos: o que só 1 em cada 10 quartos de hora fica abaixo. Assim, um quarto de hora fora do normal não decide. O valor de cada mês é o das noites típicas desse mês.',
       eredesNote:
@@ -1071,7 +1074,7 @@ export const t = {
     usageTitle: 'O teu consumo',
     meter: 'Consumos de',
     eredesMeter: 'E-Redes (contador da rede)',
-    houseMeter: (shelly: string) => `Casa (E-Redes) + ${shelly} (Shelly)`,
+    houseMeter: (house: string, shelly: string) => `${house} (E-Redes) + ${shelly} (Shelly)`,
     shellyMeter: (shelly: string) => `${shelly} (Shelly)`,
     tooLittle: 'Há menos de 30 dias de consumos: pouco para estimar um ano.',
     perYear: (kwh: string) => `${kwh} por ano`,

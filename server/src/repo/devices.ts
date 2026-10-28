@@ -131,6 +131,21 @@ export function deviceSeenStatement(deviceId: string, report: DeviceReport): Sta
   };
 }
 
+/** Scoped by household, so one household can never rename another's device. */
+export async function renameDevice(
+  sql: Sql,
+  householdId: string,
+  deviceId: string,
+  name: string,
+): Promise<void> {
+  await sql.run(
+    'UPDATE devices SET name = ? WHERE id = ? AND household_id = ? AND revoked_at IS NULL',
+    name,
+    deviceId,
+    householdId,
+  );
+}
+
 /** Scoped by household, so one household can never revoke another's device. */
 export async function revokeDevice(
   sql: Sql,
