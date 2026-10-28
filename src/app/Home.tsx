@@ -208,40 +208,45 @@ export function Home() {
     <>
       <h1>{me.householdName}</h1>
 
-      <HomeActions energy={energy} />
-      <BillForecastCard energy={energy} />
-
-      {now === null && <p className="hint">{t.loading}</p>}
-      {now === 'unavailable' && <p className="error">{t.errors.unavailable}</p>}
-      {now !== null && now !== 'unavailable' && (
-        <>
-          <DatabaseWarning database={now.database} />
-          <RowsReadWarning database={now.database} />
-          {now.meters.length === 0 ? (
-            <section className="card">
-              <p>{t.now.noDevices}</p>
-              <Link to="/definicoes#dados">{t.now.addDevice}</Link>
-            </section>
-          ) : (
-            now.meters.map((meter) => (
-              <MeterCard
-                key={`${meter.deviceId}:${meter.channel}`}
-                meter={meter}
-                now={now.now}
-                only={now.meters.length === 1}
-                tariff={
-                  // Not shown when the tariffs could not be read; "set one up" when there is none.
-                  tariffs === undefined || tariffs === null
-                    ? undefined
-                    : tariffOn(tariffs, lisbonDate(now.now))
-                }
-              />
-            ))
+      <div className="home-columns">
+        <div className="home-column">
+          <HomeActions energy={energy} />
+          <BillForecastCard energy={energy} />
+        </div>
+        <div className="home-column">
+          {now === null && <p className="hint">{t.loading}</p>}
+          {now === 'unavailable' && <p className="error">{t.errors.unavailable}</p>}
+          {now !== null && now !== 'unavailable' && (
+            <>
+              <DatabaseWarning database={now.database} />
+              <RowsReadWarning database={now.database} />
+              {now.meters.length === 0 ? (
+                <section className="card">
+                  <p>{t.now.noDevices}</p>
+                  <Link to="/definicoes#dados">{t.now.addDevice}</Link>
+                </section>
+              ) : (
+                now.meters.map((meter) => (
+                  <MeterCard
+                    key={`${meter.deviceId}:${meter.channel}`}
+                    meter={meter}
+                    now={now.now}
+                    only={now.meters.length === 1}
+                    tariff={
+                      // Not shown when the tariffs could not be read; "set one up" when there is none.
+                      tariffs === undefined || tariffs === null
+                        ? undefined
+                        : tariffOn(tariffs, lisbonDate(now.now))
+                    }
+                  />
+                ))
+              )}
+            </>
           )}
-        </>
-      )}
 
-      <AnomalyCard energy={energy} />
+          <AnomalyCard energy={energy} />
+        </div>
+      </div>
     </>
   );
 }

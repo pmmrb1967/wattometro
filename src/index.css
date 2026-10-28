@@ -463,6 +463,40 @@ a {
   padding: 24px 16px 32px;
 }
 
+/* A computer: the cards widen for charts and tables (as the Faturómetro's), more
+   with the menu collapsed; running text keeps a line that reads well. */
+@media (min-width: 1024px) {
+  .content {
+    max-width: 960px;
+    padding-inline: 24px;
+  }
+
+  .is-nav-collapsed .content {
+    max-width: 1200px;
+  }
+
+  .content :is(p, li, label, summary, .hint) {
+    max-width: 46rem;
+  }
+
+  /* Início: what to do and the month on the left, the meter on the right. */
+  .home-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+    gap: 0 20px;
+    align-items: start;
+  }
+
+  .home-column {
+    min-width: 0;
+  }
+
+  /* The charts keep their shape (Charts.tsx): wider, and taller with it. */
+  .content .chart {
+    max-width: 720px;
+  }
+}
+
 h1 {
   margin: 0 0 8px;
   font-size: var(--fs-hero);
