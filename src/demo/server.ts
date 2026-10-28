@@ -11,6 +11,7 @@
  * reads a little differently from the grid meter).
  */
 import { addDays } from '../domain/consumption';
+import { budgetSchema, type Budget } from '../domain/budget';
 import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
@@ -38,6 +39,7 @@ interface DemoState {
   zone: 'A' | 'B' | 'C' | null;
   location: DemoLocation | null;
   installation: Installation;
+  budget: Budget | null;
   excluded: Set<number>;
   signatures: DemoSignature[];
   appliances: DemoAppliance[];
@@ -155,6 +157,7 @@ function current(): DemoState {
       zone: 'B',
       location: DEMO_LOCATION,
       installation: DEMO_INSTALLATION,
+      budget: null,
       excluded: new Set(),
       signatures: demoSignatures(),
       appliances: [],
@@ -619,6 +622,16 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       if (location === null) demo.location = null;
       else if (isDemoLocation(location)) demo.location = location;
       else return invalid();
+      return empty();
+    }
+    case 'GET /v1/household/budget':
+      return json({ budget: demo.budget });
+    case 'PUT /v1/household/budget': {
+      const parsed = budgetSchema
+        .nullable()
+        .safeParse((body as { budget?: unknown } | undefined)?.budget);
+      if (!parsed.success) return invalid();
+      demo.budget = parsed.data;
       return empty();
     }
     case 'GET /v1/household/installation':

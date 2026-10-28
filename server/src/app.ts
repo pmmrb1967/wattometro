@@ -29,6 +29,8 @@
  *   GET  /v1/household/installation → {installation: Installation} (src/domain/installation.ts;
  *                              every answer null until saved)
  *   PUT  /v1/household/installation {installation} → 204
+ *   GET  /v1/household/budget → {budget: {cents, whPerDay} | null} (src/domain/budget.ts)
+ *   PUT  /v1/household/budget {budget: … | null} → 204
  *   GET  /v1/devices           → {devices: DeviceView[]} (not revoked)
  *   POST /v1/devices           {name} → 201 {device: DeviceView, token} (the token is never shown again)
  *   PUT    /v1/devices/:id     {name} → 204, renamed (the token stays)
@@ -118,6 +120,7 @@ import {
   type Device,
 } from './repo/devices';
 import { databaseState } from './repo/health';
+import { budgetSchema } from '../../src/domain/budget';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
@@ -153,9 +156,11 @@ import { rowsReadOn, utcDay } from './repo/usage';
 import { STATE } from './rollups';
 import {
   getHousehold,
+  getHouseholdBudget,
   getHouseholdInstallation,
   getHouseholdLocation,
   renameHousehold,
+  setHouseholdBudget,
   setHouseholdInstallation,
   setHouseholdLocation,
 } from './repo/households';
@@ -219,9 +224,13 @@ const PushAlerts = z.object({
   stale: z.boolean(),
   power: z.boolean(),
   database: z.boolean(),
-  // Absent from an app cached before migration 0019: off.
+  // Absent from an app cached before migrations 0019 and 0020: off.
   cheapHours: z.boolean().default(false),
+  eredesImport: z.boolean().default(false),
+  tariffReview: z.boolean().default(false),
+  budget: z.boolean().default(false),
 });
+const BudgetBody = z.object({ budget: budgetSchema.nullable() });
 const PushEndpoint = z.string().max(2000).refine(isPushEndpoint);
 const PushSubscriptionBody = z.object({
   endpoint: PushEndpoint,
@@ -583,6 +592,17 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const parsed = await body(c, LocationBody);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     await setHouseholdLocation(config.sql, c.get('user').householdId, parsed.data.location);
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/household/budget', requireUser, async (c) =>
+    c.json({ budget: await getHouseholdBudget(config.sql, c.get('user').householdId) }),
+  );
+
+  app.put('/v1/household/budget', requireUser, async (c) => {
+    const parsed = await body(c, BudgetBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    await setHouseholdBudget(config.sql, c.get('user').householdId, parsed.data.budget, now());
     return c.body(null, 204);
   });
 

@@ -4,6 +4,7 @@ import {
   UNKNOWN_INSTALLATION,
   type Installation,
 } from '../../../src/domain/installation';
+import type { Budget } from '../../../src/domain/budget';
 import type { Sql } from '../db';
 
 export interface Household {
@@ -146,6 +147,38 @@ export async function setHouseholdInstallation(
     installation.hob,
     toFlag(installation.solarPanels),
     toFlag(installation.electricCar),
+    now,
+  );
+}
+
+/** The month's budget (migration 0020); null without one. */
+export async function getHouseholdBudget(sql: Sql, householdId: string): Promise<Budget | null> {
+  const row = await sql.first<{ cents: number; wh_per_day: number }>(
+    'SELECT cents, wh_per_day FROM household_budget WHERE household_id = ?',
+    householdId,
+  );
+  return row ? { cents: row.cents, whPerDay: row.wh_per_day } : null;
+}
+
+/** Saves the budget, or removes it (null). */
+export async function setHouseholdBudget(
+  sql: Sql,
+  householdId: string,
+  budget: Budget | null,
+  now: number,
+): Promise<void> {
+  if (!budget) {
+    await sql.run('DELETE FROM household_budget WHERE household_id = ?', householdId);
+    return;
+  }
+  await sql.run(
+    `INSERT INTO household_budget (household_id, cents, wh_per_day, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT (household_id) DO UPDATE SET cents = excluded.cents,
+       wh_per_day = excluded.wh_per_day, updated_at = excluded.updated_at`,
+    householdId,
+    budget.cents,
+    budget.whPerDay,
     now,
   );
 }

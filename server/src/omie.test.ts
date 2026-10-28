@@ -111,6 +111,42 @@ describe('decideCheapHours', () => {
   });
 });
 
+describe('migration 0020', () => {
+  it('keeps subscriptions and states, the reminders off, and takes their kinds', () => {
+    const db = new DatabaseSync(':memory:');
+    const folder = join(__dirname, '..', 'migrations');
+    const files = readdirSync(folder)
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    const run = (name: string) => db.exec(readFileSync(join(folder, name), 'utf8'));
+    for (const name of files.filter((name) => name < '0020')) run(name);
+    db.exec(`INSERT INTO households (id, name, created_at) VALUES ('h', 'Casa', 0);
+      INSERT INTO users (id, household_id, email, password_hash, created_at)
+        VALUES ('u', 'h', 'a@b.pt', 'x', 0);
+      INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth, created_at)
+        VALUES ('https://push.example/1', 'h', 'u', 'k', 'a', 0);
+      INSERT INTO alert_state (household_id, kind, since) VALUES ('h', 'cheapHours', 7);`);
+    run(files.find((name) => name.startsWith('0020')) as string);
+    expect(db.prepare('SELECT kind, since FROM alert_state').all()).toEqual([
+      { kind: 'cheapHours', since: 7 },
+    ]);
+    expect(
+      db
+        .prepare(
+          'SELECT alert_eredes_import, alert_tariff_review, alert_budget FROM push_subscriptions',
+        )
+        .get(),
+    ).toEqual({ alert_eredes_import: 0, alert_tariff_review: 0, alert_budget: 0 });
+    db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'budget');
+      INSERT INTO household_budget (household_id, cents, wh_per_day, updated_at)
+        VALUES ('h', 8000, 9500, 0);`);
+    expect(() =>
+      db.exec(`INSERT INTO household_budget (household_id, cents, wh_per_day, updated_at)
+        VALUES ('h', 0, 1, 0)`),
+    ).toThrow();
+  });
+});
+
 describe('migration 0019', () => {
   it('keeps the alert states and leaves the new alert off', () => {
     const db = new DatabaseSync(':memory:');

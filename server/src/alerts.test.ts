@@ -3,16 +3,27 @@ import type { DatabaseSync } from 'node:sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { memorySql } from '../test/sqlite';
-import { checkAlerts, decideDatabase, decidePower, decideStale, type AlertMessage } from './alerts';
+import {
+  checkAlerts,
+  decideBudget,
+  decideDatabase,
+  decideEredesImport,
+  decidePower,
+  decideStale,
+  decideTariffReview,
+  reminderDue,
+  type AlertMessage,
+} from './alerts';
+import { startOfLisbonDay } from '../../src/lib/time';
 import { createApp } from './app';
 import { toBase64Url } from './base64url';
 import type { Sql } from './db';
 import { hashPassword } from './password';
 import { createDevice } from './repo/devices';
-import { createHousehold } from './repo/households';
+import { createHousehold, setHouseholdBudget } from './repo/households';
 import { minuteStatements } from './repo/readings';
 import { saveOmieDay } from './repo/omie';
-import { QUIET_STATE, saveSubscription } from './repo/push';
+import { QUIET_STATE, saveSubscription, type AlertChoice } from './repo/push';
 import { saveTariff } from './repo/tariffs';
 import { addRowsRead, utcDay } from './repo/usage';
 import { createUser } from './repo/users';
@@ -27,6 +38,15 @@ const DEVICE_KEYS = {
   auth: 'BTBZMqHH6r4Tts7J_aSIgg',
 };
 const ENDPOINT = 'https://fcm.googleapis.com/fcm/send/telemovel';
+const NO_ALERTS: AlertChoice = {
+  stale: false,
+  power: false,
+  database: false,
+  cheapHours: false,
+  eredesImport: false,
+  tariffReview: false,
+  budget: false,
+};
 
 async function vapid() {
   const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
@@ -88,6 +108,54 @@ describe('the decisions', () => {
     expect(warned.message?.body).toContain('até às 00:00');
     expect(decideDatabase(warned.state, 4_500_000, 5_000_000, NOW + 600).message).toBeNull();
     expect(decideDatabase(warned.state, 4_100_000, 5_000_000, NOW + 86_400).message).not.toBeNull();
+  });
+});
+
+describe('the reminders', () => {
+  // 2026-10-26 18:00 in Lisbon.
+  const day = (date: string, hour = 11) => startOfLisbonDay(date) + hour * 3600;
+
+  it('are looked at once a Lisbon day, from 10:00', () => {
+    expect(reminderDue(QUIET_STATE, day('2026-10-26', 9))).toBe(false);
+    expect(reminderDue(QUIET_STATE, day('2026-10-26'))).toBe(true);
+    const checked = decideTariffReview(QUIET_STATE, day('2026-10-26')).state;
+    expect(reminderDue(checked, day('2026-10-26', 18))).toBe(false);
+    expect(reminderDue(checked, day('2026-10-27'))).toBe(true);
+  });
+
+  it('E-Redes: when the last day is over a month old, at most once a month', () => {
+    expect(decideEredesImport(QUIET_STATE, null, NOW).message).toBeNull();
+    expect(decideEredesImport(QUIET_STATE, '2026-10-01', NOW).message).toBeNull();
+    const first = decideEredesImport(QUIET_STATE, '2026-09-20', NOW);
+    expect(first.message?.body).toContain('20/09/2026');
+    expect(first.message?.url).toBe('/definicoes#dados');
+    expect(decideEredesImport(first.state, '2026-09-20', NOW + 20 * 86_400).message).toBeNull();
+    expect(decideEredesImport(first.state, '2026-09-20', NOW + 31 * 86_400).message).not.toBeNull();
+  });
+
+  it('tariff: once in January and once in July', () => {
+    expect(decideTariffReview(QUIET_STATE, day('2026-10-26')).message).toBeNull();
+    const january = decideTariffReview(QUIET_STATE, day('2027-01-04'));
+    expect(january.message?.title).toBe('Rever o tarifário');
+    expect(decideTariffReview(january.state, day('2027-01-20')).message).toBeNull();
+    expect(decideTariffReview(january.state, day('2027-07-01')).message).not.toBeNull();
+  });
+
+  it("budget: from the 7th, when the month's pace passes it, once a month", () => {
+    // 10 kWh a day buys the budget; October has 31 days.
+    const budget = { cents: 8000, whPerDay: 10_000 };
+    // On the 10th at 00:00: 9 days. At 9 kWh a day, within; at 12, past it.
+    const tenth = startOfLisbonDay('2026-10-10');
+    expect(decideBudget(QUIET_STATE, budget, 9 * 9_000, tenth).message).toBeNull();
+    const over = decideBudget(QUIET_STATE, budget, 9 * 12_000, tenth);
+    expect(over.message?.body).toMatch(/80,00\s€/);
+    expect(decideBudget(over.state, budget, 10 * 12_000, tenth + 86_400).message).toBeNull();
+    // Too early in the month, and without a budget.
+    expect(decideBudget(QUIET_STATE, budget, 5 * 20_000, day('2026-10-05')).message).toBeNull();
+    expect(decideBudget(QUIET_STATE, null, 9 * 12_000, tenth).message).toBeNull();
+    // A new month, a new reminder.
+    const november = startOfLisbonDay('2026-11-10');
+    expect(decideBudget(over.state, budget, 9 * 12_000, november).message).not.toBeNull();
   });
 });
 
@@ -176,8 +244,13 @@ describe('a Cron run', () => {
     );
     await sql.batch(statements);
   };
-  const subscribe = (alerts = { stale: true, power: true, database: true, cheapHours: false }) =>
-    saveSubscription(sql, user, { endpoint: ENDPOINT, ...DEVICE_KEYS, alerts }, NOW);
+  const subscribe = (alerts: Partial<AlertChoice> = { stale: true, power: true, database: true }) =>
+    saveSubscription(
+      sql,
+      user,
+      { endpoint: ENDPOINT, ...DEVICE_KEYS, alerts: { ...NO_ALERTS, ...alerts } },
+      NOW,
+    );
 
   it('reads nothing more for a household nobody subscribed in', async () => {
     seen(NOW - 3_600);
@@ -205,7 +278,7 @@ describe('a Cron run', () => {
   });
 
   it('sends only the alerts a device chose', async () => {
-    await subscribe({ stale: false, power: true, database: false, cheapHours: false });
+    await subscribe({ power: true });
     seen(NOW - 20 * 60);
     await addRowsRead(sql, utcDay(NOW), 4_500_000);
     await checkAlerts(sql, household, NOW, {
@@ -217,7 +290,7 @@ describe('a Cron run', () => {
   });
 
   it("sends tomorrow's cheap hours once, to the devices that asked", async () => {
-    await subscribe({ stale: false, power: false, database: false, cheapHours: true });
+    await subscribe({ cheapHours: true });
     // 27/10 starts at 00:00 in Madrid: 26/10 23:00 in Lisbon.
     const prices = Array.from({ length: 96 }, (_, i) => (i >= 56 && i < 68 ? 1000 : 10000));
     await saveOmieDay(sql, { date: '2026-10-27', step: 900, prices }, NOW + 5 * 3600, NOW);
@@ -225,6 +298,25 @@ describe('a Cron run', () => {
     await checkAlerts(sql, household, NOW, config);
     await checkAlerts(sql, household, NOW + 300, config);
     expect(sent).toHaveLength(1);
+  });
+
+  it('reminds of the budget once, reading the month only once a day', async () => {
+    await subscribe({ budget: true });
+    await setHouseholdBudget(sql, household, { cents: 5000, whPerDay: 500 }, NOW);
+    // 26/10 at 18:00: 20 kWh in 25,75 days is past 0,5 kWh a day.
+    db.prepare(
+      `INSERT INTO daily (household_id, meter, day, source, minutes, energy_wh)
+       VALUES (?, ?, '2026-10-20', 'shelly', 1440, 20000)`,
+    ).run(household, `${deviceId}:0`);
+    const config = { vapid: await vapid(), rowsReadLimit: 5_000_000, fetcher };
+    await checkAlerts(sql, household, NOW, config);
+    await checkAlerts(sql, household, NOW + 300, config);
+    expect(sent).toHaveLength(1);
+    expect(db.prepare(`SELECT checked_until FROM alert_state WHERE kind = 'budget'`).get()).toEqual(
+      {
+        checked_until: startOfLisbonDay('2026-10-26'),
+      },
+    );
   });
 
   it('forgets a device the push service says is gone', async () => {
@@ -287,7 +379,7 @@ describe('/v1/push', () => {
     });
   const find = (as = cookie) =>
     call('GET', `/v1/push/subscription?endpoint=${encodeURIComponent(ENDPOINT)}`, undefined, as);
-  const alerts = { stale: true, power: false, database: true, cheapHours: true };
+  const alerts = { ...NO_ALERTS, stale: true, database: true, cheapHours: true, budget: true };
 
   it('gives the public key, keeps the subscription and sends a test', async () => {
     expect(
@@ -318,7 +410,17 @@ describe('/v1/push', () => {
       keys: DEVICE_KEYS,
       alerts: older,
     });
-    expect(await (await find()).json()).toEqual({ alerts: { ...older, cheapHours: false } });
+    expect(await (await find()).json()).toEqual({ alerts: { ...NO_ALERTS, ...older } });
+  });
+
+  it("keeps the household's budget, and removes it", async () => {
+    expect(await (await call('GET', '/v1/household/budget')).json()).toEqual({ budget: null });
+    const budget = { cents: 8000, whPerDay: 9_500 };
+    expect((await call('PUT', '/v1/household/budget', { budget })).status).toBe(204);
+    expect(await (await call('GET', '/v1/household/budget')).json()).toEqual({ budget });
+    expect((await call('PUT', '/v1/household/budget', { budget: { cents: -1 } })).status).toBe(400);
+    expect((await call('PUT', '/v1/household/budget', { budget: null })).status).toBe(204);
+    expect(await (await call('GET', '/v1/household/budget')).json()).toEqual({ budget: null });
   });
 
   it('refuses an endpoint that is not a push service', async () => {

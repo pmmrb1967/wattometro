@@ -8,17 +8,23 @@
  *   one an hour;
  * - database: D1 has read DATABASE_SHARE of its daily rows; once a UTC day;
  * - cheapHours: tomorrow's cheapest and dearest hours on the market (omie.ts),
- *   once a day when the prices arrive.
+ *   once a day when the prices arrive;
+ * - reminders, looked at once a Lisbon day from REMINDER_HOUR: eredesImport (the
+ *   last E-Redes day over a month old; at most once a month), tariffReview (in
+ *   January and July), budget (from day BUDGET_FROM_DAY, the month's pace past
+ *   the budget's energy; once a month).
  *
  * The decisions are pure (decideStale, decidePower, decideDatabase,
- * decideCheapHours); a
+ * decideCheapHours, decideEredesImport, decideTariffReview, decideBudget); a
  * condition that lasts is announced once, as alert_state remembers.
  */
 import trip from '../../src/data/power-trip.json';
 import { t } from '../../src/i18n/pt-PT';
 import { priceWindows } from '../../src/domain/omie';
-import { formatPricePerKwh, omieToMicro } from '../../src/lib/money';
+import type { Budget } from '../../src/domain/budget';
+import { formatCents, formatPricePerKwh, omieToMicro } from '../../src/lib/money';
 import {
+  formatLocalDate,
   formatLisbonTime,
   lisbonDate,
   lisbonParts,
@@ -29,6 +35,8 @@ import { formatKva } from '../../src/lib/units';
 import type { Sql } from './db';
 import { MAX_CHANNEL } from './ingest';
 import { PUBLISHED_HOUR } from './omie';
+import { energyMeters, lastEredesDay } from './repo/eredes';
+import { getHouseholdBudget } from './repo/households';
 import { omieDaysFrom, type StoredOmieDay } from './repo/omie';
 import { listDevices } from './repo/devices';
 import {
@@ -52,6 +60,12 @@ export const DATABASE_SHARE = 0.8;
 /** How far back the power check looks again, for minutes the Shelly sends late. */
 const POWER_LOOKBACK_SECONDS = 10 * 60;
 const DAY = 86_400;
+/** Reminders wait for this Lisbon hour: not at night. */
+export const REMINDER_HOUR = 10;
+/** The E-Redes data is old when its last day is this far behind. */
+export const EREDES_STALE_DAYS = 31;
+/** The month's pace is too uncertain before this day. */
+export const BUDGET_FROM_DAY = 7;
 
 export interface AlertMessage {
   title: string;
@@ -192,6 +206,96 @@ export function decideCheapHours(
   };
 }
 
+/** A reminder is looked at once a Lisbon day, from REMINDER_HOUR. */
+export function reminderDue(state: AlertState, now: number): boolean {
+  if (lisbonParts(now).hour < REMINDER_HOUR) return false;
+  return state.checkedUntil !== startOfLisbonDay(lisbonDate(now));
+}
+
+const checkedToday = (state: AlertState, now: number): AlertState => ({
+  ...state,
+  checkedUntil: startOfLisbonDay(lisbonDate(now)),
+});
+
+/** The last imported E-Redes day over a month old: at most once a month. Null: never imported. */
+export function decideEredesImport(
+  state: AlertState,
+  lastDay: string | null,
+  now: number,
+): Decision {
+  const checked = checkedToday(state, now);
+  const behind = lastDay === null ? 0 : (checked.checkedUntil ?? 0) - startOfLisbonDay(lastDay);
+  if (lastDay === null || behind <= EREDES_STALE_DAYS * DAY) {
+    return { state: { ...checked, active: false }, message: null };
+  }
+  if (state.sentAt !== null && now - state.sentAt < 30 * DAY) {
+    return { state: { ...checked, active: true }, message: null };
+  }
+  return {
+    state: { ...checked, active: true, since: state.active ? state.since : now, sentAt: now },
+    message: {
+      title: t.alerts.eredesTitle,
+      body: t.alerts.eredesBody(formatLocalDate(lastDay)),
+      tag: 'eredes-import',
+      url: '/definicoes#dados',
+    },
+  };
+}
+
+/** In January and in July, once: `since` remembers the month announced. */
+export function decideTariffReview(state: AlertState, now: number): Decision {
+  const { year, month } = lisbonParts(now);
+  const checked = checkedToday(state, now);
+  if (month !== 1 && month !== 7) return { state: checked, message: null };
+  const monthStart = startOfLisbonDay(`${year}-${String(month).padStart(2, '0')}-01`);
+  if (state.since === monthStart) return { state: checked, message: null };
+  return {
+    state: { ...checked, since: monthStart, sentAt: now },
+    message: {
+      title: t.alerts.reviewTitle,
+      body: t.alerts.reviewBody,
+      tag: 'tariff-review',
+      url: '/tarifarios',
+    },
+  };
+}
+
+/**
+ * The month's energy so far, at its pace, past what the budget buys: once a
+ * month, from day BUDGET_FROM_DAY. `since` remembers the month announced.
+ */
+export function decideBudget(
+  state: AlertState,
+  budget: Budget | null,
+  monthEnergyWh: number,
+  now: number,
+): Decision {
+  const checked = checkedToday(state, now);
+  const { year, month, day } = lisbonParts(now);
+  if (!budget || day < BUDGET_FROM_DAY)
+    return { state: { ...checked, active: false }, message: null };
+  const first = `${year}-${String(month).padStart(2, '0')}-01`;
+  const monthStart = startOfLisbonDay(first);
+  const nextMonth =
+    month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const monthEnd = startOfLisbonDay(nextMonth);
+  const days = Math.round((monthEnd - monthStart) / DAY);
+  const projected = (monthEnergyWh * (monthEnd - monthStart)) / Math.max(now - monthStart, 1);
+  const over = projected > budget.whPerDay * days;
+  if (!over || state.since === monthStart) {
+    return { state: { ...checked, active: over }, message: null };
+  }
+  return {
+    state: { ...checked, active: true, since: monthStart, sentAt: now },
+    message: {
+      title: t.alerts.budgetTitle,
+      body: t.alerts.budgetBody(formatCents(budget.cents)),
+      tag: 'budget',
+      url: '/consumo#previsao',
+    },
+  };
+}
+
 export interface AlertConfig {
   vapid: VapidKeys;
   rowsReadLimit: number;
@@ -267,6 +371,27 @@ export async function checkAlerts(
     const tomorrow = nextDate(lisbonDate(now));
     const day = (await omieDaysFrom(sql, tomorrow)).find((item) => item.date === tomorrow);
     decisions.push(['cheapHours', decideCheapHours(states.cheapHours, day ?? null, now)]);
+  }
+
+  if (wants('eredesImport') && reminderDue(states.eredesImport, now)) {
+    const lastDay = await lastEredesDay(sql, householdId);
+    decisions.push(['eredesImport', decideEredesImport(states.eredesImport, lastDay, now)]);
+  }
+
+  if (wants('tariffReview') && reminderDue(states.tariffReview, now)) {
+    decisions.push(['tariffReview', decideTariffReview(states.tariffReview, now)]);
+  }
+
+  if (wants('budget') && reminderDue(states.budget, now)) {
+    const budget = await getHouseholdBudget(sql, householdId);
+    let monthEnergyWh = 0;
+    if (budget) {
+      const today = lisbonDate(now);
+      // The house: the meter with the most energy this month (E-Redes lags, a circuit is less).
+      const meters = await energyMeters(sql, householdId, `${today.slice(0, 7)}-01`, today);
+      monthEnergyWh = Math.max(0, ...meters.map((item) => item.energyWh));
+    }
+    decisions.push(['budget', decideBudget(states.budget, budget, monthEnergyWh, now)]);
   }
 
   for (const [kind, decision] of decisions) {

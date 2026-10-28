@@ -228,6 +228,15 @@ export const t = {
       dearPrice: string,
     ) =>
       `Das ${from} às ${to}, a energia no mercado custa em média ${price}. As mais caras: das ${dearFrom} às ${dearTo} (${dearPrice}). Só muda a fatura num tarifário com preço à hora.`,
+    eredesTitle: 'Importar os consumos da E-Redes',
+    eredesBody: (last: string) =>
+      `O último dia importado é ${last}. Exporta o ficheiro no Balcão Digital da E-Redes e importa-o em Definições: os tarifários e a previsão passam a usar o teu consumo mais recente.`,
+    reviewTitle: 'Rever o tarifário',
+    reviewBody:
+      'Passou meio ano: vê em Tarifários se o teu contrato continua a ser o mais barato para o teu consumo. As ofertas mudam ao longo do ano.',
+    budgetTitle: 'Orçamento do mês',
+    budgetBody: (budget: string) =>
+      `Ao ritmo deste mês, a fatura deve passar o teu orçamento de ${budget}. Vê a previsão em Consumo.`,
     testTitle: 'Aviso de teste',
     testBody: 'Os avisos do Wattómetro chegam a este aparelho.',
   },
@@ -268,6 +277,9 @@ export const t = {
         power: 'A potência se aproxima do corte',
         database: 'A base de dados se aproxima do limite diário',
         cheapHours: 'Saem as horas mais baratas de amanhã',
+        eredesImport: 'É altura de importar os consumos da E-Redes',
+        tariffReview: 'É altura de rever o tarifário',
+        budget: 'O mês vai passar o orçamento',
       },
       kindNotes: {
         stale: 'Ao fim de 15 minutos sem medições, e outra vez quando voltar.',
@@ -277,6 +289,11 @@ export const t = {
           'Aos 80 % das leituras que o plano gratuito permite por dia. Aos 100 %, a app deixa de gravar até à meia-noite (UTC).',
         cheapHours:
           'Por volta das 12:00, quando o mercado (OMIE) publica os preços de amanhã. Só muda a fatura num tarifário com preço à hora.',
+        eredesImport:
+          'Quando o último dia importado tem mais de um mês. No máximo uma vez por mês.',
+        tariffReview: 'Em janeiro e em julho, para comparares o teu contrato com as ofertas.',
+        budget:
+          'Quando, a partir do dia 7, o ritmo do mês passa o orçamento. Define-o em Consumo › Previsão. Uma vez por mês.',
       },
       saved: 'Escolha guardada.',
       test: 'Enviar aviso de teste',
@@ -1031,6 +1048,20 @@ export const t = {
       'Inclui potência, taxas e IVA, com o tarifário em vigor no fim do mês. Uma estimativa, não a fatura.',
     noTariff: 'Para saberes o valor em euros, indica o teu tarifário.',
     attribution: 'Dados meteorológicos:',
+    budget: {
+      set: 'Definir um orçamento mensal',
+      change: (amount: string) => `Orçamento mensal: ${amount}`,
+      label: 'Orçamento mensal (€, com IVA)',
+      save: 'Guardar',
+      remove: 'Remover',
+      saved: 'Orçamento guardado.',
+      removed: 'Orçamento removido.',
+      invalid: 'Escreve um valor em euros, por exemplo 80.',
+      tooLow: 'Esse valor não chega para a potência, as taxas e o IVA do mês.',
+      over: (budget: string) => `Acima do teu orçamento de ${budget}.`,
+      within: (budget: string) => `Dentro do teu orçamento de ${budget}.`,
+      hint: 'Com o aviso "O mês vai passar o orçamento" ligado (Definições › Avisos), o telemóvel avisa-te quando o ritmo do mês o passar.',
+    },
   },
   consumption: {
     tabs: {

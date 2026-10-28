@@ -10,8 +10,13 @@ Os avisos chegam ao telemóvel ou ao computador mesmo com a app fechada. O Cron 
 | Potência perto do corte | Um segundo acima de `k × Sc`: o contador inteligente começa a contar para cortar (`k` = 1,2 em monofásico, `src/data/power-trip.json`, fonte em `docs/contracted-power.md`) | No máximo um por hora |
 | Base de dados perto do limite | O D1 já leu 80 % das linhas diárias do plano gratuito | Uma vez por dia UTC |
 | Horas mais baratas de amanhã | Saem os preços OMIE do dia seguinte (a partir das 12:00 de Lisboa): as 3 horas seguidas mais baratas e as mais caras (`docs/omie.md`). Desligado por omissão: só conta num tarifário com preço à hora | Uma vez por dia |
+| Importar a E-Redes | O último dia importado da E-Redes tem mais de 31 dias. Desligado por omissão | No máximo uma vez por mês |
+| Rever o tarifário | Em janeiro e em julho. Desligado por omissão | Uma vez em cada um desses meses |
+| Orçamento do mês | A partir do dia 7, a energia do mês ao ritmo até agora passa a que o orçamento compra. Desligado por omissão | Uma vez por mês |
 
 Escolhido pelo utilizador a 2026-10-26: o limiar de potência é o do contador (120 %), não a potência contratada (100 %). O pico usado é o aparente ao segundo de cada minuto (`apparent_max_va`), ou o ativo quando o minuto não tem valores ao segundo. Cada aparelho escolhe os avisos que quer (Definições → Avisos). Quando o D1 já bloqueou, o próprio Cron não consegue ler e não há avisos: o aviso aos 80 % existe para isso.
+
+Os três lembretes (migração 0020) só se veem uma vez por dia de Lisboa, a partir das 10:00 (`checked_until` guarda o dia), para não lerem o D1 a cada 5 minutos. O orçamento guarda-se em euros e na **energia por dia** que compra (`household_budget`): o browser faz a conta com o tarifário e a repartição do mês por períodos (`src/domain/budget.ts`), e o Cron só compara kWh, com o contador com mais energia no mês (a E-Redes chega atrasada; um circuito tem menos). O lembrete do tarifário é tão útil quanto as ofertas da app: `public/data/erse-offers.json` atualiza-se com `pnpm erse:sync`.
 
 ## Como funciona
 

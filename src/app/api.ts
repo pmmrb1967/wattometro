@@ -6,6 +6,7 @@ import { demoResponse } from '../demo/server';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
+import { budgetSchema, type Budget } from '../domain/budget';
 import { installationSchema, type Installation } from '../domain/installation';
 
 const Health = z.object({
@@ -297,6 +298,22 @@ export async function saveHouseholdLocation(
   location: HouseholdLocation | null,
 ): Promise<{ ok: true } | Failure> {
   const response = await send('PUT', '/v1/household/location', { location });
+  if (response?.ok) return { ok: true };
+  return failure(response, [400]);
+}
+
+/** The month's budget (Consumo › Previsão); null without one. */
+export async function fetchBudget(): Promise<{ ok: true; budget: Budget | null } | Failure> {
+  const response = await send('GET', '/v1/household/budget');
+  if (response?.ok) {
+    const parsed = z.object({ budget: budgetSchema.nullable() }).parse(await response.json());
+    return { ok: true, budget: parsed.budget };
+  }
+  return failure(response, []);
+}
+
+export async function saveBudget(budget: Budget | null): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', '/v1/household/budget', { budget });
   if (response?.ok) return { ok: true };
   return failure(response, [400]);
 }
@@ -710,6 +727,9 @@ const PushAlerts = z.object({
   power: z.boolean(),
   database: z.boolean(),
   cheapHours: z.boolean(),
+  eredesImport: z.boolean(),
+  tariffReview: z.boolean(),
+  budget: z.boolean(),
 });
 export type PushAlerts = z.infer<typeof PushAlerts>;
 

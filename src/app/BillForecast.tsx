@@ -6,16 +6,21 @@
  * household said nothing electric follows the weather (src/domain/
  * installation.ts), the forecast leaves the temperature out.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
-import { formatCents, formatWholeEuros } from '../lib/money';
+import { budgetEnergyWh, type Budget } from '../domain/budget';
+import type { Tariff } from '../domain/tariff';
+import { formatCents, formatWholeEuros, parsePtAmount } from '../lib/money';
 import { formatLocalDate, lisbonToday } from '../lib/time';
 import { formatCelsius, formatKwh } from '../lib/units';
 import type { ChosenForecast } from '../ml/bill-forecast';
 import { currentMonthForecast } from '../ml/month-forecast';
+import { fetchBudget, saveBudget } from './api';
 import type { HouseholdEnergy } from './household-energy';
+import { failureText, useSession } from './session';
+import { StatusLine, type Status } from './StatusLine';
 import { useWeather, type Weather } from './use-weather';
 
 const texts = t.forecast;
@@ -91,6 +96,108 @@ export function BillForecastCard({ energy }: { energy: HouseholdEnergy }) {
 const pct = (value: number) =>
   new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 }).format(value);
 
+/**
+ * The month's budget: the forecast against it, and the form. Saved with the
+ * energy a day it buys at this month's split (src/domain/budget.ts), for the
+ * Cron's reminder.
+ */
+function BudgetLine({ result, tariff }: { result: ForecastResult; tariff: Tariff }) {
+  const { signOut } = useSession();
+  const lines = texts.budget;
+  const { forecast } = result;
+  const [budget, setBudget] = useState<Budget | null | undefined>(undefined);
+  const [typed, setTyped] = useState('');
+  const [status, setStatus] = useState<Status>({ kind: 'idle' });
+
+  useEffect(() => {
+    let active = true;
+    void fetchBudget().then((outcome) => {
+      if (!active) return;
+      if (outcome.ok) setBudget(outcome.budget);
+      else if (outcome.reason === 'unauthenticated') signOut();
+      else setBudget(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [signOut]);
+
+  async function store(next: Budget | null) {
+    setStatus({ kind: 'busy' });
+    const outcome = await saveBudget(next);
+    if (!outcome.ok) {
+      const text = failureText(outcome, lines.invalid);
+      if (text === null) signOut();
+      else setStatus({ kind: 'error', text });
+      return;
+    }
+    setBudget(next);
+    setTyped('');
+    setStatus({ kind: 'done', text: next ? lines.saved : lines.removed });
+  }
+
+  function save() {
+    const cents = parsePtAmount(typed);
+    if (cents === null || cents < 100) {
+      setStatus({ kind: 'error', text: lines.invalid });
+      return;
+    }
+    const wh = budgetEnergyWh(forecast.byPeriod, forecast.daysInMonth, tariff, cents);
+    if (wh === null || wh < forecast.daysInMonth) {
+      setStatus({ kind: 'error', text: lines.tooLow });
+      return;
+    }
+    void store({ cents, whPerDay: Math.round(wh / forecast.daysInMonth) });
+  }
+
+  if (budget === undefined || forecast.costCents === null) return null;
+  const amount = budget ? formatCents(budget.cents) : '';
+  return (
+    <>
+      {budget && (
+        <p className={forecast.costCents > budget.cents ? 'error' : 'success'}>
+          {forecast.costCents > budget.cents ? lines.over(amount) : lines.within(amount)}
+        </p>
+      )}
+      <details className="adjust">
+        <summary>{budget ? lines.change(amount) : lines.set}</summary>
+        <label>
+          {lines.label}
+          <input
+            inputMode="decimal"
+            autoComplete="off"
+            value={typed}
+            placeholder={budget ? amount : '80'}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+        </label>
+        <div className="button-row">
+          <button
+            type="button"
+            className="primary"
+            disabled={status.kind === 'busy'}
+            onClick={save}
+          >
+            {lines.save}
+          </button>
+          {budget && (
+            <button
+              type="button"
+              className="secondary danger"
+              disabled={status.kind === 'busy'}
+              onClick={() => void store(null)}
+            >
+              {lines.remove}
+            </button>
+          )}
+        </div>
+        <p className="hint">{lines.hint}</p>
+      </details>
+      <StatusLine status={status} />
+    </>
+  );
+}
+
 /** The forecast with how it was made, for the "Consumo" page. */
 export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
   const result = useBillForecast(energy);
@@ -124,6 +231,7 @@ export function BillForecastDetail({ energy }: { energy: HouseholdEnergy }) {
       <h2>{texts.title(monthName(forecast.month))}</h2>
       <p className="lead">{texts.intro}</p>
       <Headline result={result} />
+      {energy.tariff && <BudgetLine result={result} tariff={energy.tariff} />}
       <HowItWorks>
         <ul className="hint caveats">
           <li>

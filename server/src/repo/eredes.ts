@@ -169,6 +169,15 @@ export async function quarterEnergy(
   return records;
 }
 
+/** The last Lisbon day with E-Redes data (one primary-key row), or null. */
+export async function lastEredesDay(sql: Sql, householdId: string): Promise<string | null> {
+  const row = await sql.first<{ day: string | null }>(
+    `SELECT MAX(day) AS day FROM daily WHERE household_id = ? AND meter = '${EREDES_METER}'`,
+    householdId,
+  );
+  return row?.day ?? null;
+}
+
 /**
  * Meters with data on the Lisbon days [fromDay, toDay]: their energy and how many
  * days. From the daily totals (one row per day), not the quarter hours.
