@@ -573,7 +573,7 @@ h2 {
   text-decoration: none;
 }
 
-.action:hover {
+a.action:hover {
   border-color: var(--accent);
 }
 

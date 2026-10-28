@@ -17,7 +17,7 @@ import { formatKwh, formatPower, formatVolts } from '../lib/units';
 import { fetchNow, type Meter, type Now } from './api';
 import { AnomalyCard } from './Anomalies';
 import { BillForecastCard } from './BillForecast';
-import { HomeActions } from './HomeActions';
+import { ActionValue, HomeActions } from './HomeActions';
 import { useHouseholdEnergy } from './household-energy';
 import { useSession } from './session';
 
@@ -72,6 +72,63 @@ function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
         </dd>
       )}
     </>
+  );
+}
+
+/**
+ * Today's cost and peak as boxes like "Onde podes poupar", in the left column:
+ * for the household's only meter (with several, each card keeps its own).
+ */
+function TodayBoxes({ meter, tariff }: { meter: Meter; tariff: Tariff | null | undefined }) {
+  const { today } = meter;
+  let cost = null;
+  if (tariff) {
+    const energy = energyByPeriod(today.quarters, tariff);
+    const total = electricityCost(energy, 1, tariff);
+    const periods = OPTION_PERIODS[tariff.option];
+    const parts = [
+      `${t.now.costParts.energy} ${formatCents(total.energyCents)}`,
+      `${t.now.costParts.power} ${formatCents(total.powerCents)}`,
+      `${t.now.costParts.taxes} ${formatCents(total.taxesCents)}`,
+    ];
+    cost = (
+      <div className="action">
+        <span className="action-title has-info">
+          {t.now.cost}
+          <InfoTip text={t.now.costNote} inline />
+        </span>
+        <ActionValue value={formatCents(total.totalCents)} />
+        <span className="action-hint">
+          {parts.join(' · ')}
+          {periods.length > 1 &&
+            `. ${periods
+              .map(
+                (period) =>
+                  `${t.settings.tariff.periods[period]} ${formatKwh(energy[period] ?? 0)}`,
+              )
+              .join(' · ')}`}
+        </span>
+      </div>
+    );
+  } else if (tariff === null) {
+    cost = (
+      <Link to="/definicoes#tarifario" className="action">
+        <span className="action-title">{t.now.cost}</span>
+        <span className="action-hint">{t.now.noTariff}</span>
+      </Link>
+    );
+  }
+  return (
+    <section className="actions" aria-label={t.now.today}>
+      {cost}
+      <Link to="/potencia" className="action">
+        <span className="action-title">{t.now.peak}</span>
+        <ActionValue
+          value={today.powerMaxW === null ? t.now.nothing : formatPower(today.powerMaxW)}
+        />
+        <span className="action-hint">{t.now.peakHint}</span>
+      </Link>
+    </section>
   );
 }
 
@@ -156,17 +213,19 @@ function MeterCard({
       </div>
 
       <dl className="stats">
-        {tariff !== undefined && (
+        {!only && tariff !== undefined && (
           <div>
             <dt>{t.now.cost}</dt>
             <TodayCost meter={meter} tariff={tariff} />
           </div>
         )}
-        <div>
-          <dt>{t.now.peak}</dt>
-          <dd>{today.powerMaxW === null ? t.now.nothing : formatPower(today.powerMaxW)}</dd>
-          <dd className="hint">{t.now.peakHint}</dd>
-        </div>
+        {!only && (
+          <div>
+            <dt>{t.now.peak}</dt>
+            <dd>{today.powerMaxW === null ? t.now.nothing : formatPower(today.powerMaxW)}</dd>
+            <dd className="hint">{t.now.peakHint}</dd>
+          </div>
+        )}
         <div className="stats-wide">
           <dt>{t.now.voltage}</dt>
           <dd>{latest ? formatVolts(latest.voltageAvgDv) : t.now.nothing}</dd>
@@ -261,6 +320,12 @@ export function Home() {
     [energy.quarters, nowTs],
   );
 
+  // Not shown when the tariffs could not be read; "set one up" when there is none.
+  const todayTariff =
+    tariffs === undefined || tariffs === null || nowTs === null
+      ? undefined
+      : tariffOn(tariffs, lisbonDate(nowTs));
+
   return (
     <>
       <h1>{me.householdName}</h1>
@@ -275,6 +340,9 @@ export function Home() {
           )}
           <HomeActions energy={energy} />
           <BillForecastCard energy={energy} />
+          {now !== null && now !== 'unavailable' && now.meters.length === 1 && (
+            <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
+          )}
         </div>
         <div className="home-column">
           {now === null && <p className="hint">{t.loading}</p>}
@@ -294,12 +362,7 @@ export function Home() {
                     now={now.now}
                     only={now.meters.length === 1}
                     typical={now.meters.length === 1 ? typical : null}
-                    tariff={
-                      // Not shown when the tariffs could not be read; "set one up" when there is none.
-                      tariffs === undefined || tariffs === null
-                        ? undefined
-                        : tariffOn(tariffs, lisbonDate(now.now))
-                    }
+                    tariff={todayTariff}
                   />
                 ))
               )}
