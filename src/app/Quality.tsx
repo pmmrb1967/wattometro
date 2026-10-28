@@ -16,6 +16,13 @@ import {
   type Outage,
   type QualityZone,
 } from '../domain/voltage';
+import {
+  COMPENSATION_MINIMUM_CENTS,
+  outageCompensation,
+  type Compensation,
+} from '../domain/compensation';
+import { tariffOn } from '../domain/tariff';
+import voltageData from '../data/voltage.json';
 import { HowItWorks } from '../components/HowItWorks';
 import { InfoTip } from '../components/InfoTip';
 import { t } from '../i18n/pt-PT';
@@ -25,12 +32,16 @@ import {
   formatLocalDate,
   lisbonDate,
   lisbonParts,
+  lisbonToday,
   startOfLisbonDay,
 } from '../lib/time';
-import { formatVolts } from '../lib/units';
+import { formatCents } from '../lib/money';
+import { formatVolts, type Wh } from '../lib/units';
 import {
   fetchBoots,
+  fetchEnergyMeters,
   fetchQuality,
+  fetchTariffs,
   saveQualityZone,
   setBootExcluded,
   type Boot,
@@ -102,19 +113,61 @@ function ZoneSection({
   );
 }
 
+/** What the compensation needs besides the outages; null while unknown. */
+interface Contract {
+  powerVa: number | null;
+  yearEnergyWh: Wh | null;
+}
+
+const COMPENSATION = voltageData.compensation;
+
+function CompensationLines({ compensation }: { compensation: Compensation }) {
+  const lines = texts.outages.compensation;
+  return (
+    <>
+      <p className="verdict">{lines.estimate(formatCents(compensation.cents))}</p>
+      <p className="hint">
+        {lines.parts(
+          formatCents(compensation.byCountCents),
+          compensation.byHoursCents === null ? null : formatCents(compensation.byHoursCents),
+        )}
+      </p>
+      {compensation.capped && compensation.capCents !== null && (
+        <p className="hint">{lines.capped(formatCents(compensation.capCents))}</p>
+      )}
+      <p className="hint">
+        {compensation.cents < COMPENSATION_MINIMUM_CENTS ? lines.belowMinimum : lines.paid}
+      </p>
+      <HowItWorks>
+        <p className="hint">
+          {lines.how(
+            formatCents(COMPENSATION.fcCents),
+            // €/kWh is € per kVA and per hour.
+            formatCents(COMPENSATION.kcMicroPerKwh / 10_000),
+            String(compensation.capYear ?? Object.keys(COMPENSATION.networkMicroPerKwh).at(-1)),
+          )}
+        </p>
+      </HowItWorks>
+    </>
+  );
+}
+
 function OutagesSection({
   outages,
   zone,
   year,
+  contract,
   onExclude,
 }: {
   outages: Outage[] | null;
   zone: QualityZone | null;
   year: number;
+  contract: Contract;
   onExclude: (outage: Outage, excluded: boolean) => void;
 }) {
   const inYear = (outages ?? []).filter((outage) => lisbonParts(outage.start).year === year);
   const summary = yearSummary(outages ?? [], year, zone);
+  const compensation = outageCompensation(summary, contract.powerVa, contract.yearEnergyWh);
   return (
     <section className="card">
       <h2>{texts.outages.title(year)}</h2>
@@ -141,9 +194,7 @@ function OutagesSection({
               {!summary.overCount && !summary.overHours && (
                 <p className="success">{texts.outages.within}</p>
               )}
-              {(summary.overCount || summary.overHours) && (
-                <p className="hint">{texts.outages.compensation}</p>
-              )}
+              {compensation && <CompensationLines compensation={compensation} />}
             </>
           ) : (
             <p className="hint">{texts.outages.noZone}</p>
@@ -437,6 +488,7 @@ export function Quality() {
   const [zone, setZone] = useState<QualityZone | null>(null);
   const [boots, setBoots] = useState<Boot[] | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const [contract, setContract] = useState<Contract>({ powerVa: null, yearEnergyWh: null });
   const [now] = useState(nowSeconds);
   const year = lisbonParts(now).year;
   // Whole weeks: from the Monday (weeks − 1) weeks before this one.
@@ -471,6 +523,29 @@ export function Quality() {
       active = false;
     };
   }, [year, from, now, signOut]);
+
+  useEffect(() => {
+    let active = true;
+    const today = lisbonToday();
+    void Promise.all([
+      fetchTariffs(),
+      fetchEnergyMeters(startOfLisbonDay(`${year}-01-01`), startOfLisbonDay(today)),
+    ]).then(([tariffs, meters]) => {
+      if (!active) return;
+      const tariff = tariffs.ok ? tariffOn(tariffs.tariffs, today) : null;
+      // The delivery point: E-Redes when imported, else the Shelly with the most energy.
+      const list = meters.ok ? meters.meters : [];
+      const eredes = list.find((item) => item.meter === 'eredes');
+      const most = Math.max(0, ...list.map((item) => item.energyWh));
+      setContract({
+        powerVa: tariff?.powerVa ?? null,
+        yearEnergyWh: eredes ? eredes.energyWh : most > 0 ? most : null,
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [year]);
 
   const data = loaded?.from === from ? loaded.quality : null;
   const outages = useMemo(() => (boots ? outagesFromBoots(boots) : null), [boots]);
@@ -512,6 +587,7 @@ export function Quality() {
         outages={outages}
         zone={zone}
         year={year}
+        contract={contract}
         onExclude={(outage, excluded) => void exclude(outage, excluded)}
       />
       <VoltageSection data={data} weeks={weeks} onWeeks={setWeeks} outages={outages ?? []} />

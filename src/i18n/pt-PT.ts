@@ -655,8 +655,20 @@ export const t = {
       overHours: 'A duração total das falhas longas está acima do padrão.',
       within: 'Dentro do padrão até agora.',
       noZone: 'Escolhe a zona para comparar com o padrão.',
-      compensation:
-        'Quando o padrão não é cumprido, a compensação é automática (RQS, art. 24.º): não precisas de a pedir.',
+      compensation: {
+        estimate: (amount: string) => `Compensação estimada até agora: cerca de ${amount}`,
+        parts: (byCount: string, byHours: string | null) =>
+          byHours === null
+            ? `Pelo número de falhas: ${byCount}. Indica a potência contratada (Definições › Tarifário) para a contar também pela duração.`
+            : `Pelo número de falhas: ${byCount}; pela duração: ${byHours}. Paga-se a mais alta.`,
+        capped: (cap: string) =>
+          `Limitada a ${cap}: o dobro do que a energia do ano pagou em tarifa de uso das redes.`,
+        paid: 'É automática (RQS, art. 24.º): não precisas de a pedir. A E-Redes paga ao teu comercializador até 12 de março do ano seguinte e ele desconta-a na primeira fatura emitida 30 dias depois.',
+        belowMinimum:
+          'Abaixo de 0,50 € não é paga a cada cliente: o valor vai para as tarifas (RQS, art. 106.º).',
+        how: (fc: string, kc: string, capYear: string) =>
+          `Estimativa: ${fc} por falha longa acima do padrão, ou ${kc} por kVA de potência contratada e por hora acima do padrão (RQS, art. 102.º e Anexo I). A ERSE sobe estes valores todos os anos com a inflação, por isso a compensação real é um pouco maior. O limite usa o valor médio da tarifa de uso das redes de ${capYear}. Falhas por eventos excecionais não contam.`,
+      },
       none: 'Nenhuma falha registada este ano.',
       columns: { start: 'Início', end: 'Fim', duration: 'Duração', kind: 'Tipo', count: 'Contar' },
       kindLong: 'longa',
@@ -710,9 +722,10 @@ export const t = {
     },
     sourcesTitle: 'Fontes',
     sources: [
-      'ERSE, Regulamento da Qualidade de Serviço (Regulamento n.º 826/2023, versão consolidada de 2026): art. 2.º, 12.º, 14.º, 24.º, 25.º, 66.º e Anexo I.',
+      'ERSE, Regulamento da Qualidade de Serviço (Regulamento n.º 826/2023, versão consolidada de 2026): art. 2.º, 12.º, 14.º, 24.º, 25.º, 66.º, 102.º, 106.º e Anexo I.',
+      'ERSE, Tarifas e preços para a energia elétrica em 2026, Quadro 3-29 (valor médio das tarifas de uso das redes, para o limite das compensações).',
       'NP EN 50160, características da tensão de alimentação em baixa tensão, conforme reproduzida pela ERSE (Formação ACE, 2021).',
-      'Consultado em 22/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
+      'Consultado em 22/10/2026 e 28/10/2026. Pormenores em docs/voltage.md no código do Wattómetro.',
     ],
   },
   dayEvents: {

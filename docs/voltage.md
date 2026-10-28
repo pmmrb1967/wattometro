@@ -43,7 +43,20 @@ A norma NP EN 50160 é paga (IPQ) e não foi consultada diretamente. Os valores 
 | B | 11 | 9 |
 | C | 15 | 14 |
 
-- **Compensação** automática, sem pedido do cliente (art. 24.º, n.º 5; fórmula no art. 102.º com fatores atualizados todos os anos). A app **não calcula** a compensação.
+- **Compensação** automática, sem pedido do cliente (art. 24.º, n.ºs 5 e 6). A app calcula uma **estimativa** (`src/domain/compensation.ts`): ver a secção seguinte.
+
+## Compensações
+
+Consultado em **2026-10-28**. Fontes: RQS (fonte 1), art. 102.º, 106.º e 110.º e Anexo I, IV; **ERSE, "Tarifas e preços para a energia elétrica e outros serviços em 2026"**, Quadro 3-29: <https://www.erse.pt/media/irglmtt3/tarifas-e-pre%C3%A7os-se-2026.pdf>
+
+- **Pelo número** (art. 102.º, n.º 1, a): `CN = (NI − NIP) × FC`, com NI as interrupções acidentais longas do ano (sem eventos excecionais) e NIP o padrão da zona.
+- **Pela duração** (art. 102.º, n.º 1, c): `CD = (DI − DIP) × PC × KC`, com DI e DIP em horas e PC o valor médio da potência contratada no ano, em kVA.
+- **Valores do Anexo I, IV, para BTN:** FC = **1,2 €**; KC = **0,45 €/kWh**. São atualizados todos os anos pela variação média do IPC sem habitação (art. 102.º, n.º 1, b e d); os valores atualizados não estão no regulamento e não os encontrámos publicados, por isso a app mostra o resultado como **estimativa** ("cerca de"), um pouco abaixo do valor real.
+- **Paga-se a mais alta** das duas quando se falham os dois padrões (n.º 2).
+- **Teto** (n.ºs 4 e 6): 200 % do que o cliente pagou no ano pelo valor médio da tarifa de uso das redes. Valor médio em **BTN em 2025: 0,0514 €/kWh** (Quadro 3-29, para incumprimentos de 2025). O de cada ano sai na diretiva de tarifas do ano seguinte; para o ano corrente a app usa o último conhecido e a energia do ano até agora.
+- **Pagamento** (art. 106.º): o operador credita o comercializador até **12 de março** do ano seguinte; o comercializador credita o cliente na **primeira fatura emitida 30 dias depois** de receber. Sem pedido do cliente.
+- **Abaixo de 0,50 €** não é paga ao cliente (art. 106.º, n.º 3, e art. 110.º, n.º 4: vai para as tarifas).
+- **Exclusões** (art. 110.º): eventos excecionais, entre outras.
 
 ## Reclamação (RQS, art. 66.º)
 

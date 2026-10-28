@@ -11,5 +11,14 @@
     "A": { "interruptions": 10, "hours": 6 },
     "B": { "interruptions": 11, "hours": 9 },
     "C": { "interruptions": 15, "hours": 14 }
+  },
+  "compensation": {
+    "source": "docs/voltage.md, Compensações",
+    "consulted": "2026-10-28",
+    "fcCents": 120,
+    "kcMicroPerKwh": 450000,
+    "capPct": 200,
+    "minimumCents": 50,
+    "networkMicroPerKwh": { "2025": 51400 }
   }
 }
