@@ -193,6 +193,37 @@ describe('pairCycles', () => {
     ]);
   });
 
+  it('takes a soft start in steps up as one appliance switching on', () => {
+    // The dryer of 28/10: +150, +140 and +160 W 30 s apart, off −450 W at once.
+    const events = detectEvents(
+      series([
+        ...flat(30, 200),
+        ...flat(30, 350),
+        ...flat(30, 490),
+        ...flat(300, 650),
+        ...flat(30, 200),
+      ]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([150, 140, 160, -450]);
+    expect(pairCycles(events).map((cycle) => [cycle.powerW, cycle.start - START])).toEqual([
+      [450, 30],
+    ]);
+  });
+
+  it('keeps a kettle and the fridge switching on a few seconds apart as two', () => {
+    const events = detectEvents(
+      series([
+        ...flat(30, 160),
+        ...flat(20, 2160),
+        ...flat(120, 2280),
+        ...flat(60, 280),
+        ...flat(30, 160),
+      ]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([2000, 120, -2000, -120]);
+    expect(pairCycles(events).map((cycle) => cycle.powerW)).toEqual([2000, 120]);
+  });
+
   it('leaves an off step without a matching on step alone', () => {
     const events = detectEvents(series([...flat(30, 2160), ...flat(30, 160)]));
     expect(events).toHaveLength(1);

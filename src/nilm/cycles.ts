@@ -19,6 +19,12 @@
  * that brings the house back to its level before that appliance, is it
  * switching off; the small steps it rose by, opened since, go with it.
  *
+ * A motor or a compressor with a soft start switches on in a ramp (a dryer on
+ * 28/10: +149, +135 and +164 W about 30 s apart, then −487 W 27 min later):
+ * steps up one right after another, with nothing between them, are one
+ * appliance switching on (START_RAMP_S, RAMP_MIN_W, RAMP_MAX_W keep a kettle
+ * and the fridge switching on a few seconds apart from becoming one).
+ *
  * Two appliances switching off in the same second (a dryer's motor and its
  * compressor at the end of the programme) make one step, the sum of both: it
  * closes the two open ones it mirrors. Without this, the motor stayed open
@@ -38,6 +44,12 @@ export const PHASE_MIN_SHARE = 0.3;
 export const SPLIT_OFF_S = 20;
 /** Each of two appliances switching off in the same second draws at least this, W. */
 export const PAIR_MIN_W = 2 * MIN_STEP_W;
+/** Steps up at most this far apart, with nothing between them, can be one start. */
+export const START_RAMP_S = 45;
+/** Each step of a start ramp draws at least this, W (smaller ones are a compressor rising). */
+export const RAMP_MIN_W = 100;
+/** A start ramp adds up to at most this, W. */
+export const RAMP_MAX_W = 1000;
 /** How much larger than its on step an off step may be when the house goes back to its level. */
 export const RISE_MAX_SHARE = 0.6;
 
@@ -87,6 +99,8 @@ interface Level {
 interface Open {
   on: PowerEvent;
   levels: Level[];
+  /** Its last step up (the on step, or the last of a start ramp). */
+  lastUpTs: EpochSeconds;
 }
 
 const current = (open: Open) => open.levels.at(-1) as Level;
@@ -253,9 +267,39 @@ export function pairCycles(events: readonly PowerEvent[]): Cycle[] {
   for (let index = 0; index < events.length; index++) {
     const event = events[index] as PowerEvent;
     if (event.deltaW230 > 0) {
+      // A soft start: the previous event was a step up of the latest open appliance.
+      const ramp = open.at(-1);
+      const previous = events[index - 1];
+      if (
+        ramp !== undefined &&
+        previous !== undefined &&
+        ramp.levels.length === 1 &&
+        previous.ts === ramp.lastUpTs &&
+        event.ts - previous.ts <= START_RAMP_S &&
+        Math.min(event.deltaW230, previous.deltaW230) >= RAMP_MIN_W &&
+        current(ramp).w230 + event.deltaW230 <= RAMP_MAX_W
+      ) {
+        const level = current(ramp);
+        ramp.on = {
+          ...ramp.on,
+          deltaW: ramp.on.deltaW + event.deltaW,
+          deltaW230: ramp.on.deltaW230 + event.deltaW230,
+          deltaVar: ramp.on.deltaVar + event.deltaVar,
+          transientS: event.ts - ramp.on.ts,
+        };
+        ramp.levels[0] = {
+          from: ramp.on.ts,
+          w: level.w + event.deltaW,
+          w230: level.w230 + event.deltaW230,
+          var: level.var + event.deltaVar,
+        };
+        ramp.lastUpTs = event.ts;
+        continue;
+      }
       open.push({
         on: event,
         levels: [{ from: event.ts, w: event.deltaW, w230: event.deltaW230, var: event.deltaVar }],
+        lastUpTs: event.ts,
       });
       continue;
     }
