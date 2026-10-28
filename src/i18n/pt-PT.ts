@@ -927,6 +927,9 @@ export const t = {
     times: (count: number, duration: string) => `${count} vezes, cerca de ${duration} cada`,
     range: (shortest: string, longest: string) => `de ${shortest} a ${longest}`,
     showEach: (count: number) => `Ver as ${count} vezes`,
+    underACentAmount: '< 0,01 €',
+    underACent: (energy: string) =>
+      `Custou menos de 1 cêntimo neste dia (${energy}). A app conta o dinheiro ao cêntimo: a fatura do dia com e sem este consumo dá o mesmo valor.`,
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
     notThisLabel: (label: string, power: string) =>
       `Não é "${label}"? Que aparelho é este (${power})?`,

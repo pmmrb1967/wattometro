@@ -2430,6 +2430,21 @@ a.button-link {
   font-size: var(--fs-lg);
 }
 
+/* "< 0,01 €": its note opens leftwards, inside the card, over what follows (a
+   tap would otherwise widen the amount and squeeze the group's name). */
+.appliance-groups .compare-amount .info-tip.inline .info-text,
+.appliance-groups .compare-amount .info-tip.inline .info-text.open {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: auto;
+  right: 0;
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 72px));
+  margin: 0;
+  white-space: normal;
+  text-align: left;
+}
+
 .appliance-groups .group-cycles ol {
   margin: 0;
   padding-left: 1.5em;

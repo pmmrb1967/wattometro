@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { HowItWorks } from '../components/HowItWorks';
+import { InfoTip } from '../components/InfoTip';
 import { t } from '../i18n/pt-PT';
 import { addDays } from '../domain/consumption';
 import {
@@ -41,6 +42,11 @@ const sameName = (a: string, b: string) =>
 const DAYS = 7;
 
 type Loaded = { day: LocalDate; records: ArrayBuffer } | { day: LocalDate; error: true };
+
+/** A day's cost; under a cent (it rounds to 0) as "< 0,01 €" rather than "0,00 €". */
+function formatDayCost(cents: number): string {
+  return cents === 0 ? texts.underACentAmount : formatCents(cents);
+}
 
 function groupPower(group: CycleGroup): string {
   return group.statesW.length > 1
@@ -232,7 +238,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                       {texts.namedRow(
                         total.cycles,
                         formatKwh(total.energyWh, 2),
-                        total.costCents === null ? null : formatCents(total.costCents),
+                        total.costCents === null ? null : formatDayCost(total.costCents),
                       )}
                     </span>
                   </li>
@@ -279,9 +285,14 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                             .join(' · ')}
                         </span>
                       </div>
-                      <p className="compare-amount">
-                        {costCents === null ? formatKwh(group.energyWh, 2) : formatCents(costCents)}
+                      <p className="compare-amount has-info">
+                        {costCents === null
+                          ? formatKwh(group.energyWh, 2)
+                          : formatDayCost(costCents)}
                         <span>{texts.inTheDay}</span>
+                        {costCents === 0 && (
+                          <InfoTip text={texts.underACent(formatKwh(group.energyWh, 2))} inline />
+                        )}
                       </p>
                     </div>
                     <p className="offer-price-line">
