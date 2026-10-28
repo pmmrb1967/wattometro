@@ -143,7 +143,7 @@ export function LocationSection() {
         {location && (
           <button
             type="button"
-            className="secondary"
+            className="secondary danger"
             disabled={busy}
             onClick={() => void save(null)}
           >

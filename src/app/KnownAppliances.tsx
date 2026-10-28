@@ -76,7 +76,7 @@ function Row({ appliance }: { appliance: Appliance }) {
       )}
       <button
         type="button"
-        className="secondary"
+        className="secondary danger"
         disabled={busy}
         onClick={() => {
           if (window.confirm(texts.confirmForget(appliance.label))) {

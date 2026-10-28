@@ -20,6 +20,16 @@
   --period-peak: #c2412d;
   --nav-height: 64px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Titles and the amounts that matter (as in Faturómetro); self-hosted, no request out. */
+  --font-display: 'Bricolage Grotesque Variable', var(--font);
+  /* One type scale: every size in the app is one of these (the tab bar has its own). */
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.25rem;
+  --fs-hero: 1.75rem;
+  --fs-display: 2.5rem;
 
   color-scheme: light dark;
   font-family: var(--font);
@@ -133,7 +143,7 @@ a {
   gap: 10px;
   color: var(--text);
   font-weight: 700;
-  font-size: 1.125rem;
+  font-size: var(--fs-lg);
   text-decoration: none;
 }
 
@@ -226,7 +236,7 @@ a {
   gap: 6px;
   margin: 0 0 0 auto;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
 }
 
 .server-label {
@@ -259,7 +269,7 @@ a {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -273,7 +283,7 @@ a {
   padding: 6px 16px;
   background: var(--accent-soft);
   color: var(--text);
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   text-align: center;
 }
 
@@ -294,7 +304,7 @@ a {
   padding: 6px 16px;
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   text-align: center;
 }
@@ -441,7 +451,7 @@ a {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
   }
 }
 
@@ -455,14 +465,14 @@ a {
 
 h1 {
   margin: 0 0 8px;
-  font-size: 1.75rem;
+  font-size: var(--fs-hero);
   line-height: 1.15;
   letter-spacing: -0.02em;
 }
 
 h2 {
   margin: 32px 0 8px;
-  font-size: 1.125rem;
+  font-size: var(--fs-lg);
 }
 
 .card h2 {
@@ -477,7 +487,7 @@ h2 {
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 
 /* The page before signing in: what the app concludes, then the demo. */
@@ -516,7 +526,7 @@ h2 {
 }
 
 .action-value {
-  font-size: 1.25rem;
+  font-size: var(--fs-xl);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -527,14 +537,14 @@ h2 {
 }
 
 .action-value small {
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
 .action-hint {
   grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 
 .card {
@@ -560,12 +570,12 @@ h2 {
 .reading-label,
 .stats dt {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
 .reading-value {
-  font-size: 2.5rem;
+  font-size: var(--fs-display);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -583,13 +593,13 @@ h2 {
 
 .stats dd {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .stats dd.hint {
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   font-weight: 400;
 }
 
@@ -645,7 +655,7 @@ h2 {
 
 .created h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--fs-md);
 }
 
 .copy-field {
@@ -666,7 +676,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   overflow-wrap: anywhere;
 }
 
@@ -904,7 +914,7 @@ h2 {
 .chat-header h2 {
   flex: 1;
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
 }
 
 .chat-close {
@@ -1010,7 +1020,7 @@ h2 {
 
 .chat-form .hint {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
 }
 
 @media (min-width: 768px) {
@@ -1096,7 +1106,7 @@ h2 {
   padding: 8px;
   border-radius: 8px;
   background: var(--bg);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   white-space: pre-wrap;
 }
 
@@ -1169,7 +1179,7 @@ h2 {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.15);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 400;
   line-height: 1.45;
 }
@@ -1195,6 +1205,21 @@ h2 {
   right: auto;
   width: max-content;
   max-width: min(18rem, calc(100vw - 72px));
+}
+
+/* Opened by a tap or a click: in the text, under it, pushing what follows down
+   instead of covering it (on hover it stays a tooltip, so the page does not jump). */
+.info-tip.inline:has(.info-button[aria-expanded='true']) {
+  display: inline;
+}
+
+.info-tip.inline .info-text.open {
+  position: static;
+  display: block;
+  width: auto;
+  max-width: none;
+  margin: 6px 0 4px;
+  font-weight: 400;
 }
 
 /* "Energia: 0,22 €": each amount right after its label, the amounts lined up. */
@@ -1320,7 +1345,7 @@ h2 {
   border-radius: 999px;
   background: var(--surface);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   text-decoration: none;
 }
@@ -1369,7 +1394,7 @@ a.button-link {
 .hint {
   margin: 0;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 
 /* Footer */
@@ -1381,7 +1406,7 @@ a.button-link {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   text-align: center;
 }
 
@@ -1442,7 +1467,7 @@ a.button-link {
 /* "Como é calculado": a card's notes, closed. */
 .how {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 
 .how summary {
@@ -1546,7 +1571,7 @@ a.button-link {
 }
 
 .chart-legend {
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
@@ -1602,7 +1627,7 @@ a.button-link {
 
 .chart-nav .secondary {
   padding: 0 14px;
-  font-size: 1.25rem;
+  font-size: var(--fs-xl);
 }
 
 .chart-nav .secondary:disabled {
@@ -1656,7 +1681,7 @@ a.button-link {
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sm);
 }
 
 .table th,
@@ -1760,7 +1785,7 @@ a.button-link {
 
 .big {
   margin: 4px 0;
-  font-size: 1.75rem;
+  font-size: var(--fs-hero);
   font-weight: 700;
 }
 
@@ -1791,7 +1816,7 @@ a.button-link {
 
   .table.stacked .stacked-sub {
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
   }
 
   .table.stacked td[data-label]::before {
@@ -1823,7 +1848,7 @@ a.button-link {
 /* A conclusion in a sentence: stands out without outweighing the amounts. */
 .verdict {
   margin: 4px 0;
-  font-size: 1.125rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
 }
 
@@ -1917,7 +1942,7 @@ a.button-link {
 
 .named-appliances h3 {
   margin: 0 0 4px;
-  font-size: 1rem;
+  font-size: var(--fs-md);
 }
 
 .appliance-range {
@@ -1938,7 +1963,7 @@ a.button-link {
 /* "Tarifários": an offer's prices, and the toggles of a long list. */
 .offer-prices {
   margin-top: 4px;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 
 .offer-prices summary {
@@ -1977,7 +2002,7 @@ a.button-link {
 
 .compare-current h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--muted);
 }
@@ -1988,7 +2013,7 @@ a.button-link {
 
 .compare-amount {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: var(--fs-hero);
   font-weight: 760;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1996,7 +2021,7 @@ a.button-link {
 
 .compare-amount span {
   margin-left: 2px;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   font-weight: 400;
   color: var(--muted);
 }
@@ -2032,7 +2057,7 @@ a.button-link {
 }
 
 .offer-head .compare-amount {
-  font-size: 1.25rem;
+  font-size: var(--fs-xl);
 }
 
 .offer-saving,
@@ -2047,7 +2072,7 @@ a.button-link {
 
 .offer-price-line {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2062,7 +2087,7 @@ a.button-link {
 
 .offer-tags li {
   padding: 2px 10px;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -2070,7 +2095,7 @@ a.button-link {
 
 .offer-sheet {
   justify-self: start;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
@@ -2128,7 +2153,7 @@ a.button-link {
 
 /* "Ao segundo": each group of cycles as a card, the dearest first. */
 .appliance-groups .compare-amount {
-  font-size: 1.125rem;
+  font-size: var(--fs-lg);
 }
 
 .appliance-groups .group-name {
@@ -2144,4 +2169,91 @@ a.button-link {
   .chat-launcher {
     transition: none;
   }
+}
+
+/* Titles and the amounts that matter in the display face. */
+h1,
+.landing-title,
+.brand,
+.big,
+.reading-value,
+.action-value,
+.compare-amount {
+  font-family: var(--font-display);
+}
+
+/* "Definições": each group a summary that opens it; closed unless a link points at it. */
+.settings-group {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.settings-group > summary {
+  display: flex;
+  list-style: none;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px 16px;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The arrow, on the right: down when closed, up when open. */
+.settings-group > summary::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+
+.settings-group[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+/* Its cards are parts of the group: no card inside a card. */
+.settings-group > .card {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* The file to import: the app's own button and the file's name, in any browser language. */
+.file-pick input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.file-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-weight: 400;
+}
+
+.file-row .secondary {
+  display: inline-flex;
+  align-items: center;
+}
+
+.file-pick input[type='file']:focus-visible + .file-row .secondary {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

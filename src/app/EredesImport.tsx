@@ -29,6 +29,7 @@ export function EredesImportSection() {
   const { signOut } = useSession();
   const [summary, setSummary] = useState<EredesSummary | null>(null);
   const [file, setFile] = useState<EredesFile | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
@@ -48,6 +49,7 @@ export function EredesImportSection() {
     const chosen = event.target.files?.[0];
     event.target.value = '';
     setFile(null);
+    setFileName(chosen?.name ?? null);
     if (!chosen) return;
     setStatus({ kind: 'busy' });
     const result = parseEredesXlsx(new Uint8Array(await chosen.arrayBuffer()));
@@ -129,7 +131,7 @@ export function EredesImportSection() {
         </div>
       )}
 
-      <label>
+      <label className="file-pick">
         {texts.choose}
         <input
           type="file"
@@ -137,6 +139,10 @@ export function EredesImportSection() {
           onChange={(event) => void choose(event)}
           disabled={status.kind === 'busy'}
         />
+        <span className="file-row">
+          <span className="secondary">{texts.pick}</span>
+          <span className="hint">{fileName ?? texts.noFile}</span>
+        </span>
       </label>
 
       {file && first && last && (
@@ -168,7 +174,7 @@ export function EredesImportSection() {
       <StatusLine status={status} />
 
       {summary && summary.quarters > 0 && (
-        <button type="button" className="secondary" onClick={() => void remove()}>
+        <button type="button" className="secondary danger" onClick={() => void remove()}>
           {texts.remove}
         </button>
       )}

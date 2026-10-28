@@ -94,7 +94,7 @@ function DeviceItem({
         <button type="button" className="secondary" onClick={() => setRenaming(true)}>
           {texts.rename}
         </button>
-        <button type="button" className="secondary" onClick={onRemove}>
+        <button type="button" className="secondary danger" onClick={onRemove}>
           {texts.remove}
         </button>
       </div>

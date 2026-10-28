@@ -6,23 +6,11 @@ import type { Device, EnergyMeter } from './api';
 export const HOUSE_METER = 'house';
 
 /**
- * "Casa (E-Redes) + Quadro (Shelly)", "E-Redes (contador da rede)" or the
- * Shelly's name (and channel) with "(Shelly)". `houseShelly` names the Shelly
- * of the house.
+ * "Casa (E-Redes + Shelly)" with the household's name (Definições), "E-Redes
+ * (contador da rede)" or the Shelly's name (and channel) with "(Shelly)".
  */
-/** `houseName`: the household's name (Definições), for the house as a whole. */
-export function meterLabel(
-  meter: string,
-  devices: Device[],
-  houseShelly: string | null | undefined,
-  houseName: string,
-): string {
-  if (meter === HOUSE_METER) {
-    return t.tariffs.houseMeter(
-      houseName,
-      houseShelly ? shellyName(houseShelly, devices) : 'Shelly',
-    );
-  }
+export function meterLabel(meter: string, devices: Device[], houseName: string): string {
+  if (meter === HOUSE_METER) return t.tariffs.houseMeter(houseName);
   if (meter === 'eredes') return t.tariffs.eredesMeter;
   return t.tariffs.shellyMeter(shellyName(meter, devices));
 }

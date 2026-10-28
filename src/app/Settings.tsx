@@ -4,6 +4,7 @@ import { AlertSection } from './AlertSettings';
 import { useState, type FormEvent } from 'react';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
+import { SettingsGroup } from './SettingsGroup';
 import { ThemeSection } from './ThemeSection';
 import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
@@ -135,25 +136,25 @@ export function Settings() {
         ))}
       </nav>
 
-      <div id="tarifario" className="group">
+      <SettingsGroup id="tarifario" name={GROUPS[0][1]}>
         <TariffSection />
-      </div>
-      <div id="dados" className="group">
+      </SettingsGroup>
+      <SettingsGroup id="dados" name={GROUPS[1][1]}>
         <EredesImportSection />
         <DevicesSection />
-      </div>
-      <div id="avisos" className="group">
+      </SettingsGroup>
+      <SettingsGroup id="avisos" name={GROUPS[2][1]}>
         <AlertSection />
-      </div>
-      <div id="ia" className="group">
+      </SettingsGroup>
+      <SettingsGroup id="ia" name={GROUPS[3][1]}>
         <AiSection />
-      </div>
-      <div id="casa" className="group">
+      </SettingsGroup>
+      <SettingsGroup id="casa" name={GROUPS[4][1]}>
         <HouseholdForm />
         <LocationSection />
         <InstallationSection />
-      </div>
-      <div id="conta" className="group">
+      </SettingsGroup>
+      <SettingsGroup id="conta" name={GROUPS[5][1]}>
         <section className="card">
           <h2>{t.settings.account.title}</h2>
           <p>{t.settings.account.signedInAs(me.email)}</p>
@@ -165,7 +166,7 @@ export function Settings() {
         <PasswordForm />
         <ThemeSection />
         <InstallSection />
-      </div>
+      </SettingsGroup>
     </>
   );
 }

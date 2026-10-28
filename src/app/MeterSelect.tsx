@@ -5,10 +5,10 @@ import { meterLabel } from './meters';
 import { useSession } from './session';
 
 export function MeterSelect({
-  energy: { choices, devices, meter, setMeter, houseShelly },
+  energy: { choices, devices, meter, setMeter },
   label,
 }: {
-  energy: Pick<HouseholdEnergy, 'choices' | 'devices' | 'meter' | 'setMeter' | 'houseShelly'>;
+  energy: Pick<HouseholdEnergy, 'choices' | 'devices' | 'meter' | 'setMeter'>;
   label: string;
 }) {
   const { me } = useSession();
@@ -19,7 +19,7 @@ export function MeterSelect({
       <select value={meter ?? ''} onChange={(event) => setMeter(event.target.value)}>
         {choices.map((choice) => (
           <option key={choice} value={choice}>
-            {meterLabel(choice, devices, houseShelly, me.householdName)}
+            {meterLabel(choice, devices, me.householdName)}
           </option>
         ))}
       </select>

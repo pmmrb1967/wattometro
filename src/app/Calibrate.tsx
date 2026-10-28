@@ -135,7 +135,7 @@ function Library({
                 <Recognise signature={signature} cycle={cycle} />
               )}
             </div>
-            <button type="button" className="secondary" onClick={() => onRemove(signature)}>
+            <button type="button" className="secondary danger" onClick={() => onRemove(signature)}>
               {texts.remove}
             </button>
           </li>

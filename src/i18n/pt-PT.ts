@@ -635,11 +635,11 @@ export const t = {
       label: 'Zona',
       none: 'Escolhe a zona',
       options: {
-        A: 'A — capital de distrito ou localidade com mais de 25 000 clientes',
-        B: 'B — localidade com 2 500 a 25 000 clientes',
+        A: 'A — mais de 25 000 clientes',
+        B: 'B — 2 500 a 25 000 clientes',
         C: 'C — outras localidades',
       },
-      hint: 'Define o número e a duração de falhas longas que a E-Redes tem de cumprir por ano. A zona depende da localidade (RQS, art. 14.º); em caso de dúvida, pergunta à E-Redes.',
+      hint: 'A: capitais de distrito e localidades com mais de 25 000 clientes; B: localidades com 2 500 a 25 000 clientes; C: as restantes. Define o número e a duração de falhas longas que a E-Redes tem de cumprir por ano. A zona depende da localidade (RQS, art. 14.º); em caso de dúvida, pergunta à E-Redes.',
       saved: 'Zona guardada.',
       chosen: (zone: string) => `Zona ${zone}`,
     },
@@ -1079,7 +1079,7 @@ export const t = {
     usageTitle: 'O teu consumo',
     meter: 'Consumos de',
     eredesMeter: 'E-Redes (contador da rede)',
-    houseMeter: (house: string, shelly: string) => `${house} (E-Redes) + ${shelly} (Shelly)`,
+    houseMeter: (house: string) => `${house} (E-Redes + Shelly)`,
     shellyMeter: (shelly: string) => `${shelly} (Shelly)`,
     tooLittle: 'Há menos de 30 dias de consumos: pouco para estimar um ano.',
     perYear: (kwh: string) => `${kwh} por ano`,
@@ -1209,6 +1209,8 @@ export const t = {
     storedDetail: (kwh: string, quarters: number, estimated: number) =>
       `${kwh} em ${quarters.toLocaleString('pt-PT')} quartos de hora${estimated > 0 ? `, ${estimated.toLocaleString('pt-PT')} estimados pela E-Redes` : ''}.`,
     choose: 'Ficheiro exportado da E-Redes (.xlsx)',
+    pick: 'Escolher ficheiro',
+    noFile: 'Nenhum ficheiro escolhido',
     inFile: 'No ficheiro:',
     fileEnergy: (kwh: string, quarters: number) =>
       `${kwh} em ${quarters.toLocaleString('pt-PT')} quartos de hora`,

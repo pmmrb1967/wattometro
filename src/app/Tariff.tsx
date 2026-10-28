@@ -318,7 +318,7 @@ function TariffItem({ tariff, onRemove }: { tariff: Tariff; onRemove: () => void
           {tariff.supplier && ` · ${tariff.supplier}`}
         </p>
       </div>
-      <button type="button" className="secondary" onClick={onRemove}>
+      <button type="button" className="secondary danger" onClick={onRemove}>
         {texts.remove}
       </button>
     </li>

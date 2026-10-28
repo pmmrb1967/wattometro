@@ -164,7 +164,7 @@ export function Report() {
 
   const { usage, cost } = report;
   const used = usedPeriods(report.byPeriod);
-  const source = meterLabel(meter ?? '', devices, energy.houseShelly, me.householdName);
+  const source = meterLabel(meter ?? '', devices, me.householdName);
   return (
     <>
       <div className="print-only report-head">
