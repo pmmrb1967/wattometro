@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonTime } from '../lib/time';
-import { fetchHealth, fetchMe, logout, type Me } from './api';
+import { fetchHealth, fetchMe, logout, type Me, recordVisit } from './api';
 import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
 import { InstallSection } from '../components/InstallSection';
@@ -12,6 +12,7 @@ import { ActionValue } from './HomeActions';
 import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
 import { clearWeatherCache } from '../weather/weather';
+import { isVisitPage } from '../lib/pages';
 import { clearEnergyCache } from './energy-cache';
 import { clearPowerActionCache } from './power-tier';
 import { clearSecondsCache } from './seconds-cache';
@@ -99,6 +100,11 @@ export function AppShell() {
   const { pathname } = useLocation();
   useHashScroll();
   const [me, setMe] = useMe();
+  // A visit to each page, for the administrator's panel (docs/admin.md): the page only.
+  const signedIn = Boolean(me);
+  useEffect(() => {
+    if (signedIn && isVisitPage(pathname)) void recordVisit(pathname);
+  }, [signedIn, pathname]);
 
   // Stable, so pages can depend on it in effects.
   const signOut = useCallback(() => {

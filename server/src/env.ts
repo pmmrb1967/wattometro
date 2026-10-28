@@ -25,6 +25,11 @@ export interface Env {
   DATABASE_LIMIT_MB?: string;
   /** Rows D1 may read per UTC day, for the app's warning (5 000 000 on the free plan). */
   ROWS_READ_LIMIT?: string;
+  /**
+   * Secret (wrangler secret put ADMIN_EMAILS): the administrators' emails,
+   * comma-separated; they see the server's panel in Definições (docs/admin.md).
+   */
+  ADMIN_EMAILS?: string;
 }
 
 /** The VAPID keys, or undefined when the Worker has none (no alerts then). */
@@ -35,6 +40,13 @@ export function vapidKeys(env: Env): VapidKeys | undefined {
     privateKey: env.VAPID_PRIVATE_KEY,
     subject: env.VAPID_SUBJECT || 'mailto:wattometro@outlook.com',
   };
+}
+
+export function adminEmails(env: Env): string[] {
+  return (env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => email !== '');
 }
 
 export function allowedOrigins(env: Env): string[] {

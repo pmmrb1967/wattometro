@@ -8,7 +8,7 @@ Os avisos chegam ao telemóvel ou ao computador mesmo com a app fechada. O Cron 
 |---|---|---|
 | O Shelly deixou de enviar | Nenhum dispositivo ativo enviou há `STALE_MINUTES` (15) | Uma vez; outra quando volta |
 | Potência perto do corte | Um segundo acima de `k × Sc`: o contador inteligente começa a contar para cortar (`k` = 1,2 em monofásico, `src/data/power-trip.json`, fonte em `docs/contracted-power.md`) | No máximo um por hora |
-| Base de dados perto do limite | O D1 já leu 80 % das linhas diárias do plano gratuito | Uma vez por dia UTC |
+| Base de dados perto do limite | O D1 já leu 80 % das linhas diárias do plano gratuito; abre Definições → Servidor (`docs/admin.md`) | Uma vez por dia UTC |
 | Horas mais baratas de amanhã | Saem os preços OMIE do dia seguinte (a partir das 12:00 de Lisboa): as 3 horas seguidas mais baratas e as mais caras (`docs/omie.md`). Desligado por omissão: só conta num tarifário com preço à hora | Uma vez por dia |
 | Importar a E-Redes | O último dia importado da E-Redes tem mais de 31 dias. Desligado por omissão | No máximo uma vez por mês |
 | Rever o tarifário | Em janeiro e em julho. Desligado por omissão | Uma vez em cada um desses meses |

@@ -25,8 +25,6 @@ const REFRESH_MS = 60_000;
 /** The script sends every minute: three without news means something is wrong. */
 const STALE_SECONDS = 180;
 const WARN_DATABASE_SHARE = 0.8;
-/** Share of D1's daily rows read from which Home warns (a bad query uses it up in hours). */
-const WARN_ROWS_READ_SHARE = 0.5;
 
 /** Today's cost so far: energy by period, the day's fixed term and taxes, with VAT. */
 function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
@@ -266,15 +264,6 @@ function DatabaseWarning({ database }: { database: Now['database'] }) {
   );
 }
 
-function RowsReadWarning({ database }: { database: Now['database'] }) {
-  if (database.rowsReadToday < database.rowsReadLimit * WARN_ROWS_READ_SHARE) return null;
-  return (
-    <p className="notice-box" role="alert">
-      {t.now.rowsReadNear(Math.floor((database.rowsReadToday * 100) / database.rowsReadLimit))}
-    </p>
-  );
-}
-
 function useNow(): Now | null | 'unavailable' {
   const { signOut } = useSession();
   const [now, setNow] = useState<Now | null | 'unavailable'>(null);
@@ -362,7 +351,6 @@ export function Home() {
           {now !== null && now !== 'unavailable' && (
             <>
               <DatabaseWarning database={now.database} />
-              <RowsReadWarning database={now.database} />
             </>
           )}
           <HomeActions energy={energy} />

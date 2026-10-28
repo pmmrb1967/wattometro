@@ -119,7 +119,12 @@ describe('login', () => {
   it('sets a strict, HttpOnly, host-only session cookie', async () => {
     const response = await loginAs();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ email: EMAIL, householdId, householdName: 'Casa' });
+    expect(await response.json()).toEqual({
+      email: EMAIL,
+      householdId,
+      householdName: 'Casa',
+      admin: false,
+    });
     const cookie = response.headers.get('Set-Cookie') ?? '';
     expect(cookie).toContain(`${COOKIE}=`);
     expect(cookie).toContain('HttpOnly');
@@ -180,7 +185,12 @@ describe('session', () => {
   it('identifies the user', async () => {
     const response = await me(sessionFrom(await loginAs()));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ email: EMAIL, householdId, householdName: 'Casa' });
+    expect(await response.json()).toEqual({
+      email: EMAIL,
+      householdId,
+      householdName: 'Casa',
+      admin: false,
+    });
   });
 
   it('is required', async () => {
@@ -313,6 +323,7 @@ describe('PUT /v1/household', () => {
       email: EMAIL,
       householdId,
       householdName: 'Casa da Praia',
+      admin: false,
     });
     expect(await (await me(cookie)).json()).toMatchObject({ householdName: 'Casa da Praia' });
   });

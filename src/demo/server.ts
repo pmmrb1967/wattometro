@@ -31,6 +31,7 @@ export const DEMO_ME = {
   email: 'demonstracao@wattometro',
   householdId: 'demo',
   householdName: 'Casa de exemplo',
+  admin: false,
 };
 
 interface DemoState {
@@ -624,6 +625,8 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       else return invalid();
       return empty();
     }
+    case 'POST /v1/visit':
+      return empty();
     case 'GET /v1/household/budget':
       return json({ budget: demo.budget });
     case 'PUT /v1/household/budget': {

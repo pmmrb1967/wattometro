@@ -122,6 +122,8 @@ import {
 } from './repo/devices';
 import { databaseState } from './repo/health';
 import { budgetSchema } from '../../src/domain/budget';
+import { VISIT_PAGES } from '../../src/lib/pages';
+import { accountTotals, recordVisit, visitsSince } from './repo/admin';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { latestMinute, todayQuarters } from './repo/now';
@@ -153,9 +155,10 @@ import {
 } from './repo/signatures';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
 import { getState } from './repo/rollups';
-import { rowsReadOn, utcDay } from './repo/usage';
+import { rowsReadOn, usageSince, utcDay } from './repo/usage';
 import { STATE } from './rollups';
 import {
+  listHouseholdIds,
   getHousehold,
   getHouseholdBudget,
   getHouseholdInstallation,
@@ -206,10 +209,16 @@ export interface AppConfig {
   databaseLimitBytes?: number;
   /** Rows D1 may read per UTC day (5 000 000 on the free plan). */
   rowsReadLimit?: number;
+  /** Administrators' emails, lower case (env.ts): they get GET /v1/admin/stats. */
+  adminEmails?: string[];
 }
 
 export const DEFAULT_DATABASE_LIMIT_BYTES = 500 * 1000 * 1000;
 export const DEFAULT_ROWS_READ_LIMIT = 5_000_000;
+/** Rows D1 may write per UTC day on the free plan. */
+export const ROWS_WRITTEN_LIMIT = 100_000;
+/** Days of visits the administrator's panel shows. */
+const VISIT_DAYS = 30;
 const DAY = 86_400;
 /** D1's daily limits reset at midnight UTC. */
 const nextUtcMidnight = (ts: number) => (Math.floor(ts / DAY) + 1) * DAY;
@@ -232,6 +241,7 @@ const PushAlerts = z.object({
   budget: z.boolean().default(false),
 });
 const BudgetBody = z.object({ budget: budgetSchema.nullable() });
+const VisitBody = z.object({ page: z.enum(VISIT_PAGES) });
 const PushEndpoint = z.string().max(2000).refine(isPushEndpoint);
 const PushSubscriptionBody = z.object({
   endpoint: PushEndpoint,
@@ -401,10 +411,13 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     setCookie(c, SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: SESSION_SECONDS });
   };
 
+  const isAdmin = (user: User) => (config.adminEmails ?? []).includes(user.email.toLowerCase());
+
   const me = async (user: User) => ({
     email: user.email,
     householdId: user.householdId,
     householdName: (await getHousehold(config.sql, user.householdId))?.name ?? '',
+    admin: isAdmin(user),
   });
 
   const body = async <T>(c: Context, schema: z.ZodType<T>) =>
@@ -804,6 +817,62 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       parsed.data.excluded,
     );
     return c.body(null, 204);
+  });
+
+  app.post('/v1/visit', requireUser, async (c) => {
+    const parsed = await body(c, VisitBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    await recordVisit(config.sql, lisbonDate(now()), parsed.data.page);
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/admin/stats', requireUser, async (c) => {
+    if (!isAdmin(c.get('user'))) return c.json({ error: 'forbidden' }, 403);
+    const at = now();
+    const dayStart = startOfLisbonDay(lisbonDate(at));
+    const devices = [];
+    let rolledUpUntil: number | null = null;
+    for (const householdId of await listHouseholdIds(config.sql)) {
+      const until = await getState(config.sql, STATE.rolledUpUntil(householdId));
+      if (until !== null) rolledUpUntil = Math.min(rolledUpUntil ?? until, until);
+      const cutoff = Math.max(dayStart, until === null ? dayStart : floorTo(until, QUARTER_HOUR));
+      const quarters = await todayQuarters(config.sql, householdId, dayStart, cutoff);
+      for (const device of await listDevices(config.sql, householdId)) {
+        if (device.revokedAt !== null) continue;
+        // The main channel's minutes; the expected ones since midnight or since it was added.
+        const minutesToday = quarters
+          .filter((quarter) => quarter.deviceId === device.id && quarter.channel === 0)
+          .reduce((total, quarter) => total + quarter.minutes, 0);
+        devices.push({
+          model: device.model,
+          scriptVersion: device.scriptVersion,
+          lastSeenAt: device.lastSeenAt,
+          minutesToday,
+          expectedToday: Math.floor((at - Math.max(dayStart, device.createdAt)) / 60),
+        });
+      }
+    }
+    return c.json({
+      now: at,
+      limits: {
+        rowsRead: config.rowsReadLimit ?? DEFAULT_ROWS_READ_LIMIT,
+        rowsWritten: ROWS_WRITTEN_LIMIT,
+        databaseBytes: config.databaseLimitBytes ?? DEFAULT_DATABASE_LIMIT_BYTES,
+      },
+      days: await usageSince(config.sql, utcDay(at - 6 * DAY)),
+      databaseBytes: await getState(config.sql, STATE.databaseBytes),
+      cron: { rolledUpUntil, purgedAt: await getState(config.sql, STATE.purgedAt) },
+      accounts: await accountTotals(config.sql),
+      devices,
+      visits: {
+        days: VISIT_DAYS,
+        pages: await visitsSince(
+          config.sql,
+          lisbonDate(at - (VISIT_DAYS - 1) * DAY),
+          lisbonDate(at),
+        ),
+      },
+    });
   });
 
   app.get('/v1/power', requireUser, async (c) => {

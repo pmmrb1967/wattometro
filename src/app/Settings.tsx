@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { AdminSection } from './AdminStats';
 import { AiSection } from './AiSettings';
 import { AlertSection } from './AlertSettings';
 import { useState, type FormEvent } from 'react';
@@ -129,7 +130,7 @@ export function Settings() {
     <>
       <h1>{t.settings.title}</h1>
       <nav className="toc" aria-label={t.settings.tocLabel}>
-        {GROUPS.map(([id, name]) => (
+        {(me.admin ? [...GROUPS, t.settings.adminGroup] : GROUPS).map(([id, name]) => (
           <a key={id} href={`#${id}`}>
             {name}
           </a>
@@ -167,6 +168,11 @@ export function Settings() {
         <ThemeSection />
         <InstallSection />
       </SettingsGroup>
+      {me.admin && (
+        <SettingsGroup id={t.settings.adminGroup[0]} name={t.settings.adminGroup[1]}>
+          <AdminSection />
+        </SettingsGroup>
+      )}
     </>
   );
 }

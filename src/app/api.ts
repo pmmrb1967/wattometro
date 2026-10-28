@@ -7,6 +7,7 @@ import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
 import { budgetSchema, type Budget } from '../domain/budget';
+import type { VisitPage } from '../lib/pages';
 import { installationSchema, type Installation } from '../domain/installation';
 
 const Health = z.object({
@@ -68,7 +69,13 @@ const Now = z.object({
 export type Now = z.infer<typeof Now>;
 export type Meter = Now['meters'][number];
 
-const Me = z.object({ email: z.string(), householdId: z.string(), householdName: z.string() });
+const Me = z.object({
+  email: z.string(),
+  householdId: z.string(),
+  householdName: z.string(),
+  // Absent from a server older than the app: not an administrator.
+  admin: z.boolean().default(false),
+});
 export type Me = z.infer<typeof Me>;
 
 /** Reasons a request can fail that the user can act on. */
@@ -300,6 +307,41 @@ export async function saveHouseholdLocation(
   const response = await send('PUT', '/v1/household/location', { location });
   if (response?.ok) return { ok: true };
   return failure(response, [400]);
+}
+
+/** One more visit to a page, for the administrator's panel; failures do not matter. */
+export async function recordVisit(page: VisitPage): Promise<void> {
+  await send('POST', '/v1/visit', { page });
+}
+
+const AdminStats = z.object({
+  now: int,
+  limits: z.object({ rowsRead: int, rowsWritten: int, databaseBytes: int }),
+  days: z.array(z.object({ day: z.string(), rowsRead: int, rowsWritten: int })),
+  databaseBytes: int.nullable(),
+  cron: z.object({ rolledUpUntil: int.nullable(), purgedAt: int.nullable() }),
+  accounts: z.object({ users: int, households: int, pushDevices: int }),
+  devices: z.array(
+    z.object({
+      model: z.string().nullable(),
+      scriptVersion: z.string().nullable(),
+      lastSeenAt: int.nullable(),
+      minutesToday: int,
+      expectedToday: int,
+    }),
+  ),
+  visits: z.object({
+    days: int,
+    pages: z.array(z.object({ page: z.string(), today: int, total: int })),
+  }),
+});
+export type AdminStats = z.infer<typeof AdminStats>;
+
+/** The server's totals (administrators only; others get 403). */
+export async function fetchAdminStats(): Promise<{ ok: true; stats: AdminStats } | Failure> {
+  const response = await send('GET', '/v1/admin/stats');
+  if (response?.ok) return { ok: true, stats: AdminStats.parse(await response.json()) };
+  return failure(response, [403]);
 }
 
 /** The month's budget (Consumo › Previsão); null without one. */

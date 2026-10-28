@@ -19,6 +19,8 @@ export interface Sql {
   sizeBytes?(): Promise<number | null>;
   /** Rows read so far through this connection, if the engine reports them (D1). */
   rowsRead?(): number;
+  /** Rows written so far through this connection, if the engine reports them (D1). */
+  rowsWritten?(): number;
 }
 
 /**
@@ -37,6 +39,7 @@ type D1Value = string | number | null | ArrayBuffer;
 interface D1Meta {
   size_after?: number;
   rows_read?: number;
+  rows_written?: number;
 }
 interface D1Statement {
   bind(...values: D1Value[]): D1Statement;
@@ -61,8 +64,10 @@ export function d1(db: D1Like): Sql {
     db.prepare(query).bind(...params.map(toD1));
   // Every result says how many rows it read: the free plan's binding limit.
   let rowsRead = 0;
+  let rowsWritten = 0;
   const count = <R extends { meta?: D1Meta }>(result: R): R => {
     rowsRead += result.meta?.rows_read ?? 0;
+    rowsWritten += result.meta?.rows_written ?? 0;
     return result;
   };
   const all = async <T>(query: string, params: SqlValue[]) =>
@@ -83,5 +88,6 @@ export function d1(db: D1Like): Sql {
     // D1 reports the database size with every result.
     sizeBytes: async () => (await db.prepare('SELECT 1').all<unknown>()).meta?.size_after ?? null,
     rowsRead: () => rowsRead,
+    rowsWritten: () => rowsWritten,
   };
 }

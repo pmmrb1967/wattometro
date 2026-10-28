@@ -18,6 +18,7 @@ import {
 } from '../../src/lib/time';
 import type { Sql } from './db';
 import { listHouseholdIds } from './repo/households';
+import { purgeVisits } from './repo/admin';
 import { purgeRowsRead, utcDay } from './repo/usage';
 import {
   firstMinute,
@@ -34,6 +35,8 @@ export const MAX_SPAN_SECONDS = 7 * 24 * HOUR;
 export const PURGE_EVERY_SECONDS = 24 * HOUR;
 export const DEFAULT_RETENTION_1M_DAYS = 730;
 export const DEFAULT_RETENTION_1S_DAYS = 90;
+/** Days of visits kept for the administrator's panel (repo/admin.ts). */
+export const VISITS_DAYS = 90;
 const DAY = 24 * HOUR;
 const TEN_MINUTES = 600;
 const ceilTo = (ts: number, size: number) => floorTo(ts + size - 1, size);
@@ -91,6 +94,7 @@ export async function runMaintenance(
       await purgeReadings(sql, householdId, minutesBefore, secondsBefore);
     }
     await purgeRowsRead(sql, utcDay(now - 7 * DAY));
+    await purgeVisits(sql, lisbonDate(now - VISITS_DAYS * DAY));
     await setState(sql, STATE.purgedAt, now);
   }
 

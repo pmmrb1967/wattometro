@@ -101,8 +101,6 @@ export const t = {
     noTariff: 'Para veres quanto custa, indica o teu tarifário em Definições.',
     databaseNear: (used: number, limit: number) =>
       `A base de dados está a ${used} MB de ${limit} MB. É preciso libertar espaço em breve.`,
-    rowsReadNear: (pct: number) =>
-      `Hoje a app já leu ${pct} % das linhas que a base de dados gratuita permite por dia. Aos 100 % fica parada até à meia-noite UTC.`,
   },
   gauges: {
     powerLabel: (power: string, contracted: string, peak: string | null) =>
@@ -288,6 +286,58 @@ export const t = {
       ['casa', 'Casa'],
       ['conta', 'Conta e aspeto'],
     ] as const,
+    /** Only for administrators (ADMIN_EMAILS). */
+    adminGroup: ['servidor', 'Servidor'] as const,
+    admin: {
+      title: 'Utilização do servidor (administrador)',
+      intro:
+        'Totais do servidor e da base de dados, para veres se a app está perto dos limites do plano gratuito da Cloudflare. Só os administradores veem esta parte.',
+      loading: 'A obter os números do servidor…',
+      failed: 'Não foi possível obter os números do servidor.',
+      rowsRead: 'Linhas lidas hoje',
+      rowsWritten: 'Linhas escritas hoje',
+      ofLimit: (used: string, limit: string, pct: string) => `${used} de ${limit} (${pct} %)`,
+      resets:
+        'Voltam a zero à meia-noite UTC. Aos 100 %, a app deixa de ler (ou de gravar) até lá.',
+      database: 'Base de dados',
+      databaseUnknown: 'Ainda não medida (o Cron mede-a uma vez por dia).',
+      lastDays: 'Últimos 7 dias (UTC)',
+      columns: { day: 'Dia', read: 'Lidas', written: 'Escritas' },
+      cron: 'Agregações (Cron)',
+      rolledUp: (ago: string) => `Agregou os minutos até há ${ago}.`,
+      rolledUpNever: 'Ainda não agregou nada.',
+      late: 'Atrasado: o Cron corre de 5 em 5 minutos.',
+      purged: (ago: string) => `Última limpeza dos dados antigos há ${ago}.`,
+      purgedNever: 'Ainda não fez a limpeza diária.',
+      shelly: 'Shelly',
+      shellyLine: (index: number, model: string, script: string) =>
+        `Shelly ${index} · ${model} · script ${script}`,
+      unknown: '?',
+      lastSeen: (ago: string) => `Última mensagem há ${ago}.`,
+      neverSeen: 'Ainda não enviou dados.',
+      minutesToday: (got: number, expected: number, pct: number) =>
+        `Hoje: ${got} de ${expected} minutos (${pct} %).`,
+      noDevices: 'Nenhum Shelly ligado.',
+      accounts: 'Contas',
+      accountsLine: (users: number, households: number, push: number) =>
+        `${users} ${users === 1 ? 'utilizador' : 'utilizadores'} · ${households} ${households === 1 ? 'casa' : 'casas'} · ${push} ${push === 1 ? 'aparelho' : 'aparelhos'} com avisos`,
+      visits: (days: number) => `Visitas às páginas (${days} dias)`,
+      visitsNote:
+        'Só se conta a página e o dia: nem quem, nem a casa, nem o endereço, nem a hora. Guardadas 90 dias na base de dados da app, na UE.',
+      noVisits: 'Ainda sem visitas contadas.',
+      visitColumns: { page: 'Página', today: 'Hoje', total: 'Total' },
+      pages: {
+        '/': 'Início',
+        '/consumo': 'Consumo',
+        '/consumo/relatorio': 'Consumo › Relatório',
+        '/consumo/aparelhos': 'Consumo › Aparelhos',
+        '/consumo/calibrar': 'Consumo › Calibrar',
+        '/potencia': 'Potência',
+        '/tarifarios': 'Tarifários',
+        '/qualidade': 'Qualidade',
+        '/definicoes': 'Definições',
+      } as Record<string, string>,
+    },
     alerts: {
       title: 'Avisos',
       intro:

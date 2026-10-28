@@ -165,7 +165,8 @@ export function decideDatabase(
       title: t.alerts.databaseTitle,
       body: t.alerts.databaseBody(Math.floor((100 * rowsRead) / limit), formatLisbonTime(resetsAt)),
       tag: 'database',
-      url: '/definicoes',
+      // The administrator's panel (docs/admin.md); others land on Definições.
+      url: '/definicoes#servidor',
     },
   };
 }
