@@ -201,7 +201,7 @@ function DatabaseWarning({ database }: { database: Now['database'] }) {
   if (database.sizeBytes < database.limitBytes * WARN_DATABASE_SHARE) return null;
   const mb = (bytes: number) => Math.round(bytes / 1_000_000);
   return (
-    <p className="error" role="alert">
+    <p className="notice-box" role="alert">
       {t.now.databaseNear(mb(database.sizeBytes), mb(database.limitBytes))}
     </p>
   );
@@ -210,7 +210,7 @@ function DatabaseWarning({ database }: { database: Now['database'] }) {
 function RowsReadWarning({ database }: { database: Now['database'] }) {
   if (database.rowsReadToday < database.rowsReadLimit * WARN_ROWS_READ_SHARE) return null;
   return (
-    <p className="error" role="alert">
+    <p className="notice-box" role="alert">
       {t.now.rowsReadNear(Math.floor((database.rowsReadToday * 100) / database.rowsReadLimit))}
     </p>
   );
@@ -266,7 +266,13 @@ export function Home() {
       <h1>{me.householdName}</h1>
 
       <div className="home-columns">
-        <div className="home-column">
+        <div className="home-column home-boxes">
+          {now !== null && now !== 'unavailable' && (
+            <>
+              <DatabaseWarning database={now.database} />
+              <RowsReadWarning database={now.database} />
+            </>
+          )}
           <HomeActions energy={energy} />
           <BillForecastCard energy={energy} />
         </div>
@@ -275,8 +281,6 @@ export function Home() {
           {now === 'unavailable' && <p className="error">{t.errors.unavailable}</p>}
           {now !== null && now !== 'unavailable' && (
             <>
-              <DatabaseWarning database={now.database} />
-              <RowsReadWarning database={now.database} />
               {now.meters.length === 0 ? (
                 <section className="card">
                   <p>{t.now.noDevices}</p>

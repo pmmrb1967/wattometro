@@ -475,16 +475,38 @@ a {
     max-width: 1200px;
   }
 
-  .content :is(p, li, label, summary, .hint) {
-    max-width: 46rem;
-  }
-
   /* Início: what to do and the month on the left, the meter on the right. */
   .home-columns {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
     gap: 0 20px;
-    align-items: start;
+    margin-top: 16px;
+  }
+
+  .home-column > :first-child {
+    margin-top: 0;
+  }
+
+  /* The left column's boxes share its height, level with the meter on the right. */
+  .home-boxes {
+    display: grid;
+    gap: 8px;
+  }
+
+  .home-boxes > .actions {
+    display: contents;
+  }
+
+  .home-boxes > *,
+  .home-boxes > .actions > * {
+    margin: 0;
+  }
+
+  /* Taller than their words: the words together, in the middle. */
+  .home-boxes .action,
+  .home-boxes > .notice-box {
+    display: grid;
+    align-content: center;
   }
 
   .home-column {
@@ -553,6 +575,16 @@ h2 {
 
 .action:hover {
   border-color: var(--accent);
+}
+
+/* A warning among the boxes of Início: their shape, the error's colours. */
+.notice-box {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--danger);
+  border-radius: 12px;
+  background: var(--danger-soft);
+  color: var(--text);
 }
 
 .action-title {
