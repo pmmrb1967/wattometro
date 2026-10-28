@@ -34,16 +34,16 @@ export const t = {
     examples: [
       [
         'Baixar a potência para 6,9\u00a0kVA',
-        '−78\u00a0€/ano',
+        '78\u00a0€/ano',
         'Pelos picos ao segundo: o contador nunca teria cortado.',
       ],
       [
         'Mudar de tarifário',
-        '−122\u00a0€/ano',
+        '122\u00a0€/ano',
         'A oferta mais barata da ERSE para o consumo real da casa.',
       ],
       [
-        'Consumo fantasma: 156\u00a0W',
+        'Consumo base: 156\u00a0W',
         '289\u00a0€/ano',
         'O que fica ligado de noite, e quanto custa.',
       ],
@@ -93,8 +93,9 @@ export const t = {
       title: 'Onde podes poupar',
       noTariff: 'Indica o teu tarifário para veres, em euros, onde podes poupar.',
       toSettings: 'Indicar o tarifário',
-      perYear: (amount: string) => `−${amount}/ano`,
-      costPerYear: (amount: string) => `${amount}/ano`,
+      perYear: (amount: string) => `${amount}/ano`,
+      saves: 'poupa',
+      costs: 'custa',
       ok: 'Já está',
       powerLower: (power: string) => `Baixar a potência para ${power}`,
       powerHint: (current: string) =>
@@ -105,13 +106,13 @@ export const t = {
       tariffHint: 'A oferta mais barata da ERSE para o teu consumo do último ano.',
       tariffBest: 'Já tens o tarifário mais barato',
       tariffBestHint: 'Comparado com todas as ofertas da ERSE, para o teu consumo.',
-      baseload: (power: string) => `Consumo fantasma: ${power}`,
+      baseload: (power: string) => `Consumo base: ${power}`,
       baseloadHint:
-        'O que a casa gasta de noite sem nada a uso: frigorífico, router, aparelhos em espera.',
+        'O consumo fantasma: o que a casa gasta de noite sem nada a uso (frigorífico, router, aparelhos em espera).',
     },
   },
   ask: {
-    title: 'Pergunta ao Wattómetro',
+    title: 'Perguntar à IA',
     intro:
       'Pergunta o que quiseres sobre o consumo da tua casa. A IA vai buscar os números às contas da app e explica-os: não inventa nem calcula valores.',
     noKey:
@@ -248,7 +249,7 @@ export const t = {
       ['avisos', 'Avisos'],
       ['ia', 'IA'],
       ['casa', 'Casa'],
-      ['conta', 'Conta'],
+      ['conta', 'Conta e aspeto'],
     ] as const,
     alerts: {
       title: 'Avisos',
@@ -329,6 +330,11 @@ export const t = {
       sessionNote:
         'A sessão mantém-se enquanto usares a app; termina ao fim de 30 dias sem a abrires.',
       logout: 'Sair',
+    },
+    theme: {
+      title: 'Aspeto',
+      intro: 'Claro, escuro ou como o resto do aparelho. Fica guardado só neste aparelho.',
+      options: { auto: 'Automático', light: 'Claro', dark: 'Escuro' },
     },
     household: {
       title: 'Casa',
@@ -591,7 +597,7 @@ export const t = {
       },
     },
     topTitle: 'Momentos com maior potência',
-    topColumns: { when: 'Quarto de hora', peak: 'Pico de 1 s', share: 'Da potência atual' },
+    topColumns: { when: 'Quarto de hora', peak: 'Pico de 1\u00a0s', share: 'Da potência atual' },
     topEstimatedMark: '*',
     topEstimated:
       '* potência ativa (W): esse minuto chegou sem valores ao segundo; a aparente é igual ou maior.',

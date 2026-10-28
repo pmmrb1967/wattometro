@@ -29,8 +29,9 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* Dark: as the device, unless Definições › Aspeto says light; or always, when it says dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #15121f;
     --surface: #1e1a2c;
     --text: #ebe8f2;
@@ -48,6 +49,30 @@
     --period-full: #f0b44c;
     --period-peak: #ff8a72;
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #15121f;
+  --surface: #1e1a2c;
+  --text: #ebe8f2;
+  --muted: #a7a2b8;
+  --border: #312b45;
+  --field-border: #6e6787;
+  --brand: #5fdde3;
+  --on-brand: #15121f;
+  --accent: #5fdde3;
+  --ok: #6fd69a;
+  --danger: #ff8a80;
+  --accent-soft: #1d3b3e;
+  --danger-soft: #3d1f22;
+  --period-empty: #6cb6ea;
+  --period-full: #f0b44c;
+  --period-peak: #ff8a72;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 *,
@@ -116,11 +141,15 @@ a {
   border-radius: 9px;
 }
 
+/* The purple tile would vanish into the dark bar. */
 @media (prefers-color-scheme: dark) {
-  /* The purple tile would vanish into the dark bar. */
-  .brand img {
+  :root:not([data-theme='light']) .brand img {
     box-shadow: 0 0 0 1px var(--field-border);
   }
+}
+
+:root[data-theme='dark'] .brand img {
+  box-shadow: 0 0 0 1px var(--field-border);
 }
 
 /* Phones: tab bar fixed at the bottom, icon over name (as in Faturómetro). Fixed, not
@@ -493,6 +522,15 @@ h2 {
   white-space: nowrap;
 }
 
+.action-value.saving {
+  color: var(--ok);
+}
+
+.action-value small {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .action-hint {
   grid-column: 1 / -1;
   color: var(--muted);
@@ -653,16 +691,22 @@ h2 {
 }
 
 .form input[type='checkbox'] {
-  width: auto;
+  flex: none;
+  width: 20px;
+  height: 20px;
   min-height: 0;
-  margin-top: 4px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
 }
 
 .form .checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
+  min-height: 44px;
+  padding-top: 10px;
   font-weight: 400;
+  cursor: pointer;
 }
 
 .form label .hint {
@@ -1069,6 +1113,7 @@ h2 {
 }
 
 .info-button {
+  position: relative;
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -1084,6 +1129,13 @@ h2 {
     italic 700 0.75rem/1 Georgia,
     serif;
   cursor: help;
+}
+
+/* A 20 px circle to see, 44 px to tap. */
+.info-button::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
 }
 
 .info-button[aria-expanded='true'] {
@@ -1382,7 +1434,8 @@ a.button-link {
 
 .how summary {
   width: fit-content;
-  min-height: 32px;
+  min-height: 44px;
+  padding: 10px 0;
   color: var(--accent);
   font-weight: 600;
   cursor: pointer;
@@ -1816,6 +1869,7 @@ a.button-link {
 
 /* "Ao segundo": naming a group of cycles, and the appliances of the day. */
 .link-button {
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: none;
@@ -2016,4 +2070,15 @@ a.button-link {
 
 .form .actions.even button {
   justify-self: stretch;
+}
+
+/* Every summary that opens something: 44 px to tap. Lists in cards: a small indent. */
+.adjust > summary,
+.offer-prices > summary {
+  min-height: 44px;
+  padding: 10px 0;
+}
+
+.card ul:not([class]) {
+  padding-left: 1.2em;
 }

@@ -4,6 +4,7 @@ import { AlertSection } from './AlertSettings';
 import { useState, type FormEvent } from 'react';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
+import { ThemeSection } from './ThemeSection';
 import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
 import { EredesImportSection } from './EredesImport';
@@ -162,6 +163,7 @@ export function Settings() {
           </button>
         </section>
         <PasswordForm />
+        <ThemeSection />
         <InstallSection />
       </div>
     </>

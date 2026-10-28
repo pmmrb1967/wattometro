@@ -58,21 +58,34 @@ async function powerAction(tariff: Tariff, offers: readonly Offer[] | null) {
   return { recommendedVa, savingCents };
 }
 
+/** "poupa 78 €/ano" (green) or "custa 289 €/ano": the verb small, the amount large. */
+export function ActionValue({ value, kind }: { value: string; kind?: 'saving' | 'cost' }) {
+  return (
+    <span className={kind === 'saving' ? 'action-value saving' : 'action-value'}>
+      {kind && <small>{kind === 'saving' ? texts.saves : texts.costs} </small>}
+      {value}
+    </span>
+  );
+}
+
 function Action({
   to,
   title,
   value,
   hint,
+  kind,
 }: {
   to: string;
   title: string;
   value: string;
   hint: string;
+  /** A saving (green) or a cost; nothing for a plain value. */
+  kind?: 'saving' | 'cost';
 }) {
   return (
     <Link to={to} className="action">
       <span className="action-title">{title}</span>
-      <span className="action-value">{value}</span>
+      <ActionValue value={value} kind={kind} />
       <span className="action-hint">{hint}</span>
     </Link>
   );
@@ -151,6 +164,7 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
             title={texts.powerLower(formatKva(power.recommendedVa))}
             value={power.savingCents === null ? '—' : texts.perYear(formatCents(power.savingCents))}
             hint={texts.powerHint(formatKva(tariff.powerVa))}
+            kind={power.savingCents === null ? undefined : 'saving'}
           />
         ) : (
           <Action
@@ -167,6 +181,7 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
             title={texts.tariffBetter(best.offer.supplier)}
             value={texts.perYear(formatCents(best.savingCents))}
             hint={texts.tariffHint}
+            kind="saving"
           />
         ) : (
           <Action
@@ -180,8 +195,9 @@ export function HomeActions({ energy }: { energy: HouseholdEnergy }) {
         <Action
           to="/consumo#consumo-base"
           title={texts.baseload(formatPower(baseload.watts))}
-          value={texts.costPerYear(formatCents(baseload.cents))}
+          value={texts.perYear(formatCents(baseload.cents))}
           hint={texts.baseloadHint}
+          kind="cost"
         />
       )}
     </section>

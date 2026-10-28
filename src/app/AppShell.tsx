@@ -8,6 +8,7 @@ import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
 import { InstallSection } from '../components/InstallSection';
 import { enterDemo, exitDemo, isDemo } from '../demo/mode';
+import { ActionValue } from './HomeActions';
 import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
 import { clearWeatherCache } from '../weather/weather';
@@ -153,7 +154,7 @@ export function AppShell() {
           </div>
         )}
       </header>
-      {server === 'unavailable' && (
+      {server === 'unavailable' && !isDemo() && (
         <p className="server-banner" role="alert">
           {t.server.banner}
         </p>
@@ -223,10 +224,11 @@ export function AppShell() {
                 <h1 className="landing-title">{t.landing.title}</h1>
                 <p className="lead">{t.tagline}</p>
                 <section className="actions" aria-label={t.landing.examplesLabel}>
-                  {t.landing.examples.map(([title, value, hint]) => (
+                  {t.landing.examples.map(([title, value, hint], index) => (
                     <div key={title} className="action">
                       <span className="action-title">{title}</span>
-                      <span className="action-value">{value}</span>
+                      {/* The first two examples are savings, the last a cost. */}
+                      <ActionValue value={value} kind={index < 2 ? 'saving' : 'cost'} />
                       <span className="action-hint">{hint}</span>
                     </div>
                   ))}
