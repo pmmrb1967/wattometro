@@ -7,7 +7,9 @@ import type { Sql } from './db';
 import { hashPassword } from './password';
 import { createDevice } from './repo/devices';
 import { createHousehold } from './repo/households';
-import { PEAK_RECORD_BYTES } from './repo/power';
+import { PEAK_RECORD_BYTES, splitRange } from './repo/power';
+import { runMaintenance } from './rollups';
+import { startOfLisbonDay } from '../../src/lib/time';
 import { SECONDS_RECORD_BYTES } from './repo/seconds';
 import { minuteStatements } from './repo/readings';
 import { createUser } from './repo/users';
@@ -114,6 +116,54 @@ describe('GET /v1/power', () => {
       ],
       eredes: { quarters: 0, maxEnergyWh: null },
     });
+  });
+});
+
+describe('the rolled-up stretch', () => {
+  it('splits a range into minutes, quarter hours and whole Lisbon days', () => {
+    const from = startOfLisbonDay('2026-07-10') + 130; // 00:02:10 on 10/7
+    const until = startOfLisbonDay('2026-07-14') + 3600 + 400; // 01:06:40 on 14/7
+    const to = until + 300;
+    expect(splitRange(from, to, until)).toEqual({
+      head: [from, from + 770],
+      quarters: [from + 770, startOfLisbonDay('2026-07-14') + 3600],
+      edges: [
+        [from + 770, startOfLisbonDay('2026-07-11')],
+        [startOfLisbonDay('2026-07-14'), startOfLisbonDay('2026-07-14') + 3600],
+      ],
+      days: ['2026-07-11', '2026-07-14'],
+      tail: [startOfLisbonDay('2026-07-14') + 3600, to],
+    });
+    // Before any roll-up: everything from the minutes.
+    expect(splitRange(from, to, null).tail).toEqual([from + 770, to]);
+  });
+
+  it("gives the same peaks from the Cron's aggregates as from the minutes", async () => {
+    // Four days back, across midnights, with and without per-second values.
+    const day = 86_400;
+    await minute(0, START - 3 * day, 7000, 7700);
+    await minute(0, START - 3 * day + 60, 7500, null);
+    await minute(0, START - 2 * day + 1800, 3000, 3200);
+    await minute(0, START - day + 7260, 8000, null);
+    await minute(0, START, 3000, 3200);
+    await minute(0, START + 960, 6000, 6500);
+    await minute(0, NOW - 120, 4000, 4100);
+    const cookie = await signIn();
+    const from = START - 4 * day + 100;
+    const meter = `${households[0]!.deviceId}:0`;
+    const read = async () => ({
+      power: await (await get(cookie, `/v1/power?from=${from}&to=${NOW}`)).json(),
+      peaks: new Uint8Array(
+        await (
+          await get(cookie, `/v1/power/peaks?meter=${meter}&from=${from}&to=${NOW}&threshold=5000`)
+        ).arrayBuffer(),
+      ),
+    });
+    const fromMinutes = await read();
+    expect(fromMinutes.power.meters[0].minutes).toBe(7);
+    expect(fromMinutes.peaks.byteLength).toBe(4 * PEAK_RECORD_BYTES);
+    await runMaintenance(sql, NOW);
+    expect(await read()).toEqual(fromMinutes);
   });
 });
 

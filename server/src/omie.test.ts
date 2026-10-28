@@ -111,6 +111,41 @@ describe('decideCheapHours', () => {
   });
 });
 
+describe('migration 0021', () => {
+  it('fills the quarter hours and days already rolled up from the minutes kept', () => {
+    const db = new DatabaseSync(':memory:');
+    const folder = join(__dirname, '..', 'migrations');
+    const files = readdirSync(folder)
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    const run = (name: string) => db.exec(readFileSync(join(folder, name), 'utf8'));
+    for (const name of files.filter((name) => name < '0021')) run(name);
+    // 2026-07-14T23:00Z is 00:00 on 15/7 in Lisbon (summer time).
+    const quarter = Date.parse('2026-07-14T23:00:00Z') / 1000;
+    db.exec(`INSERT INTO households (id, name, created_at) VALUES ('h', 'Casa', 0);
+      INSERT INTO devices (id, household_id, name, token_hash, created_at)
+        VALUES ('d', 'h', 'Quadro', 'x', 0);
+      INSERT INTO readings_1m (device_id, channel, household_id, ts, samples, energy_wh, power_avg_w,
+          power_min_w, power_max_w, voltage_min_dv, voltage_avg_dv, voltage_max_dv, pf_avg_pct,
+          apparent_max_va)
+        VALUES ('d', 0, 'h', ${quarter}, 60, 1, 1, 1, 3000, 2300, 2300, 2300, 95, 3200),
+          ('d', 0, 'h', ${quarter + 60}, 60, 1, 1, 1, 5000, 2300, 2300, 2300, 95, NULL);
+      INSERT INTO readings_15m (household_id, meter, ts, source, minutes, energy_wh, power_max_w)
+        VALUES ('h', 'd:0', ${quarter}, 'shelly', 2, 2, 5000);
+      INSERT INTO daily (household_id, meter, day, source, minutes, energy_wh, power_max_w)
+        VALUES ('h', 'd:0', '2026-07-15', 'shelly', 2, 2, 5000),
+          ('h', 'd:0', '2026-07-14', 'shelly', 9, 9, 9000);`);
+    run(files.find((name) => name.startsWith('0021')) as string);
+    const columns = 'apparent_max_va, apparent_minutes, active_only_max_w';
+    const filled = { apparent_max_va: 3200, apparent_minutes: 1, active_only_max_w: 5000 };
+    expect(db.prepare(`SELECT ${columns} FROM readings_15m`).get()).toEqual(filled);
+    expect(db.prepare(`SELECT day, ${columns} FROM daily ORDER BY day`).all()).toEqual([
+      { day: '2026-07-14', apparent_max_va: null, apparent_minutes: null, active_only_max_w: null },
+      { day: '2026-07-15', ...filled },
+    ]);
+  });
+});
+
 describe('migration 0020', () => {
   it('keeps subscriptions and states, the reminders off, and takes their kinds', () => {
     const db = new DatabaseSync(':memory:');

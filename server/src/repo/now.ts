@@ -13,43 +13,6 @@ export interface LatestMinute {
   pfAvgPct: number;
 }
 
-export interface MeterToday {
-  deviceId: string;
-  channel: number;
-  minutes: number;
-  energyWh: number;
-  powerMaxW: number;
-}
-
-/** Minutes since `since` (today's start in Lisbon), per device and channel. */
-export async function todayByMeter(
-  sql: Sql,
-  householdId: string,
-  since: number,
-): Promise<MeterToday[]> {
-  const rows = await sql.all<{
-    device_id: string;
-    channel: number;
-    minutes: number;
-    energy_wh: number;
-    power_max_w: number;
-  }>(
-    `SELECT device_id, channel, COUNT(*) AS minutes, SUM(energy_wh) AS energy_wh,
-       MAX(power_max_w) AS power_max_w
-     FROM readings_1m WHERE household_id = ? AND ts >= ?
-     GROUP BY device_id, channel ORDER BY device_id, channel`,
-    householdId,
-    since,
-  );
-  return rows.map((row) => ({
-    deviceId: row.device_id,
-    channel: row.channel,
-    minutes: row.minutes,
-    energyWh: row.energy_wh,
-    powerMaxW: row.power_max_w,
-  }));
-}
-
 /** Scoped by household: a device id from elsewhere finds nothing. */
 export async function latestMinute(
   sql: Sql,
@@ -94,30 +57,53 @@ export interface MeterQuarter {
   channel: number;
   /** Start of the quarter hour (epoch seconds). */
   ts: number;
+  minutes: number;
   energyWh: number;
+  powerMaxW: number | null;
 }
 
 /**
- * Today's energy per quarter hour, straight from the minutes (fresher than
- * readings_15m, which the Cron updates every 5 minutes). Lisbon's offset is
- * whole hours, so UTC quarter hours are local quarter hours (src/lib/time.ts).
+ * Today's quarter hours per meter: those the Cron has rolled up (before
+ * `cutoff`, a quarter-hour boundary) from readings_15m, the rest straight from
+ * the minutes. Reading all of today's minutes on every refresh cost ~3000 rows
+ * a minute while "Início" was open. Lisbon's offset is whole hours, so UTC
+ * quarter hours are local quarter hours (src/lib/time.ts).
  */
 export async function todayQuarters(
   sql: Sql,
   householdId: string,
   since: number,
+  cutoff: number,
 ): Promise<MeterQuarter[]> {
-  const rows = await sql.all<{ device_id: string; channel: number; ts: number; energy_wh: number }>(
-    `SELECT device_id, channel, ts - ts % 900 AS ts, SUM(energy_wh) AS energy_wh
+  const rows = await sql.all<{
+    meter: string;
+    ts: number;
+    minutes: number;
+    energy_wh: number;
+    power_max_w: number | null;
+  }>(
+    `SELECT meter, ts, minutes, energy_wh, power_max_w FROM readings_15m
+     WHERE household_id = ? AND ts >= ? AND ts < ? AND source = 'shelly'
+     UNION ALL
+     SELECT device_id || ':' || channel, ts - ts % 900, COUNT(*), SUM(energy_wh), MAX(power_max_w)
      FROM readings_1m WHERE household_id = ? AND ts >= ?
-     GROUP BY device_id, channel, ts - ts % 900 ORDER BY device_id, channel, 3`,
+     GROUP BY device_id, channel, ts - ts % 900
+     ORDER BY 1, 2`,
     householdId,
     since,
+    cutoff,
+    householdId,
+    cutoff,
   );
-  return rows.map((row) => ({
-    deviceId: row.device_id,
-    channel: row.channel,
-    ts: row.ts,
-    energyWh: row.energy_wh,
-  }));
+  return rows.map((row) => {
+    const split = row.meter.lastIndexOf(':');
+    return {
+      deviceId: row.meter.slice(0, split),
+      channel: Number(row.meter.slice(split + 1)),
+      ts: row.ts,
+      minutes: row.minutes,
+      energyWh: row.energy_wh,
+      powerMaxW: row.power_max_w,
+    };
+  });
 }

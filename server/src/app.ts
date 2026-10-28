@@ -109,7 +109,7 @@ import {
   signSession,
 } from './auth';
 import { isDatabaseLimit, type Sql } from './db';
-import { lisbonDate, nextDate, startOfLisbonDay } from '../../src/lib/time';
+import { floorTo, lisbonDate, nextDate, QUARTER_HOUR, startOfLisbonDay } from '../../src/lib/time';
 import { DEFAULT_REQUESTS_PER_MINUTE, ingest, MAX_INGEST_BYTES } from './ingest';
 import { MIN_PASSWORD_LENGTH } from './password';
 import {
@@ -124,7 +124,7 @@ import { databaseState } from './repo/health';
 import { budgetSchema } from '../../src/domain/budget';
 import { installationSchema } from '../../src/domain/installation';
 import { tariffInputSchema } from '../../src/domain/tariff';
-import { latestMinute, todayByMeter, todayQuarters } from './repo/now';
+import { latestMinute, todayQuarters } from './repo/now';
 import { omieDaysFrom } from './repo/omie';
 import { t } from '../../src/i18n/pt-PT';
 import { deleteAiSettings, getAiSettings, putAiSettings } from './repo/ai-settings';
@@ -165,7 +165,7 @@ import {
   setHouseholdInstallation,
   setHouseholdLocation,
 } from './repo/households';
-import { eredesQuarters, peakMinutes, powerByMeter, topQuarters } from './repo/power';
+import { eredesQuarters, peakMinutes, powerByMeter, splitRange, topQuarters } from './repo/power';
 import {
   deleteEredes,
   dailyEnergy,
@@ -665,8 +665,30 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const devices = (await listDevices(config.sql, householdId)).filter(
       (d) => d.revokedAt === null,
     );
-    const today = await todayByMeter(config.sql, householdId, dayStart);
-    const quarters = await todayQuarters(config.sql, householdId, dayStart);
+    const until = await getState(config.sql, STATE.rolledUpUntil(householdId));
+    const cutoff = Math.max(dayStart, until === null ? dayStart : floorTo(until, QUARTER_HOUR));
+    const quarters = await todayQuarters(config.sql, householdId, dayStart, cutoff);
+    const today: {
+      deviceId: string;
+      channel: number;
+      minutes: number;
+      energyWh: number;
+      powerMaxW: number | null;
+    }[] = [];
+    for (const quarter of quarters) {
+      const sums = today.find(
+        (item) => item.deviceId === quarter.deviceId && item.channel === quarter.channel,
+      );
+      if (!sums) {
+        today.push({ ...quarter });
+        continue;
+      }
+      sums.minutes += quarter.minutes;
+      sums.energyWh += quarter.energyWh;
+      if (quarter.powerMaxW !== null) {
+        sums.powerMaxW = Math.max(sums.powerMaxW ?? quarter.powerMaxW, quarter.powerMaxW);
+      }
+    }
     const meters = [];
     for (const device of devices) {
       const measured = today.filter((meter) => meter.deviceId === device.id);
@@ -789,16 +811,20 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     const { from, to } = parsed.data;
     const { householdId } = c.get('user');
+    const range = splitRange(
+      from,
+      to,
+      await getState(config.sql, STATE.rolledUpUntil(householdId)),
+    );
     const meters = [];
-    for (const meter of await powerByMeter(config.sql, householdId, from, to)) {
+    for (const meter of await powerByMeter(config.sql, householdId, range)) {
       const [deviceId = '', channel] = meter.meter.split(':');
       const top = await topQuarters(
         config.sql,
         householdId,
         deviceId,
         Number(channel),
-        from,
-        to,
+        range,
         TOP_QUARTERS,
       );
       meters.push({ ...meter, top });
@@ -809,7 +835,11 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
         name: d.name,
       })),
       meters,
-      eredes: await eredesQuarters(config.sql, householdId, from, to),
+      // Only used without a Shelly ("Potência" from the E-Redes file): not read otherwise.
+      eredes:
+        meters.length > 0
+          ? { quarters: 0, maxEnergyWh: null }
+          : await eredesQuarters(config.sql, householdId, from, to),
     });
   });
 
@@ -818,13 +848,18 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     const { meter, from, to, threshold } = parsed.data;
     const [deviceId = '', channel] = meter.split(':');
-    const peaks = await peakMinutes(
-      config.sql,
-      c.get('user').householdId,
-      deviceId,
-      Number(channel),
+    const { householdId } = c.get('user');
+    const range = splitRange(
       from,
       to,
+      await getState(config.sql, STATE.rolledUpUntil(householdId)),
+    );
+    const peaks = await peakMinutes(
+      config.sql,
+      householdId,
+      deviceId,
+      Number(channel),
+      range,
       threshold,
       MAX_PEAK_MINUTES,
     );

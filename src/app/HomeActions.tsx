@@ -11,22 +11,16 @@ import { baseloadCost, nightlyBaseload, recentBaseload } from '../domain/baseloa
 import { annualUsage, compareOffers } from '../domain/compare';
 import { dynamicAdjust, profileEffect } from '../domain/indexed';
 import type { OmieFile } from '../domain/omie';
-import {
-  annualFixedCents,
-  DEFAULT_MARGIN_PCT,
-  offerFixedPerDay,
-  recommendTier,
-  SINGLE_PHASE,
-} from '../domain/contracted-power';
+import { annualFixedCents, offerFixedPerDay } from '../domain/contracted-power';
 import type { Offer } from '../domain/erse';
 import type { Tariff } from '../domain/tariff';
 import { t } from '../i18n/pt-PT';
 import { formatCents, type Cents } from '../lib/money';
 import { lisbonToday } from '../lib/time';
 import { formatKva, formatPower } from '../lib/units';
-import { loadPower } from './ai-context';
 import { fetchOffers, fetchOmie } from './api';
 import { lastYear, type HouseholdEnergy } from './household-energy';
+import { recommendedTier } from './power-tier';
 
 const texts = t.home.actions;
 
@@ -37,14 +31,7 @@ interface PowerAction {
 
 /** The recommended tier (Shelly only) and the yearly saving on the power term. */
 async function powerAction(tariff: Tariff, offers: readonly Offer[] | null) {
-  const facts = await loadPower(Math.floor(Date.now() / 1000));
-  if (!facts || facts.kind !== 'shelly') return null;
-  const { recommendedVa } = await recommendTier({
-    peak: facts.peak,
-    marginPct: DEFAULT_MARGIN_PCT,
-    curve: SINGLE_PHASE,
-    fetchPeaks: facts.fetchPeaks,
-  });
+  const recommendedVa = await recommendedTier();
   if (recommendedVa === null) return null;
   let savingCents: Cents | null = null;
   if (recommendedVa < tariff.powerVa && offers) {

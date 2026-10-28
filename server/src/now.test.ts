@@ -150,6 +150,21 @@ describe('GET /v1/now', () => {
     );
   });
 
+  it('gives the same today once the Cron has rolled the minutes up', async () => {
+    const cookie = await signIn();
+    await addDevice(cookie, 'Quadro', [
+      minute(DAY_START, 0, 3, 1200),
+      minute(DAY_START + 960, 0, 5, 3100),
+      minute(NOW - 80, 0, 4, 2500),
+      minute(DAY_START + 600, 1, 2, 800),
+    ]);
+    const before = (await (await request(cookie, 'GET', '/v1/now')).json()).meters;
+    await runMaintenance(sql, NOW - 400);
+    const after = (await (await request(cookie, 'GET', '/v1/now')).json()).meters;
+    expect(after).toEqual(before);
+    expect(before[0].today.energyWh + before[1].today.energyWh).toBe(14);
+  });
+
   it('reports the database size once the Cron has measured it', async () => {
     const cookie = await signIn();
     await runMaintenance(sql, NOW);

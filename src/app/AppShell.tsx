@@ -13,6 +13,7 @@ import { DEMO_ME } from '../demo/server';
 import { Login } from './Login';
 import { clearWeatherCache } from '../weather/weather';
 import { clearEnergyCache } from './energy-cache';
+import { clearPowerActionCache } from './power-tier';
 import { clearSecondsCache } from './seconds-cache';
 import { NavIcon, type SectionId } from './NavIcon';
 import type { SessionContext } from './session';
@@ -105,6 +106,7 @@ export function AppShell() {
     void clearEnergyCache();
     void clearSecondsCache();
     void clearWeatherCache();
+    clearPowerActionCache();
     if (isDemo()) {
       exitDemo();
       setMe(null);
