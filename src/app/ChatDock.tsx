@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * "Pergunta ao Wattómetro" on every page (except Definições): a button in the
+ * "Perguntar à IA" on every page (except Definições): a button in the
  * bottom right corner opens the chat in a panel (the whole screen on phones).
  * The conversation stays while the user moves between pages; the panel and its
  * data are only loaded on the first opening. "/perguntar" opens it on Início.
@@ -38,7 +38,29 @@ export function WithChat() {
   );
 }
 
+/**
+ * Phones: the button tucks away while the page scrolls down (it would cover
+ * what is being read) and comes back on the way up and at the end of the page.
+ */
+function useTucked(): boolean {
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const atEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 8;
+      if (Math.abs(y - last) < 8) return;
+      setTucked(y > last && y > 80 && !atEnd);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return tucked;
+}
+
 function ChatDock() {
+  const tucked = useTucked();
   const { pathname } = useLocation();
   const page = chatPageOf(pathname);
   // Opened at once on an old link to the page it replaced ("/perguntar" then goes to Início).
@@ -75,7 +97,7 @@ function ChatDock() {
         <button
           ref={button}
           type="button"
-          className="chat-launcher"
+          className={tucked ? 'chat-launcher tucked' : 'chat-launcher'}
           onClick={show}
           title={t.ask.open}
           aria-haspopup="dialog"

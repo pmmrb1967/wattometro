@@ -718,9 +718,12 @@ export const t = {
   dayEvents: {
     title: 'Ao segundo: o que ligou e desligou',
     intro:
-      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Diz o que é cada grupo ("O que é?") ou calibra um aparelho: a partir daí a app reconhece-o em todos os dias.',
-    appliance: 'Aparelho',
-    whatIsIt: 'O que é?',
+      'Com os valores ao segundo do Shelly, a app encontra cada vez que a potência sobe ou desce de repente e junta cada ligar ao seu desligar. Os ciclos de potência parecida aparecem juntos. Dá nome a cada grupo ("Dar nome") ou calibra um aparelho: a partir daí a app reconhece-o em todos os dias.',
+    nameIt: 'Dar nome',
+    rename: 'Mudar o nome',
+    inTheDay: ' no dia',
+    once: (time: string, duration: string) => `Às ${time}, durante ${duration}`,
+    times: (count: number, duration: string) => `${count} vezes, cerca de ${duration} cada`,
     range: (shortest: string, longest: string) => `de ${shortest} a ${longest}`,
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
     notThisLabel: (label: string, power: string) =>
@@ -752,11 +755,6 @@ export const t = {
     none: 'Não há valores ao segundo deste dia.',
     summary: (minutes: number, events: number, cycles: number) =>
       `${minutes} minutos com valores ao segundo: ${events} mudanças de potência, ${cycles} ciclos de ligar e desligar.`,
-    power: 'Potência',
-    times: 'Quando',
-    duration: 'Duração típica',
-    energy: 'Energia no dia',
-    count: (count: number) => `${count} vezes`,
     pulsing: (power: string) => `${power} aos pulsos`,
     programme: (power: string, heats: number) =>
       `${power}, programa com ${heats === 1 ? '1 aquecimento' : `${heats} aquecimentos`}`,
@@ -981,6 +979,8 @@ export const t = {
       heatmapTitle: 'Hora a hora, por dia da semana',
       heatmapIntro:
         'Quanto gastas em média em cada hora de cada dia da semana, nas últimas 12 semanas com dados. Cor mais forte é mais consumo.',
+      busiest: (busiest: number, quietest: number, hours: number) =>
+        `Em média, gastas mais das ${busiest} h às ${(busiest + hours) % 24} h e menos das ${quietest} h às ${(quietest + hours) % 24} h.`,
       heatmapLegend:
         'Toca ou passa o rato numa célula para ver o valor. Horas que se repetem com consumo alto mostram hábitos que podes mudar para o vazio.',
       weekdays: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],

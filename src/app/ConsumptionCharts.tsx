@@ -14,6 +14,8 @@ import {
   addDays,
   addMonths,
   dayTotal,
+  busiestHours,
+  HOURS_WINDOW,
   hourlyProfile,
   monthDates,
   quartersByDay,
@@ -113,6 +115,7 @@ export function ConsumptionCharts({
     () => (lastWhole ? hourlyProfile(whole, lastWhole) : null),
     [whole, lastWhole],
   );
+  const hours = useMemo(() => (profile ? busiestHours(profile) : null), [profile]);
   const [view, setView] = useState<View>('day');
   const [chosen, setChosen] = useState<LocalDate | null>(null);
   if (!firstDate || !lastDate) return null;
@@ -251,12 +254,15 @@ export function ConsumptionCharts({
                 label={`${texts.title}: ${title(view, shown)}`}
               />
               <ul className="chart-legend">
-                {(['eredes', 'shelly'] as const).map((key) => (
-                  <li key={key}>
-                    <span className={`legend-swatch series-${key}`} aria-hidden="true" />
-                    {seriesNames[key]}
-                  </li>
-                ))}
+                {/* A series without data in these days stays out of the legend. */}
+                {(['eredes', 'shelly'] as const)
+                  .filter((key) => comparison.slots.some((slot) => slot[key] !== null))
+                  .map((key) => (
+                    <li key={key}>
+                      <span className={`legend-swatch series-${key}`} aria-hidden="true" />
+                      {seriesNames[key]}
+                    </li>
+                  ))}
               </ul>
               {difference && (
                 <p className="hint">
@@ -313,6 +319,7 @@ export function ConsumptionCharts({
         <section className="card form">
           <h2>{texts.heatmapTitle}</h2>
           <p className="hint">{texts.heatmapIntro}</p>
+          {hours && <p>{texts.busiest(hours.busiest, hours.quietest, HOURS_WINDOW)}</p>}
           <HourHeatmap
             rows={texts.weekdays}
             values={profile}

@@ -3,9 +3,34 @@
  * Small SVG charts drawn by hand (a few dozen bars or cells: no chart library).
  * Colours come from CSS classes, so they follow the light and dark themes.
  */
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { BillingPeriod } from '../domain/tariff';
 
 const WIDTH = 320;
+/** The charts' text, in CSS px, whatever width the chart is drawn at. */
+const TEXT_PX = 12;
+
+/**
+ * The SVG scales with its width, and its text with it (10 px on a phone, 18 on
+ * a desktop): the font size in viewBox units that makes TEXT_PX on screen.
+ */
+function useFixedText(viewWidth: number, textPx = TEXT_PX) {
+  const ref = useRef<SVGSVGElement>(null);
+  const [size, setSize] = useState<number | null>(null);
+  useEffect(() => {
+    const svg = ref.current;
+    if (!svg || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry?.contentRect.width ?? 0;
+      if (width > 0) setSize((textPx * viewWidth) / width);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [viewWidth, textPx]);
+  const style =
+    size === null ? undefined : ({ '--chart-text': `${size.toFixed(2)}px` } as CSSProperties);
+  return { ref, style };
+}
 const PLOT = 140;
 const AXIS = 16;
 /** Room above the plot for what the values are, clear of the top value's label. */
@@ -105,8 +130,11 @@ export function BarChart({
   const top = scale.ticks.at(-1)?.value ?? 1;
   const step = PLOT_WIDTH / Math.max(bars.length, 1);
   const gap = bars.length > 40 ? 0.15 : 0.25;
+  const text = useFixedText(WIDTH);
   return (
     <svg
+      ref={text.ref}
+      style={text.style}
       className="chart"
       viewBox={`0 0 ${WIDTH} ${TOP + PLOT + AXIS}`}
       role="img"
@@ -160,8 +188,12 @@ export function HourHeatmap({
 }) {
   const max = Math.max(1, ...values.flat().map((value) => value ?? 0));
   const height = rows.length * CELL + AXIS;
+  // Smaller than the other charts: a row is a cell high.
+  const text = useFixedText(ROW_LABEL + 24 * CELL, 10);
   return (
     <svg
+      ref={text.ref}
+      style={text.style}
       className="chart heatmap"
       viewBox={`0 0 ${ROW_LABEL + 24 * CELL} ${height}`}
       role="img"
@@ -183,7 +215,7 @@ export function HourHeatmap({
                 width={CELL - 1}
                 height={CELL - 1}
                 rx={2}
-                fillOpacity={value === null ? undefined : 0.08 + (0.92 * value) / max}
+                fillOpacity={value === null ? undefined : 0.15 + (0.85 * value) / max}
               >
                 <title>{title(rowIndex, hour, value)}</title>
               </rect>
@@ -238,8 +270,11 @@ export function SeriesChart({
   const y = (value: number) => TOP + PLOT - (value * PLOT) / top;
   const gap = 0.25;
   const barWidth = (step * (1 - gap)) / Math.max(series.length, 1);
+  const text = useFixedText(WIDTH);
   return (
     <svg
+      ref={text.ref}
+      style={text.style}
       className="chart"
       viewBox={`0 0 ${WIDTH} ${TOP + PLOT + AXIS}`}
       role="img"

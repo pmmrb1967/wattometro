@@ -5,6 +5,7 @@ import {
   addDays,
   addMonths,
   dayTotal,
+  busiestHours,
   hourlyProfile,
   houseQuarters,
   monthDates,
@@ -155,5 +156,22 @@ describe('houseQuarters', () => {
     );
     expect(shellyFrom).toBe('2026-10-26');
     expect(total(quarters)).toBe(100 * 100 + 96 * 7);
+  });
+});
+
+describe('busiestHours', () => {
+  it('the three hours in a row with the most and the least, past midnight too', () => {
+    // 100 Wh an hour, 500 from 19 to 22 h; 50 from 23 h to 2 h (past midnight).
+    const row = Array.from({ length: 24 }, (_, hour) =>
+      hour >= 19 && hour < 22 ? 500 : hour === 23 || hour < 2 ? 50 : 100,
+    );
+    expect(busiestHours([row, row])).toEqual({ busiest: 19, quietest: 23 });
+  });
+
+  it('averages the weekdays with data, and needs every hour', () => {
+    const empty = Array.from({ length: 24 }, () => null);
+    const flat = Array.from({ length: 24 }, (_, hour) => (hour === 8 ? 300 : 100));
+    expect(busiestHours([flat, empty])).toMatchObject({ busiest: 6 });
+    expect(busiestHours([empty])).toBeNull();
   });
 });

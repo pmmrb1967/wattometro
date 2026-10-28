@@ -134,6 +134,38 @@ export function addMonths(month: string, months: number): string {
 }
 
 export const PROFILE_WEEKS = 12;
+/** Hours in a row looked at for the busiest and quietest part of the day. */
+export const HOURS_WINDOW = 3;
+
+/**
+ * The HOURS_WINDOW hours in a row (past midnight too) with the most and the
+ * least energy, on average over the weekdays of an hourly profile: the start
+ * hour of each. Null unless every hour has data.
+ */
+export function busiestHours(
+  profile: readonly (readonly (Wh | null)[])[],
+): { busiest: number; quietest: number } | null {
+  const hourly: number[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const values = profile
+      .map((row) => row[hour])
+      .filter((value): value is Wh => value !== null && value !== undefined);
+    if (values.length === 0) return null;
+    hourly.push(values.reduce((sum, value) => sum + value, 0) / values.length);
+  }
+  let busiest = 0;
+  let quietest = 0;
+  const windows = hourly.map((_, start) => {
+    let sum = 0;
+    for (let offset = 0; offset < HOURS_WINDOW; offset++) sum += hourly[(start + offset) % 24]!;
+    return sum;
+  });
+  windows.forEach((sum, start) => {
+    if (sum > windows[busiest]!) busiest = start;
+    if (sum < windows[quietest]!) quietest = start;
+  });
+  return { busiest, quietest };
+}
 
 /**
  * Average energy per hour, by weekday (0 = Monday) and local hour, over the

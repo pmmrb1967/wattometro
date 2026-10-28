@@ -3,10 +3,11 @@
  * "Consumo": what the Shelly's per-second values show on a day (Phase 8.1):
  * the power steps (src/nilm/events.ts) and the on/off cycles they pair into
  * (src/nilm/cycles.ts), grouped by power, and the appliances they are
- * (src/nilm/appliances.ts): a group without a name has "O que é?", and a named
- * one can be corrected by tapping its name. Only with a Shelly, for the last days.
+ * (src/nilm/appliances.ts), the dearest first, each with what it cost that
+ * day: a group without a name has "Dar nome", a named one "Mudar o nome". Only
+ * with a Shelly, for the last days.
  */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
@@ -22,7 +23,7 @@ import { formatKwh, formatPower } from '../lib/units';
 import { confusable, describeGroup, groupAppliance } from '../nilm/appliances';
 import { tariffOn } from '../domain/tariff';
 import { formatCents } from '../lib/money';
-import { analyseDay, nameDay } from '../nilm/day';
+import { analyseDay, groupCostCents, nameDay } from '../nilm/day';
 import { decodeSecondsRecords } from '../nilm/series';
 import type { CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
@@ -55,7 +56,7 @@ function groupPower(group: CycleGroup): string {
 const RELIABLE_W = 60;
 
 /**
- * "O que é?": names a group; the name then applies to every cycle that fits, on
+ * "Dar nome": names a group; the name then applies to every cycle that fits, on
  * any day. On a group already named (`current`), corrects it: the new name gets
  * this group's descriptor, and each cycle goes to the closest appliance.
  */
@@ -181,6 +182,19 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
     [result, appliances, tariff],
   );
 
+  // The dearest first (the most energy without a tariff).
+  const groups = useMemo(() => {
+    if (!result) return [];
+    return result.groups
+      .map((group) => ({
+        group,
+        costCents: tariff ? groupCostCents(group, result, tariff) : null,
+      }))
+      .sort(
+        (a, b) => (b.costCents ?? 0) - (a.costCents ?? 0) || b.group.energyWh - a.group.energyWh,
+      );
+  }, [result, tariff]);
+
   if (!meter || days.length === 0) return null;
   const pending = !loaded || loaded.day !== day;
 
@@ -240,91 +254,63 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
               )}
             </div>
           )}
-          {result.groups.length > 0 && (
-            <div className="table-wrap">
-              <table className="table stacked">
-                <thead>
-                  <tr>
-                    <th>{texts.appliance}</th>
-                    <th>{texts.power}</th>
-                    <th>{texts.times}</th>
-                    <th>{texts.duration}</th>
-                    <th>{texts.energy}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.groups.map((group) => {
-                    const first = group.cycles[0]!.start;
-                    const appliance = named ? groupAppliance(group, named.byCycle) : null;
-                    const kind = groupLoadKind(group);
-                    return (
-                      <Fragment key={`${group.powerW}-${first}`}>
-                        <tr>
-                          <td>
-                            {appliance ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="link-button appliance-name"
-                                  aria-expanded={naming === first}
-                                  onClick={() => setNaming(naming === first ? null : first)}
-                                >
-                                  {appliance.label}
-                                </button>
-                                {appliance.minDurationS !== null &&
-                                  appliance.maxDurationS !== null && (
-                                    <span className="hint appliance-range">
-                                      {texts.range(
-                                        formatDuration(appliance.minDurationS),
-                                        formatDuration(appliance.maxDurationS),
-                                      )}
-                                    </span>
-                                  )}
-                              </>
-                            ) : named ? (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => setNaming(naming === first ? null : first)}
-                              >
-                                {texts.whatIsIt}
-                              </button>
-                            ) : null}
-                          </td>
-                          <td data-label={texts.power}>
-                            {groupPower(group)}
-                            {Math.abs(group.powerW) < RELIABLE_W && (
-                              <span className="hint appliance-range">{texts.unreliable}</span>
-                            )}
-                            {kind && (
-                              <span className="hint appliance-range">{texts.loadKinds[kind]}</span>
-                            )}
-                          </td>
-                          <td data-label={texts.times}>
-                            {group.count === 1
-                              ? formatLisbonTime(group.cycles[0]!.start)
-                              : texts.count(group.count)}
-                          </td>
-                          <td data-label={texts.duration}>{formatDuration(group.durationS)}</td>
-                          <td data-label={texts.energy}>{formatKwh(group.energyWh, 2)}</td>
-                        </tr>
-                        {naming === first && (
-                          <tr>
-                            <td colSpan={5}>
-                              <NameGroup
-                                group={group}
-                                current={appliance}
-                                onDone={() => setNaming(null)}
-                              />
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          {groups.length > 0 && (
+            <ol className="offers appliance-groups">
+              {groups.map(({ group, costCents }) => {
+                const first = group.cycles[0]!.start;
+                const appliance = named ? groupAppliance(group, named.byCycle) : null;
+                const kind = groupLoadKind(group);
+                const when =
+                  group.count === 1
+                    ? texts.once(formatLisbonTime(first), formatDuration(group.durationS))
+                    : texts.times(group.count, formatDuration(group.durationS));
+                return (
+                  <li key={`${group.powerW}-${first}`} className="offer">
+                    <div className="offer-head">
+                      <div>
+                        <strong>{appliance ? appliance.label : groupPower(group)}</strong>
+                        <span className="hint">
+                          {[
+                            appliance && groupPower(group),
+                            kind && texts.loadKinds[kind],
+                            Math.abs(group.powerW) < RELIABLE_W && texts.unreliable,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </div>
+                      <p className="compare-amount">
+                        {costCents === null ? formatKwh(group.energyWh, 2) : formatCents(costCents)}
+                        <span>{texts.inTheDay}</span>
+                      </p>
+                    </div>
+                    <p className="offer-price-line">
+                      {when}
+                      {costCents !== null && ` · ${formatKwh(group.energyWh, 2)}`}
+                      {appliance &&
+                        appliance.minDurationS !== null &&
+                        appliance.maxDurationS !== null &&
+                        ` · ${texts.range(
+                          formatDuration(appliance.minDurationS),
+                          formatDuration(appliance.maxDurationS),
+                        )}`}
+                    </p>
+                    {named && naming !== first && (
+                      <button
+                        type="button"
+                        className="secondary group-name"
+                        onClick={() => setNaming(first)}
+                      >
+                        {appliance ? texts.rename : texts.nameIt}
+                      </button>
+                    )}
+                    {naming === first && (
+                      <NameGroup group={group} current={appliance} onDone={() => setNaming(null)} />
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
           )}
           <HowItWorks>
             <ul className="hint caveats">

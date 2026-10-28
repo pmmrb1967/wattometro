@@ -65,6 +65,20 @@ export interface DayNames {
   explainedPct: number | null;
 }
 
+/**
+ * What a group of cycles cost on the day, as a named appliance's
+ * (src/domain/appliance-cost.ts): its energy spread over the quarter hours it
+ * was on, priced at that hour.
+ */
+export function groupCostCents(
+  group: { energyWh: Wh; cycles: readonly Pick<Cycle, 'start' | 'end'>[] },
+  analysis: Pick<DayAnalysis, 'quarters'>,
+  tariff: TariffInput,
+): Cents {
+  const spans = group.cycles.map(({ start, end }) => ({ start, end }));
+  return applianceCostCents(spreadOverQuarters(group.energyWh, spans), analysis.quarters, tariff);
+}
+
 /** The day's named appliances, with the tariff in force that day (or null). */
 export function nameDay(
   analysis: DayAnalysis,
