@@ -9,10 +9,13 @@
  *
  * A heating is a steady cycle of at least HEAT_MIN_W (at 230 V) for at least
  * HEAT_MIN_S. Heatings of the same power (matchToleranceW) at most
- * MAX_HEAT_GAP_S apart are one programme. After the last heating, the
+ * MAX_HEAT_GAP_S apart are one programme. A heating can pause for a few
+ * seconds (the washing machine of 27/10: 71 s, a pause of 14 s, 100 s, 11 s,
+ * then 8 min): a shorter cycle of the same power at most FRAGMENT_GAP_S from a
+ * heating of the run is part of it. After the last heating, the
  * programme goes on while the machine still works: a minute whose seconds
  * spread over ACTIVE_SPREAD_W or more (a drum turning), or that stays
- * ACTIVE_LEVEL_W above the level before the programme (a steady spin), with
+ * ACTIVE_LEVEL_W above the level before the programme (a drum turning steadily, a spin), with
  * quiet stretches of at most MAX_QUIET_S, for at most MAX_TAIL_S, and never
  * past the start of another heating. Another appliance working right after
  * (the microwave) still lengthens it. A single heating is a programme only when long (SINGLE_HEAT_S)
@@ -36,12 +39,20 @@ export const MAX_HEAT_GAP_S = 900;
 /** A single heating needs this long and a tail this long to be a programme. */
 export const SINGLE_HEAT_S = 300;
 export const MIN_TAIL_S = 300;
-/** Spread of a minute's seconds (10th to 90th percentile) that shows a motor working. */
-export const ACTIVE_SPREAD_W = 150;
-/** A minute this far above the level before the programme: a spin (+600 W on 26/10). */
-export const ACTIVE_LEVEL_W = 300;
+/**
+ * Spread of a minute's seconds (10th to 90th percentile) that shows a motor
+ * working: a drum turning slowly spread 105–155 W on 27/10, the quiet house 30–70 W.
+ */
+export const ACTIVE_SPREAD_W = 100;
+/** The longest pause within a heating. */
+export const FRAGMENT_GAP_S = 30;
+/**
+ * A minute this far above the level before the programme: a spin (+600 W on
+ * 26/10), or a drum turning steadily (+85 to +210 W on 27/10).
+ */
+export const ACTIVE_LEVEL_W = 80;
 /** The longest quiet stretch within a tail (a washing machine soaking). */
-export const MAX_QUIET_S = 600;
+export const MAX_QUIET_S = 300;
 export const MAX_TAIL_S = 2 * 3600;
 
 const WINDOW_S = 60;
@@ -52,6 +63,14 @@ const isHeat = (cycle: Cycle) =>
   cycle.heats === undefined &&
   cycle.powerW230 >= HEAT_MIN_W &&
   cycle.durationS >= HEAT_MIN_S;
+
+/** A piece of a heating that paused: the power of one, too short to be one. */
+const isFragment = (cycle: Cycle) =>
+  cycle.states.length === 1 &&
+  cycle.pulses === undefined &&
+  cycle.heats === undefined &&
+  cycle.powerW230 >= HEAT_MIN_W &&
+  cycle.durationS < HEAT_MIN_S;
 
 const samePower = (a: Cycle, b: Cycle) =>
   Math.abs(a.powerW230 - b.powerW230) <= matchToleranceW(b.powerW230);
@@ -129,7 +148,8 @@ function programme(run: readonly Cycle[], end: number, series: SecondsSeries): C
     energyWh: Math.max(heatsWh, Math.round(joules / 3600)),
     states: [{ from: first.start, powerW: first.powerW }],
     heats: {
-      count: heats.length,
+      // A heating that paused counts once (its pieces are not heatings).
+      count: heats.filter(isHeat).length,
       onS: heats.reduce((sum, cycle) => sum + cycle.durationS, 0),
     },
   };
@@ -146,6 +166,27 @@ export function mergeProgrammes(cycles: readonly Cycle[], series: SecondsSeries)
     if (run) run.push(cycle);
     else runs.push([cycle]);
   }
+  // The pieces of a heating that paused, before or after it (in time order, so they chain).
+  const fragments = sorted.filter(isFragment);
+  for (const run of runs) {
+    let added = true;
+    while (added) {
+      added = false;
+      for (const fragment of fragments) {
+        if (run.includes(fragment)) continue;
+        const near = run.some(
+          (cycle) =>
+            samePower(fragment, cycle) &&
+            fragment.start - cycle.end <= FRAGMENT_GAP_S &&
+            cycle.start - fragment.end <= FRAGMENT_GAP_S,
+        );
+        if (near) {
+          run.push(fragment);
+          added = true;
+        }
+      }
+    }
+  }
   const taken = new Set<Cycle>();
   const programmes: Cycle[] = [];
   const heatings = sorted.filter(isHeat);
@@ -156,9 +197,10 @@ export function mergeProgrammes(cycles: readonly Cycle[], series: SecondsSeries)
     const until = next?.start ?? Infinity;
     const end = Math.max(heatsEnd, tailEnd(series, heatsEnd, (run[0] as Cycle).on.beforeW, until));
     const only = run[0] as Cycle;
-    const single = run.length === 1;
-    if (single && (only.durationS < SINGLE_HEAT_S || end - heatsEnd < MIN_TAIL_S)) continue;
-    const start = only.start;
+    const start = Math.min(...run.map((cycle) => cycle.start));
+    // One heating, with its pieces: its whole span counts.
+    const single = run.filter(isHeat).length === 1;
+    if (single && (heatsEnd - start < SINGLE_HEAT_S || end - heatsEnd < MIN_TAIL_S)) continue;
     const inside = sorted.filter(
       (cycle) =>
         !run.includes(cycle) &&

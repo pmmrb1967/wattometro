@@ -85,6 +85,29 @@ describe('mergeProgrammes', () => {
     expect(programme!.energyWh).toBeLessThanOrEqual(470);
   });
 
+  it('takes a heating that paused for a few seconds as one', () => {
+    // The washing machine of 27/10: heating 70 s, 14 s off, 100 s, 11 s off, 8 min;
+    // then the drum turning steadily, +150 W, for 30 min (a spread of only 0 W).
+    const power = [
+      ...flat(120, BASE),
+      ...flat(70, BASE + 1950),
+      ...flat(14, BASE),
+      ...flat(100, BASE + 1950),
+      ...flat(11, BASE),
+      ...flat(480, BASE + 1950),
+      ...flat(1800, BASE + 150),
+      ...flat(900, BASE),
+    ];
+    const programmes = cyclesOf(power).filter((cycle) => cycle.heats);
+    expect(programmes).toHaveLength(1);
+    // From the first piece; one heating; until the drum stops.
+    expect(programmes[0]).toMatchObject({
+      start: START + 120,
+      heats: { count: 1, onS: 70 + 100 + 480 },
+    });
+    expect(programmes[0]!.end).toBe(START + 120 + 70 + 14 + 100 + 11 + 480 + 1800);
+  });
+
   it('keeps the two machines in groups of their own', () => {
     const groups = groupCycles(cyclesOf([...washer, ...dishwasher]));
     const programmes = groups.filter((group) => group.heats !== null);

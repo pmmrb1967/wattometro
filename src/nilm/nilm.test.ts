@@ -137,6 +137,62 @@ describe('pairCycles', () => {
     expect(pairCycles(events)).toMatchObject([{ powerW: 1800, durationS: 1200, states: [{}] }]);
   });
 
+  it('pairs a compressor that drew more as it ran, its small steps up included', () => {
+    // A heat-pump dryer (27/10): on +230 W, then +40 W and +30 W, off −300 W back to 160 W.
+    const events = detectEvents(
+      series([
+        ...flat(30, 160),
+        ...flat(60, 390),
+        ...flat(60, 430),
+        ...flat(60, 460),
+        ...flat(30, 160),
+      ]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([230, 40, 30, -300]);
+    // One cycle, of the mean of its steps: (230 + 300) / 2.
+    expect(pairCycles(events).map((cycle) => [cycle.powerW, cycle.durationS])).toEqual([
+      [265, 180],
+    ]);
+  });
+
+  it('closes two appliances that switch off in the same second', () => {
+    // A motor (+200 W) and a compressor (+250 W) on, then −450 W at once.
+    const events = detectEvents(
+      series([...flat(30, 160), ...flat(60, 360), ...flat(60, 610), ...flat(30, 160)]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([200, 250, -450]);
+    expect(pairCycles(events).map((cycle) => [cycle.powerW, cycle.start - START])).toEqual([
+      [200, 30],
+      [250, 90],
+    ]);
+  });
+
+  it('closes the two with the small steps one of them rose by', () => {
+    // The end of the dryer (27/10): motor +200 W, compressor +220 W, +40 W, then −470 W.
+    const events = detectEvents(
+      series([
+        ...flat(30, 160),
+        ...flat(60, 360),
+        ...flat(60, 580),
+        ...flat(60, 620),
+        ...flat(30, 150),
+      ]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([200, 220, 40, -470]);
+    expect(pairCycles(events).map((cycle) => cycle.powerW)).toEqual([200, 220]);
+  });
+
+  it('takes two steps down a few seconds apart as one appliance switching off', () => {
+    // A compressor of 27/10: on +240 W, off in two steps 15 s apart (−140 W, −100 W).
+    const events = detectEvents(
+      series([...flat(30, 160), ...flat(120, 400), ...flat(15, 260), ...flat(30, 160)]),
+    );
+    expect(events.map((event) => event.deltaW)).toEqual([240, -140, -100]);
+    expect(pairCycles(events).map((cycle) => [cycle.powerW, cycle.durationS])).toEqual([
+      [240, 135],
+    ]);
+  });
+
   it('leaves an off step without a matching on step alone', () => {
     const events = detectEvents(series([...flat(30, 2160), ...flat(30, 160)]));
     expect(events).toHaveLength(1);

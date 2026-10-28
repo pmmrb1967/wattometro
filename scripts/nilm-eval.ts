@@ -33,9 +33,7 @@ import {
 import { formatKwh, formatPower } from '../src/lib/units';
 import { pairCycles, type Cycle } from '../src/nilm/cycles';
 import { detectEvents, DETECTOR_VERSION } from '../src/nilm/events';
-import { mergePulses } from '../src/nilm/periodic';
-import { boundCycleEnergy } from '../src/nilm/energy';
-import { mergeProgrammes } from '../src/nilm/programmes';
+import { findCycles } from '../src/nilm/pipeline';
 import { decodeSecondsRecords, SECONDS_RECORD_BYTES, toSeries } from '../src/nilm/series';
 import { groupCycles } from '../src/nilm/summary';
 
@@ -141,7 +139,7 @@ function evaluate(): void {
     const series = toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
     const events = detectEvents(series);
     const pairs = pairCycles(events);
-    const cycles = mergeProgrammes(boundCycleEnergy(mergePulses(pairs, series), series), series);
+    const cycles = findCycles(events, series);
     found.push({ day, cycles });
     console.log(
       `${name}: ${minutes.length} minutes, ${events.length} steps, ${cycles.length} cycles`,
@@ -153,9 +151,10 @@ function evaluate(): void {
         `  ${(group.statesW.length > 1 ? group.statesW.map((watts) => formatPower(watts)).join(' → ') : group.pulsing ? `${formatPower(group.powerW)} pulsing` : formatPower(group.powerW)).padStart(9)}  ${when.padEnd(9)} ${formatDuration(group.durationS).padEnd(14)} ${formatKwh(group.energyWh, 2)}`,
       );
     }
-    const paired = new Set(pairs.flatMap((cycle) => [cycle.on, cycle.off]));
+    // By second: a step that closed two appliances is shared between their cycles.
+    const paired = new Set(pairs.flatMap((cycle) => [cycle.on.ts, cycle.off.ts]));
     const unpaired = events.filter(
-      (event) => !paired.has(event) && Math.abs(event.deltaW) >= LIST_UNPAIRED_W,
+      (event) => !paired.has(event.ts) && Math.abs(event.deltaW) >= LIST_UNPAIRED_W,
     );
     if (unpaired.length > 0) {
       console.log(`  unpaired steps ≥ ${LIST_UNPAIRED_W} W:`);

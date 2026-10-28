@@ -13,6 +13,17 @@
  * something switched on before the day began (the TV, 150 W) from being
  * taken for a phase of the water heater (1800 W).
  *
+ * A compressor draws more the longer it runs (a heat-pump dryer on 27/10:
+ * on +230 W, then +30 to +50 W in small steps or gradually, off −310 to
+ * −340 W). A step down up to RISE_MAX_SHARE larger than an open appliance's,
+ * that brings the house back to its level before that appliance, is it
+ * switching off; the small steps it rose by, opened since, go with it.
+ *
+ * Two appliances switching off in the same second (a dryer's motor and its
+ * compressor at the end of the programme) make one step, the sum of both: it
+ * closes the two open ones it mirrors. Without this, the motor stayed open
+ * and was paired with a step hours later.
+ *
  * Periodic patterns (an induction hob pulsing) come out as several cycles
  * here; mergePulses (periodic.ts) makes each run of them one.
  */
@@ -23,6 +34,12 @@ import { MIN_STEP_W, type PowerEvent } from './events';
 export const MAX_CYCLE_S = 6 * 3600;
 /** A state change takes at least this share of the appliance's power. */
 export const PHASE_MIN_SHARE = 0.3;
+/** Two steps down at most this far apart can be one appliance switching off. */
+export const SPLIT_OFF_S = 20;
+/** Each of two appliances switching off in the same second draws at least this, W. */
+export const PAIR_MIN_W = 2 * MIN_STEP_W;
+/** How much larger than its on step an off step may be when the house goes back to its level. */
+export const RISE_MAX_SHARE = 0.6;
 
 /** How far an off step may differ from its on step: 30 W, or 10 % for large ones. */
 export function matchToleranceW(deltaW: number): number {
@@ -117,10 +134,124 @@ function close(open: Open, off: PowerEvent): Cycle {
   };
 }
 
+/** The part of an off step that switched one open appliance off (when one step closes two). */
+function share(off: PowerEvent, level: Level): PowerEvent {
+  return { ...off, deltaW: -level.w, deltaW230: -level.w230, deltaVar: -level.var };
+}
+
+const mirrors = (level: { w230: number; var: number }, event: PowerEvent) =>
+  Math.abs(level.w230 + event.deltaW230) <= matchToleranceW(level.w230) &&
+  Math.abs(level.var + event.deltaVar) <= matchToleranceVar(level.var);
+
+/**
+ * The small steps an appliance rose by after `since` (each seen as something
+ * switching on) are taken off the open ones: they switched off with it.
+ */
+function absorbSteps(open: Open[], since: EpochSeconds, extraW: number): void {
+  let leftW = extraW + MIN_STEP_W;
+  for (let at = open.length - 1; at >= 0; at--) {
+    const other = open[at] as Open;
+    const w = current(other).w;
+    if (other.on.ts > since && other.levels.length === 1 && w <= leftW) {
+      open.splice(at, 1);
+      leftW -= w;
+    }
+  }
+}
+
+/**
+ * Closes the two open appliances whose sum the off step mirrors best, up to
+ * `slackW` more (small steps one of them rose by, taken off the open ones).
+ */
+function closePair(
+  open: Open[],
+  event: PowerEvent,
+  recent: (item: Open) => boolean,
+  cycles: Cycle[],
+  slackW: number,
+): boolean {
+  let pair: [number, number] | null = null;
+  let pairError = Infinity;
+  for (let first = 0; first < open.length; first++) {
+    for (let second = first + 1; second < open.length; second++) {
+      const a = open[first] as Open;
+      const b = open[second] as Open;
+      if (!recent(a) || !recent(b)) continue;
+      // Steps of 30–50 W are a compressor rising, not an appliance.
+      if (Math.min(current(a).w230, current(b).w230) < PAIR_MIN_W) continue;
+      const sumW230 = current(a).w230 + current(b).w230;
+      const sumVar = current(a).var + current(b).var;
+      const overW = -event.deltaW230 - sumW230;
+      const tolerance = matchToleranceW(sumW230);
+      const fits =
+        overW >= -tolerance &&
+        overW <= tolerance + slackW &&
+        Math.abs(sumVar + event.deltaVar) <= matchToleranceVar(sumVar);
+      if (fits && Math.abs(overW) < pairError) {
+        pair = [first, second];
+        pairError = Math.abs(overW);
+      }
+    }
+  }
+  if (!pair) return false;
+  const [a, b] = [open[pair[0]] as Open, open[pair[1]] as Open];
+  for (const item of [a, b]) cycles.push(close(item, share(event, current(item))));
+  open.splice(pair[1], 1);
+  open.splice(pair[0], 1);
+  if (slackW > 0) absorbSteps(open, b.on.ts, -event.deltaW - current(a).w - current(b).w);
+  return true;
+}
+
+/** Closes the open appliance(s) an off step switched off; false when it fits none. */
+function closeOff(open: Open[], event: PowerEvent, cycles: Cycle[]): boolean {
+  const recent = (item: Open) => event.ts - item.on.ts <= MAX_CYCLE_S;
+  const mirrored = open.findLastIndex((item) => recent(item) && mirrors(current(item), event));
+  if (mirrored >= 0) {
+    cycles.push(close(open[mirrored] as Open, event));
+    open.splice(mirrored, 1);
+    return true;
+  }
+  // Two appliances switching off in the same second: the pair it mirrors.
+  if (closePair(open, event, recent, cycles, 0)) return true;
+  // An appliance that drew more as it ran: the house goes back to its level before it.
+  const risen = open.findLastIndex((item) => {
+    const level = current(item);
+    const extraW = -event.deltaW - level.w;
+    if (!recent(item) || item.levels.length > 1 || extraW <= 0) return false;
+    return (
+      extraW <= RISE_MAX_SHARE * level.w &&
+      Math.abs(event.afterW - item.on.beforeW) <= matchToleranceW(level.w) + MIN_STEP_W &&
+      Math.abs(level.var + event.deltaVar) <= matchToleranceVar(level.var)
+    );
+  });
+  if (risen >= 0) {
+    const item = open[risen] as Open;
+    cycles.push(close(item, event));
+    open.splice(risen, 1);
+    absorbSteps(open, item.on.ts, -event.deltaW - current(item).w);
+    return true;
+  }
+  // The same, a little more: one of them rose in small steps since it switched on.
+  return closePair(open, event, recent, cycles, MIN_STEP_W);
+}
+
+/** Two steps a few seconds apart as one, from the level before the first to after the second. */
+function joinSteps(first: PowerEvent, second: PowerEvent): PowerEvent {
+  return {
+    ...second,
+    deltaW: first.deltaW + second.deltaW,
+    deltaW230: first.deltaW230 + second.deltaW230,
+    deltaVar: first.deltaVar + second.deltaVar,
+    beforeW: first.beforeW,
+    transientS: second.ts - first.ts,
+  };
+}
+
 export function pairCycles(events: readonly PowerEvent[]): Cycle[] {
   const open: Open[] = [];
   const cycles: Cycle[] = [];
-  for (const event of events) {
+  for (let index = 0; index < events.length; index++) {
+    const event = events[index] as PowerEvent;
     if (event.deltaW230 > 0) {
       open.push({
         on: event,
@@ -128,16 +259,17 @@ export function pairCycles(events: readonly PowerEvent[]): Cycle[] {
       });
       continue;
     }
-    const recent = (item: Open) => event.ts - item.on.ts <= MAX_CYCLE_S;
-    const mirrored = open.findLastIndex(
-      (item) =>
-        recent(item) &&
-        Math.abs(current(item).w230 + event.deltaW230) <= matchToleranceW(current(item).w230) &&
-        Math.abs(current(item).var + event.deltaVar) <= matchToleranceVar(current(item).var),
-    );
-    if (mirrored >= 0) {
-      cycles.push(close(open[mirrored] as Open, event));
-      open.splice(mirrored, 1);
+    if (closeOff(open, event, cycles)) continue;
+    // An appliance switching off in two steps a few seconds apart (a compressor of 27/10:
+    // −191 W, then −132 W 15 s later): the two as one.
+    const next = events[index + 1];
+    if (
+      next !== undefined &&
+      next.deltaW230 < 0 &&
+      next.ts - event.ts <= SPLIT_OFF_S &&
+      closeOff(open, joinSteps(event, next), cycles)
+    ) {
+      index++;
       continue;
     }
     // The latest open appliance this step can be a state change of (the fridge may have
@@ -145,7 +277,7 @@ export function pairCycles(events: readonly PowerEvent[]): Cycle[] {
     const changing = open.findLast((item) => {
       const level = current(item);
       return (
-        recent(item) &&
+        event.ts - item.on.ts <= MAX_CYCLE_S &&
         level.w230 + event.deltaW230 >= MIN_STEP_W &&
         -event.deltaW230 >= PHASE_MIN_SHARE * level.w230
       );
