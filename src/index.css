@@ -475,7 +475,7 @@ a {
     max-width: 1200px;
   }
 
-  /* Início: what to do and the month on the left, the meter on the right. */
+  /* Início: the meter on the left (first on a phone), the boxes on the right. */
   .home-columns {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
@@ -491,6 +491,17 @@ a {
   .home-boxes {
     display: grid;
     gap: 8px;
+  }
+
+  /* The meter card as tall as the boxes beside it, its parts spread over that height. */
+  .home-meters {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-meters > .card.meter {
+    flex: 1;
+    align-content: space-between;
   }
 
   .home-boxes > .actions {

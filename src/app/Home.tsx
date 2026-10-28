@@ -331,20 +331,7 @@ export function Home() {
       <h1>{me.householdName}</h1>
 
       <div className="home-columns">
-        <div className="home-column home-boxes">
-          {now !== null && now !== 'unavailable' && (
-            <>
-              <DatabaseWarning database={now.database} />
-              <RowsReadWarning database={now.database} />
-            </>
-          )}
-          <HomeActions energy={energy} />
-          <BillForecastCard energy={energy} />
-          {now !== null && now !== 'unavailable' && now.meters.length === 1 && (
-            <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
-          )}
-        </div>
-        <div className="home-column">
+        <div className="home-column home-meters">
           {now === null && <p className="hint">{t.loading}</p>}
           {now === 'unavailable' && <p className="error">{t.errors.unavailable}</p>}
           {now !== null && now !== 'unavailable' && (
@@ -370,6 +357,19 @@ export function Home() {
           )}
 
           <AnomalyCard energy={energy} />
+        </div>
+        <div className="home-column home-boxes">
+          {now !== null && now !== 'unavailable' && (
+            <>
+              <DatabaseWarning database={now.database} />
+              <RowsReadWarning database={now.database} />
+            </>
+          )}
+          <HomeActions energy={energy} />
+          <BillForecastCard energy={energy} />
+          {now !== null && now !== 'unavailable' && now.meters.length === 1 && (
+            <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
+          )}
         </div>
       </div>
     </>
