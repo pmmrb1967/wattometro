@@ -571,7 +571,24 @@ export const t = {
     vatNote:
       'Ao passar a 6,9 kVA ou menos, os primeiros 200 kWh por mês (300 em família numerosa) passam a ter IVA a 6 %: uma poupança extra, não incluída.',
     tiersTitle: 'Escalões simulados',
-    tierColumns: { tier: 'Escalão', result: 'Resultado' },
+    tierColumns: { tier: 'Escalão', perYear: 'Por ano', result: 'Resultado' },
+    tierCurrent: 'o teu',
+    tierSaves: (euros: string) => `poupa ${euros}`,
+    tierCosts: (euros: string) => `custa mais ${euros}`,
+    tierNoPrice: '—',
+    perYearHint:
+      'Por ano: a diferença no termo de potência, com IVA, ao preço da oferta da ERSE com o mesmo termo de potência que o teu contrato.',
+    change: {
+      title: 'Como mudar de potência',
+      steps: [
+        'Pede a mudança ao teu comercializador. É gratuita e não há limite de mudanças: se o contador começar a cortar, podes voltar a subir.',
+        'Com contador inteligente, a mudança é feita à distância, sem visita; o comercializador diz-te se é o teu caso.',
+        'Se for preciso um técnico da E-Redes, ele tem de chegar ao quadro elétrico: a visita é marcada numa janela de até 2 h 30 min e a mudança demora cerca de 10 minutos. Se não estiveres, pagas uma compensação.',
+        'A potência contratada não pode passar a potência requisitada, que está na ficha eletrotécnica da instalação.',
+        'Algumas ofertas só existem em certos escalões: fora deles, é preciso um contrato novo.',
+      ],
+      source: 'Fonte: ERSE, simulador de potência contratada (perguntas frequentes).',
+    },
     clear: 'nunca chega ao limite de corte',
     safe: (pct: number, when: string) =>
       `passa o limite mas não corta (no máximo ${pct} % do tempo de corte, em ${when})`,

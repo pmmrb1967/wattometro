@@ -33,3 +33,18 @@ Exemplos (monofásico, por omissão), para 6,9 kVA: até 8280 VA (× 1,2) nunca 
 - O critério é em **potência aparente** (VA). O Shelly envia ao segundo a potência ativa `p` e a não ativa `q` (`docs/readings-1s.md`), logo `S = √(p² + q²)` a cada segundo (90 dias de retenção). Para períodos mais antigos só há `power_max_w` por minuto (potência **ativa**, que é ≤ S): a app avisa que a estimativa é menos segura.
 - Com dados só da E-Redes (médias de 15 min) os picos não se veem: a app avisa e não recomenda descer de escalão com base nisso.
 - O IVA reduzido na energia depende do escalão (até 6,9 kVA): `docs/electricity-vat.md`.
+
+## Mudar de potência
+
+Fonte: **ERSE, simulador de potência contratada**, perguntas frequentes ("Como se altera a potência contratada?" e seguintes): <https://simuladorpotencia.erse.pt/>, consultado a **2026-10-28** (a página não tem data; rodapé "ERSE © 2026").
+
+- Pede-se ao **comercializador**, que, se for preciso, marca a visita de um técnico do operador da rede de distribuição, com acesso ao quadro elétrico.
+- **Gratuita.** Subir de escalão aumenta a fatura (o termo de potência paga-se por dia).
+- **Contador inteligente** integrado na rede: a alteração é feita **remotamente**, sem a presença do cliente; o comercializador informa se é o caso.
+- Visita: janela de **até 2 h 30 min**; a alteração dura **cerca de 10 minutos**. Se o cliente não estiver na data e hora marcadas, **paga uma compensação**.
+- A potência contratada **não pode exceder a potência requisitada** (Ficha Eletrotécnica da instalação).
+- Ofertas comerciais podem limitar os escalões: fora deles, só com novo contrato.
+- **Sem limite** ao número de mudanças.
+
+Usado em Potência, "Como mudar de potência", quando o escalão recomendado é outro.
+

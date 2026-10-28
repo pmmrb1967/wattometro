@@ -79,10 +79,9 @@ function tierResult(evaluation: TierEvaluation): string {
   }
 }
 
-function Saving({ tariff, targetVa }: { tariff: Tariff; targetVa: number }) {
+/** The ERSE offers, for the fixed term at other tiers: null while loading, 'none' without them. */
+function useOffers(): Offer[] | null | 'none' {
   const [offers, setOffers] = useState<Offer[] | null | 'none'>(null);
-  const [typed, setTyped] = useState('');
-
   useEffect(() => {
     let active = true;
     void fetchOffers().then((file) => {
@@ -92,6 +91,66 @@ function Saving({ tariff, targetVa }: { tariff: Tariff; targetVa: number }) {
       active = false;
     };
   }, []);
+  return offers;
+}
+
+/** What a tier costs more (positive) or saves (negative) a year, by the ERSE price; null without one. */
+function tierDifference(offers: Offer[] | null | 'none', tariff: Tariff, tierVa: number) {
+  if (tierVa === tariff.powerVa) return 0;
+  if (offers === null || offers === 'none') return null;
+  const match = offerFixedPerDay(offers, tariff, tierVa);
+  if (!match) return null;
+  return (
+    annualFixedCents(tariff, tierVa, match.fixedPerDay) -
+    annualFixedCents(tariff, tariff.powerVa, tariff.fixedPerDay)
+  );
+}
+
+function TierPerYear({
+  offers,
+  tariff,
+  tierVa,
+}: {
+  offers: Offer[] | null | 'none';
+  tariff: Tariff;
+  tierVa: number;
+}) {
+  if (tierVa === tariff.powerVa) return <>{texts.tierCurrent}</>;
+  const difference = tierDifference(offers, tariff, tierVa);
+  if (difference === null) return <>{texts.tierNoPrice}</>;
+  return difference <= 0 ? (
+    <span className="success">{texts.tierSaves(formatCents(-difference))}</span>
+  ) : (
+    <>{texts.tierCosts(formatCents(difference))}</>
+  );
+}
+
+/** ERSE's steps to change the contracted power (docs/contracted-power.md). */
+function ChangeSteps() {
+  const change = texts.change;
+  return (
+    <>
+      <h3>{change.title}</h3>
+      <ol className="steps">
+        {change.steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      <p className="hint">{change.source}</p>
+    </>
+  );
+}
+
+function Saving({
+  tariff,
+  targetVa,
+  offers,
+}: {
+  tariff: Tariff;
+  targetVa: number;
+  offers: Offer[] | null | 'none';
+}) {
+  const [typed, setTyped] = useState('');
 
   if (offers === null) return <p className="hint">{t.loading}</p>;
   const match = offers === 'none' ? null : offerFixedPerDay(offers, tariff, targetVa);
@@ -148,6 +207,7 @@ function RecommendationSection({
   tariff: Tariff | null;
 }) {
   const { signOut } = useSession();
+  const offers = useOffers();
   const [margin, setMargin] = useState(DEFAULT_MARGIN_PCT);
   const [result, setResult] = useState<{ key: string; recommendation: Recommendation } | null>(
     null,
@@ -215,7 +275,7 @@ function RecommendationSection({
               <p className="verdict">
                 {texts.verdictLower(formatKva(tariff.powerVa), formatKva(recommendedVa))}
               </p>
-              <Saving tariff={tariff} targetVa={recommendedVa} />
+              <Saving tariff={tariff} targetVa={recommendedVa} offers={offers} />
             </>
           ) : recommendedVa === tariff.powerVa ? (
             <p className="verdict">{texts.verdictSame(formatKva(tariff.powerVa))}</p>
@@ -233,6 +293,7 @@ function RecommendationSection({
                   <thead>
                     <tr>
                       <th>{texts.tierColumns.tier}</th>
+                      {tariff && <th>{texts.tierColumns.perYear}</th>}
                       <th>{texts.tierColumns.result}</th>
                     </tr>
                   </thead>
@@ -240,6 +301,15 @@ function RecommendationSection({
                     {recommendation.evaluations.map((evaluation) => (
                       <tr key={evaluation.tierVa}>
                         <td>{formatKva(evaluation.tierVa)}</td>
+                        {tariff && (
+                          <td>
+                            <TierPerYear
+                              offers={offers}
+                              tariff={tariff}
+                              tierVa={evaluation.tierVa}
+                            />
+                          </td>
+                        )}
                         <td className={evaluation.status === 'trips' ? 'error' : undefined}>
                           {tierResult(evaluation)}
                         </td>
@@ -250,7 +320,11 @@ function RecommendationSection({
               </div>
             </>
           )}
+          {tariff && recommendation.evaluations.length > 1 && (
+            <p className="hint">{texts.perYearHint}</p>
+          )}
           {estimated > 0 && <p className="hint">{texts.estimated(estimated)}</p>}
+          {tariff && recommendedVa !== null && recommendedVa !== tariff.powerVa && <ChangeSteps />}
         </>
       )}
       <details className="adjust form">

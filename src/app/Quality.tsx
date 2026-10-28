@@ -455,7 +455,7 @@ function ComplaintSection({
       <section className="card form no-print" id="reclamar">
         <h2>{lines.title}</h2>
         <p>{lines.intro}</p>
-        <ol className="complaint-steps">
+        <ol className="steps">
           {lines.steps.map((step) => (
             <li key={step}>{step}</li>
           ))}

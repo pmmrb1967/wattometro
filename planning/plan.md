@@ -299,7 +299,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 - [x] "Melhores horas de amanhã" pelo OMIE do dia seguinte, com aviso no telemóvel: o Cron lê o ficheiro do dia seguinte (`server/src/omie.ts`, `omie_days`), cartão "Amanhã no mercado" em Tarifários e aviso opcional "Horas mais baratas de amanhã"
 - [x] Dossiê de reclamação: em Qualidade › Reclamar, os passos (RQS art. 60.º, 61.º, 66.º, 123.º a 125.º) e uma carta com os factos medidos (semanas fora da norma, extremos, cortes acima do padrão), editável, copiável e impressa numa página à parte do PDF (`src/domain/complaint.ts`, `docs/voltage.md`)
 - [x] Compensações por interrupções (RQS): número e duração contra os limites da zona; estimativa em euros pelo art. 102.º com os valores do Anexo I e o limite de 200 % da tarifa de uso das redes (`src/domain/compensation.ts`, `docs/voltage.md`)
-- [ ] Mudar de potência: poupança, risco de disparo e os passos (comercializador ou E-Redes)
+- [x] Mudar de potência: poupança por ano de cada escalão simulado ao lado do risco de corte, e os passos da ERSE quando o recomendado é outro (`docs/contracted-power.md`)
 - [ ] E-Redes com menos trabalho: lembrete mensal, falhas nos dados, guia passo a passo; modo "só E-Redes" sem Shelly
 - [ ] Solar: dimensionar com o perfil real (PVGIS) e medir a produção no 2.º canal do Shelly (UPAC)
 - [ ] Relés Shelly: termoacumulador e outras cargas nas horas baratas (o browser decide, o Shelly só cumpre horários)

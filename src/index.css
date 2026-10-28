@@ -2258,14 +2258,15 @@ h1,
   outline-offset: 2px;
 }
 
-/* "Reclamar": the letter, editable on screen and on its own page on paper. */
-.complaint-steps {
+/* Numbered steps (Reclamar, Como mudar de potência). */
+.steps {
   display: grid;
   gap: 8px;
   margin: 0;
   padding-left: 1.4em;
 }
 
+/* "Reclamar": the letter, editable on screen and on its own page on paper. */
 .complaint-letter {
   width: 100%;
   min-height: 18rem;
