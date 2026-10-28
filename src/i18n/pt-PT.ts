@@ -8,6 +8,16 @@ interface Band {
 }
 
 const minutes = (count: number) => `${count} ${count === 1 ? 'minuto' : 'minutos'}`;
+/** Monday first, as weekdayOf (src/domain/consumption.ts). */
+const WEEKDAYS_PLURAL = [
+  'segundas-feiras',
+  'terças-feiras',
+  'quartas-feiras',
+  'quintas-feiras',
+  'sextas-feiras',
+  'sábados',
+  'domingos',
+];
 
 export const t = {
   appName: 'Wattómetro',
@@ -73,7 +83,13 @@ export const t = {
     neverSeen: 'Este Shelly ainda não enviou dados.',
     stale: (count: number) => `Sem dados há ${minutes(count)}.`,
     voltage: 'Tensão',
-    voltageRange: (min: string, max: string) => `${min} a ${max}`,
+    voltageRange: (min: string, max: string) => `no último minuto, de ${min} a ${max}`,
+    vsUsual: (pct: number, days: number, weekday: number) =>
+      `${
+        Math.abs(pct) < 5
+          ? 'Como o habitual'
+          : `${Math.abs(pct)} % ${pct > 0 ? 'acima' : 'abaixo'} do habitual`
+      } a esta hora (média de ${days} ${WEEKDAYS_PLURAL[weekday]} anteriores; o traço marca-a).`,
     today: 'Hoje',
     todayMinutes: (count: number) => `${minutes(count)} com dados`,
     peak: 'Pico de hoje',
@@ -87,6 +103,15 @@ export const t = {
       `A base de dados está a ${used} MB de ${limit} MB. É preciso libertar espaço em breve.`,
     rowsReadNear: (pct: number) =>
       `Hoje a app já leu ${pct} % das linhas que a base de dados gratuita permite por dia. Aos 100 % fica parada até à meia-noite UTC.`,
+  },
+  gauges: {
+    powerLabel: (power: string, contracted: string, peak: string | null) =>
+      `Potência ${power}, com ${contracted} contratados${peak ? `; pico de hoje ${peak}` : ''}.`,
+    powerInfo: (k: number) =>
+      `O arco vai até 1,5 vezes a potência contratada (o número no arco). A amarelo, acima dela mas até ${String(k).replace('.', ',')} vezes: o contador tolera. A vermelho, o contador corta ao fim de algum tempo, tanto mais curto quanto maior a potência. O traço marca o pico de hoje.`,
+    voltageLabel: (voltage: string, low: string, high: string) =>
+      `Tensão ${voltage}; a norma pede entre ${low} e ${high}.`,
+    curveLabel: (energy: string) => `Consumo de hoje por quarto de hora, ${energy} até agora.`,
   },
   home: {
     status: 'Em construção',

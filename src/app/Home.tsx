@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** "Agora": the latest minute and today so far, per Shelly channel. Refreshes every minute. */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { SINGLE_PHASE } from '../domain/contracted-power';
 import { electricityCost, energyByPeriod } from '../domain/electricity-cost';
 import { OPTION_PERIODS, tariffOn, type Tariff } from '../domain/tariff';
+import { PowerGauge, TodayEnergy, VoltageRuler } from '../components/Gauges';
 import { InfoTip } from '../components/InfoTip';
+import { weekdayOf } from '../domain/consumption';
+import { typicalSoFar, type TypicalSoFar } from '../domain/typical-day';
+import { VOLTAGE_LIMITS } from '../domain/voltage';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
-import { formatLisbonTime, lisbonDate } from '../lib/time';
+import { formatLisbonTime, lisbonDate, lisbonDayLength, startOfLisbonDay } from '../lib/time';
 import { formatKwh, formatPower, formatVolts } from '../lib/units';
 import { fetchNow, type Meter, type Now } from './api';
 import { AnomalyCard } from './Anomalies';
@@ -75,9 +80,12 @@ function MeterCard({
   now,
   tariff,
   only,
+  typical,
 }: {
   meter: Meter;
   now: number;
+  /** Today so far on a usual day (the house's data); null without enough of it. */
+  typical: TypicalSoFar | null;
   /** The household's only meter: its name would repeat the page's title, so only for screen readers. */
   only: boolean;
   /** undefined while loading. */
@@ -102,8 +110,19 @@ function MeterCard({
       )}
 
       {latest ? (
-        <div className="reading">
-          <span className="reading-label">{t.now.power}</span>
+        <div className={tariff ? 'reading with-gauge' : 'reading'}>
+          <span className="reading-label has-info">
+            {t.now.power}
+            {tariff && <InfoTip text={t.gauges.powerInfo(SINGLE_PHASE.k)} inline />}
+          </span>
+          {tariff && (
+            <PowerGauge
+              powerW={latest.powerAvgW}
+              peakW={today.powerMaxW}
+              contractedVa={tariff.powerVa}
+              k={SINGLE_PHASE.k}
+            />
+          )}
           <span className="reading-value">{formatPower(latest.powerAvgW)}</span>
           <span className="hint">{t.now.minuteAt(formatLisbonTime(latest.ts))}</span>
         </div>
@@ -111,12 +130,32 @@ function MeterCard({
         meter.lastSeenAt !== null && <p className="hint">{t.now.noReadings}</p>
       )}
 
-      <dl className="stats">
-        <div>
-          <dt>{t.now.today}</dt>
-          <dd>{formatKwh(today.energyWh, 2)}</dd>
-          <dd className="hint">{t.now.todayMinutes(today.minutes)}</dd>
+      <div className="today-energy">
+        <div className="today-head">
+          <span className="reading-label">{t.now.today}</span>
+          <span className="today-value">{formatKwh(today.energyWh, 2)}</span>
         </div>
+        <TodayEnergy
+          energyWh={today.energyWh}
+          typicalWh={typical?.energyWh ?? null}
+          quarters={today.quarters}
+          dayStart={startOfLisbonDay(lisbonDate(now))}
+          dayLength={lisbonDayLength(lisbonDate(now))}
+        />
+        <span className="hint">
+          {typical
+            ? t.now.vsUsual(
+                Math.round(
+                  ((today.energyWh - typical.energyWh) * 100) / Math.max(typical.energyWh, 1),
+                ),
+                typical.days,
+                weekdayOf(lisbonDate(now)),
+              )
+            : t.now.todayMinutes(today.minutes)}
+        </span>
+      </div>
+
+      <dl className="stats">
         {tariff !== undefined && (
           <div>
             <dt>{t.now.cost}</dt>
@@ -128,16 +167,28 @@ function MeterCard({
           <dd>{today.powerMaxW === null ? t.now.nothing : formatPower(today.powerMaxW)}</dd>
           <dd className="hint">{t.now.peakHint}</dd>
         </div>
-        <div>
+        <div className="stats-wide">
           <dt>{t.now.voltage}</dt>
           <dd>{latest ? formatVolts(latest.voltageAvgDv) : t.now.nothing}</dd>
           {latest && (
-            <dd className="hint">
-              {t.now.voltageRange(
-                formatVolts(latest.voltageMinDv),
-                formatVolts(latest.voltageMaxDv),
-              )}
-            </dd>
+            <>
+              <dd className="ruler-wrap">
+                <VoltageRuler
+                  avgDv={latest.voltageAvgDv}
+                  minDv={latest.voltageMinDv}
+                  maxDv={latest.voltageMaxDv}
+                  lowDv={VOLTAGE_LIMITS.lowDv}
+                  highDv={VOLTAGE_LIMITS.highDv}
+                  nominalDv={VOLTAGE_LIMITS.nominalDv}
+                />
+              </dd>
+              <dd className="hint">
+                {t.now.voltageRange(
+                  formatVolts(latest.voltageMinDv),
+                  formatVolts(latest.voltageMaxDv),
+                )}
+              </dd>
+            </>
           )}
         </div>
       </dl>
@@ -203,6 +254,12 @@ export function Home() {
   const energy = useHouseholdEnergy();
   // Null when they cannot be read (the cost is then hidden); undefined while loading.
   const tariffs = energy.tariffs ?? (energy.tariffsFailed ? null : undefined);
+  const nowTs = now !== null && now !== 'unavailable' ? now.now : null;
+  // The house's quarters: a usual day only means something for the house's only meter.
+  const typical = useMemo(
+    () => (energy.quarters && nowTs !== null ? typicalSoFar(energy.quarters, nowTs) : null),
+    [energy.quarters, nowTs],
+  );
 
   return (
     <>
@@ -232,6 +289,7 @@ export function Home() {
                     meter={meter}
                     now={now.now}
                     only={now.meters.length === 1}
+                    typical={now.meters.length === 1 ? typical : null}
                     tariff={
                       // Not shown when the tariffs could not be read; "set one up" when there is none.
                       tariffs === undefined || tariffs === null

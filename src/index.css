@@ -637,6 +637,180 @@ h2 {
   font-weight: 400;
 }
 
+.stats .stats-wide {
+  grid-column: 1 / -1;
+}
+
+/* Início's instruments (src/components/Gauges.tsx). */
+.reading.with-gauge {
+  justify-items: center;
+  text-align: center;
+}
+
+.reading.with-gauge .reading-label {
+  justify-self: start;
+}
+
+.gauge {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+}
+
+.gauge path {
+  fill: none;
+}
+
+.gauge-track {
+  stroke: var(--accent-soft);
+  stroke-width: 14;
+}
+
+.gauge-value {
+  stroke: var(--accent);
+  stroke-width: 14;
+}
+
+.gauge-over .gauge-value {
+  stroke: var(--period-full);
+}
+
+.gauge-trip .gauge-value {
+  stroke: var(--danger);
+}
+
+.gauge-zone-over {
+  stroke: var(--period-full);
+  stroke-width: 3;
+}
+
+.gauge-zone-trip {
+  stroke: var(--danger);
+  stroke-width: 3;
+}
+
+.gauge-peak {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.gauge-needle {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.gauge-hub {
+  fill: var(--text);
+}
+
+.gauge-text {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.ruler-text {
+  font-size: 7px;
+}
+
+.today-energy {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.today-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.today-value {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.today-bar,
+.today-curve,
+.ruler {
+  display: block;
+  width: 100%;
+}
+
+.today-bar {
+  height: 14px;
+}
+
+.today-curve {
+  height: 36px;
+}
+
+.today-track {
+  fill: var(--accent-soft);
+}
+
+.today-fill {
+  fill: var(--accent);
+}
+
+.today-fill.above {
+  fill: var(--period-full);
+}
+
+.today-usual {
+  stroke: var(--text);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.today-quarter {
+  fill: var(--accent);
+  opacity: 0.55;
+}
+
+.today-axis {
+  stroke: var(--border);
+  vector-effect: non-scaling-stroke;
+}
+
+.ruler-wrap {
+  max-width: 360px;
+  margin-top: 4px;
+}
+
+.ruler-track {
+  fill: var(--danger-soft);
+}
+
+.ruler-band {
+  fill: var(--accent-soft);
+}
+
+.ruler-tick {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.ruler-range {
+  fill: var(--accent);
+  opacity: 0.35;
+}
+
+.ruler-value {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.ruler-outside .ruler-range,
+.ruler-outside .ruler-value {
+  fill: var(--danger);
+}
+
 /* Devices */
 .devices {
   display: grid;
