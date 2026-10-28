@@ -17,7 +17,8 @@
  *   PUT  /v1/ai-settings       {apiKey, model, autoSend} → 204
  *   DELETE /v1/ai-settings     → 204 (on every device)
  *   GET  /v1/push/key          → {publicKey} (VAPID, for the browser's subscription); 503 none
- *   GET  /v1/push/subscription?endpoint → {alerts: {stale, power, database, cheapHours}}; 404 not this user's
+ *   GET  /v1/push/subscription?endpoint → {alerts: {stale, power, database, cheapHours,
+ *                              eredesImport, tariffReview, budget}}; 404 not this user's
  *   PUT  /v1/push/subscription {endpoint, keys: {p256dh, auth}, alerts} → 204 (a push service's
  *                              endpoint only: webpush.ts, isPushEndpoint)
  *   DELETE /v1/push/subscription {endpoint} → 204
