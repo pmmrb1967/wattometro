@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { annualUsage, compareOffers, costWithMoved, energyFor, type AnnualUsage } from './compare';
+import {
+  annualUsage,
+  compareOffers,
+  costWithMoved,
+  energyFor,
+  withoutTwins,
+  type AnnualUsage,
+} from './compare';
 import { offer } from './offer-fixture';
 import type { TariffInput } from './tariff';
 
@@ -135,5 +142,38 @@ describe('compareOffers', () => {
       full: 1_800_000,
       peak: 600_000,
     });
+  });
+});
+
+describe('withoutTwins', () => {
+  const usage: AnnualUsage = {
+    totalWh: 3_000_000,
+    byCycle: {
+      daily: { empty: 600_000, full: 1_800_000, peak: 600_000 },
+      weekly: { empty: 900_000, full: 1_500_000, peak: 600_000 },
+    },
+    days: 365,
+    extrapolated: false,
+  };
+  const same = { '1': { fixedPerDay: 0, simple: 0.18 } };
+  const results = compareOffers({
+    usage,
+    current,
+    today: '2026-10-22',
+    offers: [
+      offer('D', same, { supplier: 'X', supply: 'DUAL' }),
+      offer('E', same, { supplier: 'X' }),
+      offer('F', same, { supplier: 'Y' }),
+      offer('G', { '1': { fixedPerDay: 0, simple: 0.19 } }, { supplier: 'X', supply: 'DUAL' }),
+    ],
+  }).results;
+
+  it('shows a dual offer priced as an electricity-only one of the supplier once', () => {
+    // D and E: same supplier, option and prices; F another supplier; G dearer.
+    expect(withoutTwins(results).map(({ result, alsoGas }) => [result.offer.id, alsoGas])).toEqual([
+      ['E', true],
+      ['F', false],
+      ['G', false],
+    ]);
   });
 });

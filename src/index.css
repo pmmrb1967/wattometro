@@ -1957,10 +1957,8 @@ a.button-link {
 .compare-current {
   display: grid;
   gap: 4px;
-  padding: 16px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .compare-current h2 {
@@ -2081,4 +2079,35 @@ a.button-link {
 
 .card ul:not([class]) {
   padding-left: 1.2em;
+}
+
+/* Consumo's pages as tabs: links in the segmented control. */
+.segmented.tabs {
+  margin: 0 0 12px;
+  max-width: 100%;
+}
+
+.segmented.tabs a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.segmented.tabs a + a {
+  border-left: 1px solid var(--border);
+}
+
+.segmented.tabs a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* A page's general notes, under its last card. */
+.page-how {
+  padding: 0 4px;
 }

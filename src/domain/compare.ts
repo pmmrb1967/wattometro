@@ -334,3 +334,38 @@ export function compareOffers(input: {
     },
   };
 }
+
+/** An offer, and whether a dual offer of the supplier costs the same (shown once). */
+export interface ShownOffer {
+  result: OfferResult;
+  alsoGas: boolean;
+}
+
+/**
+ * A dual offer (electricity and gas) whose electricity costs the same as an
+ * electricity-only offer of the same supplier and option: one card, the
+ * electricity-only one, tagged "Também com gás".
+ */
+export function withoutTwins(results: readonly OfferResult[]): ShownOffer[] {
+  const shown: ShownOffer[] = [];
+  const byKey = new Map<string, number>();
+  for (const result of results) {
+    const key = [
+      result.offer.supplier,
+      result.option,
+      result.annualCents,
+      result.fixedPerDay,
+      JSON.stringify(result.energyPrices),
+    ].join('|');
+    const at = byKey.get(key);
+    const twin = at === undefined ? undefined : shown[at];
+    const dual = result.offer.supply === 'DUAL';
+    if (twin && (twin.result.offer.supply === 'DUAL') !== dual) {
+      shown[at!] = { result: dual ? twin.result : result, alsoGas: true };
+      continue;
+    }
+    byKey.set(key, shown.length);
+    shown.push({ result, alsoGas: false });
+  }
+  return shown;
+}

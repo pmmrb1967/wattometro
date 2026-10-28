@@ -32,6 +32,7 @@ import { useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
 import { MeterSelect } from './MeterSelect';
 import { ExplainButton } from './Explain';
+import { ConsumptionTabs } from './ConsumptionTabs';
 import { useSession } from './session';
 
 const texts = t.report;
@@ -130,16 +131,12 @@ export function Report() {
   }, [quarters, month, tariff]);
 
   const [generated] = useState(() => formatLisbonDateTime(Math.floor(Date.now() / 1000)));
-  const back = (
-    <p className="no-print">
-      <Link to="/consumo">{texts.back}</Link>
-    </p>
-  );
+  const tabs = <ConsumptionTabs appliances={Boolean(energy.houseShelly)} />;
   if (error) {
     return (
       <>
-        {back}
         <h1>{texts.title}</h1>
+        {tabs}
         <p className="error">{error}</p>
       </>
     );
@@ -147,8 +144,8 @@ export function Report() {
   if (meters === null || (meter && !quarters)) {
     return (
       <>
-        {back}
         <h1>{texts.title}</h1>
+        {tabs}
         <p className="hint">{t.loading}</p>
       </>
     );
@@ -156,8 +153,8 @@ export function Report() {
   if (!month || !report) {
     return (
       <>
-        {back}
         <h1>{texts.title}</h1>
+        {tabs}
         <p>
           {t.tariffs.noData} <Link to="/definicoes#dados">{t.tariffs.toSettings}</Link>
         </p>
@@ -170,12 +167,12 @@ export function Report() {
   const source = meterLabel(meter ?? '', devices, energy.houseShelly, me.householdName);
   return (
     <>
-      {back}
       <div className="print-only report-head">
         <p>{texts.household(me.householdName)}</p>
         <p>{texts.generated(generated)}</p>
       </div>
       <h1>{texts.heading(monthName(month))}</h1>
+      {tabs}
 
       <section className="card form no-print">
         <div className="filters">
@@ -194,48 +191,6 @@ export function Report() {
         <button type="button" className="primary" onClick={() => window.print()}>
           {texts.print}
         </button>
-      </section>
-
-      <section className="card">
-        <h2>{texts.usageTitle}</h2>
-        <p className="big">{kwh(usage.totalWh)}</p>
-        <p>{texts.perDay(formatKwh(usage.perDayWh, 1))}</p>
-        {usage.daysWithData < usage.days && (
-          <p className="hint">{texts.missingDays(usage.daysWithData, usage.days)}</p>
-        )}
-        <ul className="caveats">
-          <Comparison
-            label={monthName(addMonths(month, -1))}
-            now={usage}
-            before={report.previous}
-            pct={report.vsPrevious}
-          />
-          <Comparison
-            label={monthName(addMonths(month, -12))}
-            now={usage}
-            before={report.lastYear}
-            pct={report.vsLastYear}
-          />
-        </ul>
-        {chart && (
-          <BarChart
-            bars={chart.bars}
-            ticks={chart.ticks}
-            axis={energyAxis}
-            caption={t.consumption.charts.axisPerDay}
-            label={texts.chartLabel(monthName(month))}
-          />
-        )}
-        {used.length > 1 && (
-          <ul className="chart-legend">
-            {used.map((period) => (
-              <li key={period}>
-                <span className={`legend-swatch period-${period}`} aria-hidden="true" />
-                {`${periodNames[period]}: ${kwh(report.byPeriod[period] ?? 0)} (${Math.round(((report.byPeriod[period] ?? 0) * 100) / (usage.totalWh || 1))} %)`}
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <section className="card">
@@ -295,6 +250,48 @@ export function Report() {
             }
           />
         </div>
+      </section>
+
+      <section className="card">
+        <h2>{texts.usageTitle}</h2>
+        <p className="big">{kwh(usage.totalWh)}</p>
+        <p>{texts.perDay(formatKwh(usage.perDayWh, 1))}</p>
+        {usage.daysWithData < usage.days && (
+          <p className="hint">{texts.missingDays(usage.daysWithData, usage.days)}</p>
+        )}
+        <ul className="caveats">
+          <Comparison
+            label={monthName(addMonths(month, -1))}
+            now={usage}
+            before={report.previous}
+            pct={report.vsPrevious}
+          />
+          <Comparison
+            label={monthName(addMonths(month, -12))}
+            now={usage}
+            before={report.lastYear}
+            pct={report.vsLastYear}
+          />
+        </ul>
+        {chart && (
+          <BarChart
+            bars={chart.bars}
+            ticks={chart.ticks}
+            axis={energyAxis}
+            caption={t.consumption.charts.axisPerDay}
+            label={texts.chartLabel(monthName(month))}
+          />
+        )}
+        {used.length > 1 && (
+          <ul className="chart-legend">
+            {used.map((period) => (
+              <li key={period}>
+                <span className={`legend-swatch period-${period}`} aria-hidden="true" />
+                {`${periodNames[period]}: ${kwh(report.byPeriod[period] ?? 0)} (${Math.round(((report.byPeriod[period] ?? 0) * 100) / (usage.totalWh || 1))} %)`}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="card">

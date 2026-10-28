@@ -69,20 +69,21 @@ function Headline({ result }: { result: ForecastResult }) {
 /** Compact card for the "Agora" page. */
 export function BillForecastCard({ energy }: { energy: HouseholdEnergy }) {
   const result = useBillForecast(energy);
-  if (energy.error || energy.meters?.length === 0 || result === null) return null;
+  if (energy.error || energy.meters?.length === 0 || !result) return null;
+  const { forecast, range } = result;
+  const money = forecast.costCents !== null;
+  const format = (value: number) => (money ? formatWholeEuros(value) : formatKwh(value, 0));
+  const spent = money ? formatCents(forecast.spentCents ?? 0) : formatKwh(forecast.knownWh, 0);
   return (
-    <section className="card">
-      <h2>{texts.title(monthName(lisbonToday().slice(0, 7)))}</h2>
-      {result === undefined ? (
-        <p className="hint">{t.loading}</p>
-      ) : (
-        <>
-          <Headline result={result} />
-          <p>
-            <Link to="/consumo#previsao">{texts.details}</Link>
-          </p>
-        </>
-      )}
+    <section className="actions" aria-label={texts.titleShort}>
+      <Link to="/consumo#previsao" className="action">
+        <span className="action-title">{texts.title(monthName(forecast.month))}</span>
+        <span className="action-value">{format(forecast.costCents ?? forecast.totalWh)}</span>
+        <span className="action-hint">
+          {range && `${texts.range(format(range.low), format(range.high))} `}
+          {texts.spentSoFar(spent, forecast.knownDays)}
+        </span>
+      </Link>
     </section>
   );
 }

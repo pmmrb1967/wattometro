@@ -505,7 +505,7 @@ export function Power() {
         </>
       )}
 
-      <section className="card">
+      <div className="page-how">
         <HowItWorks>
           <ul className="hint caveats">
             {texts.caveats.map((caveat) => (
@@ -513,7 +513,7 @@ export function Power() {
             ))}
           </ul>
         </HowItWorks>
-      </section>
+      </div>
     </>
   );
 }

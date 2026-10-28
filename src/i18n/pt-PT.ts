@@ -42,11 +42,7 @@ export const t = {
         '122\u00a0€/ano',
         'A oferta mais barata da ERSE para o consumo real da casa.',
       ],
-      [
-        'Consumo base: 156\u00a0W',
-        '289\u00a0€/ano',
-        'O que fica ligado de noite, e quanto custa.',
-      ],
+      ['Consumo base: 156\u00a0W', '289\u00a0€/ano', 'O que fica ligado de noite, e quanto custa.'],
     ],
     examplesNote:
       'Valores da casa de exemplo. Com o teu Shelly ou o ficheiro da E-Redes, são os da tua casa.',
@@ -770,8 +766,6 @@ export const t = {
   },
   appliancesPage: {
     title: 'Aparelhos',
-    open: 'Aparelhos',
-    back: '← Consumo',
     intro:
       'O que cada aparelho reconhecido gasta e custa, e os valores ao segundo de um dia, onde dás nome aos aparelhos.',
     noShelly: 'Só com um Shelly no quadro: os aparelhos reconhecem-se pelos valores ao segundo.',
@@ -891,7 +885,8 @@ export const t = {
     range: (low: string, high: string) => `Provavelmente entre ${low} e ${high}.`,
     spent: (days: number) => `Já gasto (${days} ${days === 1 ? 'dia' : 'dias'})`,
     energy: 'Energia prevista no mês',
-    details: 'Como é calculada',
+    spentSoFar: (amount: string, days: number) =>
+      `Já gastaste ${amount} em ${days} ${days === 1 ? 'dia' : 'dias'}.`,
     notEnough:
       'Ainda não há dados suficientes para prever a fatura: são precisas pelo menos 7 dias de consumo nas últimas 4 semanas.',
     methodTemperature:
@@ -934,6 +929,12 @@ export const t = {
     attribution: 'Dados meteorológicos:',
   },
   consumption: {
+    tabs: {
+      label: 'Páginas do consumo',
+      overview: 'Visão geral',
+      report: 'Relatório',
+      appliances: 'Aparelhos',
+    },
     title: 'Consumo',
     intro:
       'O que a tua casa gastou nos últimos 12 meses, a partir do ficheiro da E-Redes ou do Shelly.',
@@ -1013,8 +1014,6 @@ export const t = {
   },
   report: {
     title: 'Relatório do mês',
-    open: 'Relatório do mês',
-    back: '← Consumo',
     heading: (month: string) => `Relatório de ${month}`,
     household: (name: string) => `Casa: ${name}`,
     generated: (when: string) => `Gerado pelo Wattómetro em ${when}`,
@@ -1127,6 +1126,7 @@ export const t = {
     },
     tags: {
       dual: 'Com gás',
+      alsoGas: 'Também com gás',
       loyalty: 'Fidelização',
       services: 'Serviços obrigatórios',
       indexed: 'Preço indexado',

@@ -9,6 +9,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   annualUsage,
+  withoutTwins,
+  type ShownOffer,
   compareOffers,
   costWithMoved,
   type AnnualUsage,
@@ -257,11 +259,11 @@ function Amount({ cents }: { cents: number }) {
 }
 
 /** What sets an offer apart, as tags: gas, loyalty, services, indexed prices. */
-function offerTags(result: OfferResult): string[] {
+function offerTags(result: OfferResult, alsoGas: boolean): string[] {
   const { offer } = result;
   const tags = texts.tags;
   const list: (string | false)[] = [
-    offer.supply === 'DUAL' && tags.dual,
+    alsoGas ? tags.alsoGas : offer.supply === 'DUAL' && tags.dual,
     offer.loyalty && tags.loyalty,
     offer.servicesPerYearWithVat > 0 && tags.services,
     offer.indexedPrices &&
@@ -275,8 +277,8 @@ function offerTags(result: OfferResult): string[] {
 }
 
 /** One offer: name, supplier and option, the year, the saving, prices, tags and its page. */
-function OfferCard({ result }: { result: OfferResult }) {
-  const tags = offerTags(result);
+function OfferCard({ result, alsoGas }: ShownOffer) {
+  const tags = offerTags(result, alsoGas);
   return (
     <li className="offer">
       <div className="offer-head">
@@ -426,9 +428,11 @@ export function Tariffs() {
     );
   }
 
-  const results = (comparison?.results ?? []).filter(
-    (result) => filters.option === 'all' || result.option === filters.option,
+  const twinless = withoutTwins(comparison?.results ?? []);
+  const results = twinless.filter(
+    ({ result }) => filters.option === 'all' || result.option === filters.option,
   );
+  const best = twinless[0]?.result;
   const split = usage?.byCycle.daily;
 
   return (
@@ -436,12 +440,12 @@ export function Tariffs() {
       {header}
       {comparison && (
         <section className="card form">
-          {comparison.results[0] && comparison.results[0].savingCents > 0 ? (
+          {best && best.savingCents > 0 ? (
             <p className="verdict success">
               {texts.verdictBetter(
-                formatCents(comparison.results[0].savingCents),
-                comparison.results[0].offer.name,
-                comparison.results[0].offer.supplier,
+                formatCents(best.savingCents),
+                best.offer.name,
+                best.offer.supplier,
               )}
             </p>
           ) : (
@@ -534,8 +538,12 @@ export function Tariffs() {
             </div>
             <p className="hint">{texts.count(results.length)}</p>
             <ol className="offers">
-              {results.slice(0, shown).map((result) => (
-                <OfferCard key={`${result.offer.id}:${result.option}`} result={result} />
+              {results.slice(0, shown).map(({ result, alsoGas }) => (
+                <OfferCard
+                  key={`${result.offer.id}:${result.option}`}
+                  result={result}
+                  alsoGas={alsoGas}
+                />
               ))}
             </ol>
             {(results.length > shown || shown > FIRST_SHOWN) && (
@@ -583,7 +591,7 @@ export function Tariffs() {
             )}
           </section>
 
-          <section className="card">
+          <div className="page-how">
             <HowItWorks>
               <ul className="hint caveats">
                 {texts.caveats.map((caveat) => (
@@ -591,7 +599,7 @@ export function Tariffs() {
                 ))}
               </ul>
             </HowItWorks>
-          </section>
+          </div>
         </>
       )}
     </>

@@ -15,6 +15,7 @@ import { formatKwh, formatPower } from '../lib/units';
 import { AnomalyList } from './Anomalies';
 import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
+import { ConsumptionTabs } from './ConsumptionTabs';
 import { lastYear, useHouseholdEnergy } from './household-energy';
 import { HOUSE_METER, shellyName } from './meters';
 import { MeterSelect } from './MeterSelect';
@@ -113,17 +114,8 @@ export function Consumption() {
   const header = (
     <>
       <h1>{texts.title}</h1>
+      <ConsumptionTabs appliances={Boolean(energy.houseShelly)} />
       <p className="lead">{texts.intro}</p>
-      <p className="button-row">
-        <Link className="secondary button-link" to="/consumo/relatorio">
-          {t.report.open}
-        </Link>
-        {energy.houseShelly && (
-          <Link className="secondary button-link" to="/consumo/aparelhos">
-            {t.appliancesPage.open}
-          </Link>
-        )}
-      </p>
     </>
   );
   if (error) {
@@ -164,6 +156,12 @@ export function Consumption() {
       {!quarters && <p className="hint">{t.loading}</p>}
       {quarters && (
         <>
+          <BillForecastDetail energy={energy} />
+          <Baseload
+            quarters={quarters}
+            tariff={tariff ?? null}
+            eredes={meter === 'eredes' || meter === HOUSE_METER}
+          />
           <ConsumptionCharts
             quarters={quarters}
             today={energy.today}
@@ -173,12 +171,6 @@ export function Consumption() {
               energy.houseShelly ? shellyName(energy.houseShelly, energy.devices) : 'Shelly'
             }
             periods={periods}
-          />
-          <BillForecastDetail energy={energy} />
-          <Baseload
-            quarters={quarters}
-            tariff={tariff ?? null}
-            eredes={meter === 'eredes' || meter === HOUSE_METER}
           />
           <AnomalyList energy={energy} />
           {energy.compare && (
