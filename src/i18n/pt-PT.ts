@@ -926,6 +926,7 @@ export const t = {
     once: (time: string, duration: string) => `Às ${time}, durante ${duration}`,
     times: (count: number, duration: string) => `${count} vezes, cerca de ${duration} cada`,
     range: (shortest: string, longest: string) => `de ${shortest} a ${longest}`,
+    showEach: (count: number) => `Ver as ${count} vezes`,
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
     notThisLabel: (label: string, power: string) =>
       `Não é "${label}"? Que aparelho é este (${power})?`,

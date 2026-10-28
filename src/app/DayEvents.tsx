@@ -295,6 +295,22 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                           formatDuration(appliance.maxDurationS),
                         )}`}
                     </p>
+                    {group.count > 1 && (
+                      <details className="adjust group-cycles">
+                        <summary>{texts.showEach(group.count)}</summary>
+                        <ol>
+                          {group.cycles.map((cycle) => (
+                            <li key={cycle.start}>
+                              {texts.once(
+                                formatLisbonTime(cycle.start),
+                                formatDuration(cycle.durationS),
+                              )}
+                              {` · ${formatKwh(cycle.energyWh, 2)}`}
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    )}
                     {named && naming !== first && (
                       <button
                         type="button"

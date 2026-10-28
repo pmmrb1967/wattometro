@@ -2430,6 +2430,13 @@ a.button-link {
   font-size: var(--fs-lg);
 }
 
+.appliance-groups .group-cycles ol {
+  margin: 0;
+  padding-left: 1.5em;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .appliance-groups .group-name {
   justify-self: start;
 }
