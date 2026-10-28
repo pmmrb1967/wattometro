@@ -77,6 +77,9 @@ describe('compareOffers', () => {
     // B, weekly (cheaper): 2 100 × 0,25 + 900 × 0,10 = 615 € × m = 671,65 €
     //   (daily would be 2 400 × 0,25 + 600 × 0,10 = 660 €).
     expect(comparison.currentCents).toBe(65_527);
+    expect(comparison.currentEnergy).toEqual({ simple: 3_000_000 });
+    const { powerCents, energyCents, taxesCents, servicesCents } = comparison.currentCost;
+    expect(powerCents + energyCents + taxesCents + servicesCents).toBe(65_527);
     expect(
       comparison.results.map((result) => [
         result.offer.id,

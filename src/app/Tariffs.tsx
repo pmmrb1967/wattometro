@@ -5,7 +5,7 @@
  * would have to move to the empty period for bi- or tri-hourly to pay off.
  * Calculation: src/domain/compare.ts.
  */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   annualUsage,
@@ -17,6 +17,7 @@ import {
   type EnergyAdjust,
   type Shift,
 } from '../domain/compare';
+import type { Cost, EnergyByPeriod } from '../domain/electricity-cost';
 import type { BillingPeriod, Cycle, MeterPeriod, TariffInput } from '../domain/tariff';
 import type { RecentAppliances } from '../nilm/recent';
 import type { HouseholdEnergy } from './household-energy';
@@ -167,18 +168,54 @@ function Indexed({ effect, offers }: { effect: ProfileEffect; offers: readonly O
   );
 }
 
-/** An offer's prices and what each part costs in the year, under "Ver preços". */
-function OfferPrices({ result }: { result: OfferResult }) {
+/** "Potência: 0,4532 €/dia · Vazio: 0,105 €/kWh · …": the prices, without VAT. */
+function PriceLine({
+  fixedPerDay,
+  energyPrices,
+}: {
+  fixedPerDay: number;
+  energyPrices: Partial<Record<BillingPeriod, number>>;
+}) {
+  const periods = Object.keys(energyPrices) as BillingPeriod[];
+  return (
+    <p className="offer-price-line">
+      {[
+        texts.prices.item(texts.prices.power, formatPricePerDay(fixedPerDay)),
+        ...periods.map((period) =>
+          texts.prices.item(
+            t.settings.tariff.periods[period],
+            formatPricePerKwh(energyPrices[period] ?? 0),
+          ),
+        ),
+      ].join(' · ')}
+    </p>
+  );
+}
+
+/** What each part of the bill costs in the year, under "Ver as contas do ano". */
+function YearDetails({
+  cost,
+  energyPrices,
+  energy,
+  fixedPerDay,
+  note,
+}: {
+  cost: Cost;
+  energyPrices: Partial<Record<BillingPeriod, number>>;
+  energy: EnergyByPeriod;
+  fixedPerDay: number;
+  note: string;
+}) {
   const prices = texts.prices;
-  const periods = Object.keys(result.energyPrices) as BillingPeriod[];
+  const periods = Object.keys(energyPrices) as BillingPeriod[];
   return (
     <details className="offer-prices">
       <summary>{prices.toggle}</summary>
       <dl>
         <div>
           <dt>{prices.power}</dt>
-          <dd>{formatPricePerDay(result.fixedPerDay)}</dd>
-          <dd>{prices.perYear(formatCents(result.cost.powerCents))}</dd>
+          <dd>{formatPricePerDay(fixedPerDay)}</dd>
+          <dd>{prices.perYear(formatCents(cost.powerCents))}</dd>
         </div>
         <div>
           <dt>{prices.energy}</dt>
@@ -186,29 +223,97 @@ function OfferPrices({ result }: { result: OfferResult }) {
             <dd key={period}>
               {prices.energyLine(
                 period === 'simple' ? null : t.settings.tariff.periods[period],
-                formatPricePerKwh(result.energyPrices[period] ?? 0),
-                formatKwh(result.energy[period] ?? 0, 0),
+                formatPricePerKwh(energyPrices[period] ?? 0),
+                formatKwh(energy[period] ?? 0, 0),
               )}
             </dd>
           ))}
-          <dd>{prices.perYear(formatCents(result.cost.energyCents))}</dd>
+          <dd>{prices.perYear(formatCents(cost.energyCents))}</dd>
         </div>
         <div>
           <dt>{prices.taxes}</dt>
-          <dd>{prices.perYear(formatCents(result.cost.taxesCents))}</dd>
+          <dd>{prices.perYear(formatCents(cost.taxesCents))}</dd>
         </div>
-        {result.cost.servicesCents > 0 && (
+        {cost.servicesCents > 0 && (
           <div>
             <dt>{prices.services}</dt>
-            <dd>{prices.perYear(formatCents(result.cost.servicesCents))}</dd>
+            <dd>{prices.perYear(formatCents(cost.servicesCents))}</dd>
           </div>
         )}
       </dl>
-      <p className="hint">
-        {prices.note}
-        {result.adjusted && ` ${prices.adjusted}`}
-      </p>
+      <p className="hint">{note}</p>
     </details>
+  );
+}
+
+/** "€ /ano": the amount large, the unit small. */
+function Amount({ cents }: { cents: number }) {
+  return (
+    <p className="compare-amount">
+      {formatCents(cents)}
+      <span>{texts.perYearUnit}</span>
+    </p>
+  );
+}
+
+/** What sets an offer apart, as tags: gas, loyalty, services, indexed prices. */
+function offerTags(result: OfferResult): string[] {
+  const { offer } = result;
+  const tags = texts.tags;
+  const list: (string | false)[] = [
+    offer.supply === 'DUAL' && tags.dual,
+    offer.loyalty && tags.loyalty,
+    offer.servicesPerYearWithVat > 0 && tags.services,
+    offer.indexedPrices &&
+      (result.adjusted
+        ? tags.dynamic
+        : indexedKind(offer) === 'average'
+          ? tags.average
+          : tags.indexed),
+  ];
+  return list.filter((tag): tag is string => tag !== false);
+}
+
+/** One offer: name, supplier and option, the year, the saving, prices, tags and its page. */
+function OfferCard({ result }: { result: OfferResult }) {
+  const tags = offerTags(result);
+  return (
+    <li className="offer">
+      <div className="offer-head">
+        <div>
+          <strong>{result.offer.name}</strong>
+          <span className="hint">
+            {result.offer.supplier} · {optionLabel(result)}
+          </span>
+        </div>
+        <Amount cents={result.annualCents} />
+      </div>
+      {result.savingCents > 0 ? (
+        <p className="offer-saving">{texts.saving(formatCents(result.savingCents))}</p>
+      ) : (
+        <p className="hint offer-dearer">{texts.dearer(formatCents(-result.savingCents))}</p>
+      )}
+      <PriceLine fixedPerDay={result.fixedPerDay} energyPrices={result.energyPrices} />
+      {tags.length > 0 && (
+        <ul className="offer-tags">
+          {tags.map((tag) => (
+            <li key={tag}>{tag}</li>
+          ))}
+        </ul>
+      )}
+      <YearDetails
+        cost={result.cost}
+        energyPrices={result.energyPrices}
+        energy={result.energy}
+        fixedPerDay={result.fixedPerDay}
+        note={result.adjusted ? `${texts.prices.note} ${texts.prices.adjusted}` : texts.prices.note}
+      />
+      {result.offer.links.offer && (
+        <a className="offer-sheet" href={result.offer.links.offer} rel="noreferrer" target="_blank">
+          {texts.sheet}
+        </a>
+      )}
+    </li>
   );
 }
 
@@ -342,15 +447,26 @@ export function Tariffs() {
           ) : (
             <p className="verdict">{texts.verdictBest}</p>
           )}
-          <h2>{texts.currentTitle}</h2>
-          <p className="big">{texts.perYearCost(formatCents(comparison.currentCents))}</p>
-          <p className="hint">
-            {texts.currentHint(
-              tariff.supplier ?? texts.yourContract,
-              t.settings.tariff.options[tariff.option],
-              formatKva(tariff.powerVa),
-            )}
-          </p>
+          <div className="compare-current">
+            <h2>{texts.currentTitle}</h2>
+            <Amount cents={comparison.currentCents} />
+            <p>
+              {[
+                tariff.supplier ?? texts.yourContract,
+                t.settings.tariff.options[tariff.option],
+                formatKva(tariff.powerVa),
+              ].join(' · ')}
+            </p>
+            <PriceLine fixedPerDay={tariff.fixedPerDay} energyPrices={tariff.energy} />
+            <p className="hint">{texts.currentHint}</p>
+            <YearDetails
+              cost={comparison.currentCost}
+              energyPrices={tariff.energy}
+              energy={comparison.currentEnergy}
+              fixedPerDay={tariff.fixedPerDay}
+              note={texts.prices.currentNote}
+            />
+          </div>
         </section>
       )}
 
@@ -417,73 +533,11 @@ export function Tariffs() {
               </label>
             </div>
             <p className="hint">{texts.count(results.length)}</p>
-            <div className="table-wrap">
-              <table className="table stacked">
-                <thead>
-                  <tr>
-                    <th>{texts.colOffer}</th>
-                    <th>{texts.colOption}</th>
-                    <th className="number">{texts.colYear}</th>
-                    <th className="number">{texts.colSaving}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.slice(0, shown).map((result) => (
-                    <Fragment key={`${result.offer.id}:${result.option}`}>
-                      <tr className="has-prices">
-                        <td>
-                          <strong>{result.offer.supplier}</strong>
-                          <br />
-                          {result.offer.links.offer ? (
-                            <a href={result.offer.links.offer} rel="noreferrer" target="_blank">
-                              {result.offer.name}
-                            </a>
-                          ) : (
-                            result.offer.name
-                          )}
-                          {(result.offer.loyalty ||
-                            result.offer.servicesPerYearWithVat > 0 ||
-                            result.offer.indexedPrices ||
-                            result.offer.supply === 'DUAL') && (
-                            <span className="hint">
-                              {' · '}
-                              {[
-                                result.offer.supply === 'DUAL' && texts.tagDual,
-                                result.offer.loyalty && texts.tagLoyalty,
-                                result.offer.servicesPerYearWithVat > 0 && texts.tagServices,
-                                result.offer.indexedPrices &&
-                                  (result.adjusted
-                                    ? texts.tagDynamic
-                                    : indexedKind(result.offer) === 'average'
-                                      ? texts.tagAverage
-                                      : texts.tagIndexed),
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          )}
-                        </td>
-                        <td className="stacked-sub">{optionLabel(result)}</td>
-                        <td className="number" data-label={texts.colYear}>
-                          {formatCents(result.annualCents)}
-                        </td>
-                        <td
-                          className={result.savingCents > 0 ? 'number success' : 'number'}
-                          data-label={texts.colSaving}
-                        >
-                          {formatCents(result.savingCents)}
-                        </td>
-                      </tr>
-                      <tr className="prices-row">
-                        <td colSpan={4}>
-                          <OfferPrices result={result} />
-                        </td>
-                      </tr>
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ol className="offers">
+              {results.slice(0, shown).map((result) => (
+                <OfferCard key={`${result.offer.id}:${result.option}`} result={result} />
+              ))}
+            </ol>
             {(results.length > shown || shown > FIRST_SHOWN) && (
               <p className="list-toggle">
                 {results.length > shown && (

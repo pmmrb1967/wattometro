@@ -174,6 +174,10 @@ export interface Shift {
 
 export interface Comparison {
   currentCents: Cents;
+  /** The current contract's year by part, with VAT (what currentCents adds up). */
+  currentCost: Cost;
+  /** The household's year of energy in the current contract's periods, Wh. */
+  currentEnergy: EnergyByPeriod;
   /** Cheapest first. */
   results: OfferResult[];
   /** Null when no offer of the option has prices at this power, or moving never pays off. */
@@ -263,11 +267,9 @@ export function compareOffers(input: {
   adjust?: EnergyAdjust;
 }): Comparison {
   const { usage, current, offers, today, adjust } = input;
-  const currentCents = electricityCost(
-    energyFor(current.option, current.cycle, usage),
-    YEAR_DAYS,
-    current,
-  ).totalCents;
+  const currentEnergy = energyFor(current.option, current.cycle, usage);
+  const currentCost = electricityCost(currentEnergy, YEAR_DAYS, current);
+  const currentCents = currentCost.totalCents;
 
   const key = powerKey(current.powerVa);
   const results: OfferResult[] = [];
@@ -323,6 +325,8 @@ export function compareOffers(input: {
   const target = Number.isFinite(simpleTarget) ? simpleTarget : currentCents;
   return {
     currentCents,
+    currentCost,
+    currentEnergy,
     results,
     shift: {
       bi: shiftFor(results, 'bi', usage, current, target, adjust),
