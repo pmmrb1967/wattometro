@@ -1215,7 +1215,7 @@ export const t = {
     toSettings: 'Ir para Definições',
     usageTitle: 'O teu consumo',
     meter: 'Consumos de',
-    eredesMeter: 'E-Redes (contador da rede)',
+    eredesMeter: (house: string) => `${house} (E-Redes)`,
     houseMeter: (house: string) => `${house} (E-Redes + Shelly)`,
     shellyMeter: (shelly: string) => `${shelly} (Shelly)`,
     tooLittle: 'Há menos de 30 dias de consumos: pouco para estimar um ano.',

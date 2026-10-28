@@ -6,13 +6,15 @@ import type { Device, EnergyMeter } from './api';
 export const HOUSE_METER = 'house';
 
 /**
- * "Casa (E-Redes + Shelly)" with the household's name (Definições), "E-Redes
- * (contador da rede)" or the Shelly's name (and channel) with "(Shelly)".
+ * The household's name (Definições) with where the data comes from: "Casa
+ * (E-Redes + Shelly)", "Casa (E-Redes)", "Casa (Shelly)". With more than one
+ * Shelly, or a channel other than the first, the Shelly's name tells them apart.
  */
 export function meterLabel(meter: string, devices: Device[], houseName: string): string {
   if (meter === HOUSE_METER) return t.tariffs.houseMeter(houseName);
-  if (meter === 'eredes') return t.tariffs.eredesMeter;
-  return t.tariffs.shellyMeter(shellyName(meter, devices));
+  if (meter === 'eredes') return t.tariffs.eredesMeter(houseName);
+  const whole = devices.length <= 1 && meter.endsWith(':0');
+  return t.tariffs.shellyMeter(whole ? houseName : shellyName(meter, devices));
 }
 
 /** The Shelly's name, with its channel when not the first. */
