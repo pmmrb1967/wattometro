@@ -570,15 +570,18 @@ export const t = {
       'O contador compara com a potência contratada a potência aparente (kVA): o que os aparelhos pedem à rede. Os que têm motor ou transformador pedem mais do que a energia que gastam (a diferença é a potência não ativa), por isso o pico em kVA é maior do que em kW. Na fatura, a energia conta em kWh; a potência contratada escolhe-se pelo pico em kVA.',
     recommended: 'Escalão recomendado',
     verdictLower: (current: string, recommended: string) =>
-      `Podes baixar de ${current} para ${recommended}: nos últimos 90 dias o contador nunca teria cortado.`,
-    verdictSame: (current: string) =>
-      `Os teus ${current} estão certos: é o escalão mais baixo que não teria cortado nos últimos 90 dias.`,
+      `Podes baixar de ${current} para ${recommended}`,
+    verdictLowerWhy: 'Nos últimos 90 dias, o contador nunca teria cortado.',
+    verdictSame: (current: string) => `Os teus ${current} estão certos`,
+    verdictSameWhy: 'É o escalão mais baixo que não teria cortado nos últimos 90 dias.',
     verdictHigher: (current: string, recommended: string) =>
-      `Com ${current} o contador teria cortado (ou já cortou) nos últimos 90 dias. Considera subir para ${recommended}.`,
+      `Considera subir de ${current} para ${recommended}`,
+    verdictHigherWhy: (current: string) =>
+      `Com ${current}, o contador teria cortado (ou já cortou) nos últimos 90 dias.`,
     adjustMargin: (pct: number) => `Ajustar a margem de segurança (${pct} %)`,
     otherPrice: 'Usar outro preço',
     tooHigh: 'Os picos ultrapassam o escalão mais alto em baixa tensão normal (41,4 kVA).',
-    saving: (euros: string) => `${euros} por ano`,
+    saving: (euros: string) => `${euros}/ano`,
     savingHint: 'Só o termo de potência, com IVA, durante 365 dias.',
     priceFrom: (offer: string, supplier: string) =>
       `Preço a usar no escalão recomendado tirado da oferta “${offer}” (${supplier}) do simulador da ERSE, que tem o mesmo termo de potência que o teu contrato.`,

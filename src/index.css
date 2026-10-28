@@ -1852,6 +1852,29 @@ a.button-link {
   font-weight: 600;
 }
 
+/* The verdict on the left, what it is worth a year on the right; under it when narrow. */
+.verdict-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 16px;
+}
+
+.verdict-row > .verdict-amount {
+  margin: 4px 0 4px auto;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Its note opens leftwards, inside the card. */
+.verdict-amount .info-tip.inline .info-text {
+  left: auto;
+  right: 0;
+  white-space: normal;
+}
+
 /* A secret field (the AI key) with the eye that shows it, inside on the right. */
 .secret-field {
   position: relative;

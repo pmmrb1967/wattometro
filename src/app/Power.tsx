@@ -141,6 +141,34 @@ function ChangeSteps() {
   );
 }
 
+/** The verdict, its reason behind an (i), and on the right what it is worth a year. */
+function VerdictRow({
+  verdict,
+  why,
+  amount,
+  error = false,
+}: {
+  verdict: string;
+  why: string;
+  amount?: string | null;
+  error?: boolean;
+}) {
+  return (
+    <div className="verdict-row">
+      <p className={error ? 'verdict has-info error' : 'verdict has-info'}>
+        {verdict}
+        <InfoTip text={why} inline />
+      </p>
+      {amount && (
+        <p className="verdict-amount has-info success">
+          {texts.saving(amount)}
+          <InfoTip text={texts.savingHint} inline />
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Saving({
   tariff,
   targetVa,
@@ -152,7 +180,10 @@ function Saving({
 }) {
   const [typed, setTyped] = useState('');
 
-  if (offers === null) return <p className="hint">{t.loading}</p>;
+  const verdict = texts.verdictLower(formatKva(tariff.powerVa), formatKva(targetVa));
+  if (offers === null) {
+    return <VerdictRow verdict={verdict} why={texts.verdictLowerWhy} />;
+  }
   const match = offers === 'none' ? null : offerFixedPerDay(offers, tariff, targetVa);
   const typedPrice: MicroEuros | null = typed.trim() === '' ? null : parsePtPrice(typed);
   const price = typedPrice ?? match?.fixedPerDay ?? null;
@@ -164,12 +195,11 @@ function Saving({
 
   return (
     <div className="form">
-      {saving !== null && (
-        <>
-          <p className="big success">{texts.saving(formatCents(saving))}</p>
-          <p className="hint">{texts.savingHint}</p>
-        </>
-      )}
+      <VerdictRow
+        verdict={verdict}
+        why={texts.verdictLowerWhy}
+        amount={saving === null ? null : formatCents(saving)}
+      />
       {tariff.powerVa > VAT_POWER_LIMIT_VA && targetVa <= VAT_POWER_LIMIT_VA && (
         <p className="hint">{texts.vatNote}</p>
       )}
@@ -271,18 +301,18 @@ function RecommendationSection({
           ) : !tariff ? (
             <p className="big">{formatKva(recommendedVa)}</p>
           ) : recommendedVa < tariff.powerVa ? (
-            <>
-              <p className="verdict">
-                {texts.verdictLower(formatKva(tariff.powerVa), formatKva(recommendedVa))}
-              </p>
-              <Saving tariff={tariff} targetVa={recommendedVa} offers={offers} />
-            </>
+            <Saving tariff={tariff} targetVa={recommendedVa} offers={offers} />
           ) : recommendedVa === tariff.powerVa ? (
-            <p className="verdict">{texts.verdictSame(formatKva(tariff.powerVa))}</p>
+            <VerdictRow
+              verdict={texts.verdictSame(formatKva(tariff.powerVa))}
+              why={texts.verdictSameWhy}
+            />
           ) : (
-            <p className="verdict error">
-              {texts.verdictHigher(formatKva(tariff.powerVa), formatKva(recommendedVa))}
-            </p>
+            <VerdictRow
+              verdict={texts.verdictHigher(formatKva(tariff.powerVa), formatKva(recommendedVa))}
+              why={texts.verdictHigherWhy(formatKva(tariff.powerVa))}
+              error
+            />
           )}
 
           {recommendation.evaluations.length > 0 && (
