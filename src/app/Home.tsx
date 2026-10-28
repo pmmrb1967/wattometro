@@ -74,9 +74,12 @@ function MeterCard({
   meter,
   now,
   tariff,
+  only,
 }: {
   meter: Meter;
   now: number;
+  /** The household's only meter: its name would repeat the page's title, so only for screen readers. */
+  only: boolean;
   /** undefined while loading. */
   tariff: Tariff | null | undefined;
 }) {
@@ -84,7 +87,7 @@ function MeterCard({
   const silentFor = meter.lastSeenAt === null ? null : now - meter.lastSeenAt;
   return (
     <section className="card meter">
-      <h2>
+      <h2 className={only ? 'visually-hidden' : undefined}>
         {meter.deviceName}
         {meter.channel > 0 && <span className="hint"> · {t.now.channel(meter.channel)}</span>}
       </h2>
@@ -225,6 +228,7 @@ export function Home() {
                 key={`${meter.deviceId}:${meter.channel}`}
                 meter={meter}
                 now={now.now}
+                only={now.meters.length === 1}
                 tariff={
                   // Not shown when the tariffs could not be read; "set one up" when there is none.
                   tariffs === undefined || tariffs === null
