@@ -21,6 +21,7 @@ import {
   outageCompensation,
   type Compensation,
 } from '../domain/compensation';
+import { complaintGrounds, type ComplaintGrounds } from '../domain/complaint';
 import { tariffOn } from '../domain/tariff';
 import voltageData from '../data/voltage.json';
 import { HowItWorks } from '../components/HowItWorks';
@@ -359,6 +360,128 @@ function MeterVoltage({
   );
 }
 
+/** The letter citing the grounds, in the words of src/i18n. */
+function complaintLetter(
+  grounds: ComplaintGrounds,
+  house: string,
+  zone: QualityZone | null,
+): string {
+  const lines = texts.complaint;
+  const band = {
+    low: formatVolts(VOLTAGE_LIMITS.lowDv),
+    high: formatVolts(VOLTAGE_LIMITS.highDv),
+    floor: formatVolts(VOLTAGE_LIMITS.floorDv),
+  };
+  const { outages } = grounds;
+  return lines.letter({
+    house,
+    band,
+    weeks: grounds.weeks.map((week) =>
+      lines.week(
+        formatLocalDate(week.week),
+        week.outsideBand,
+        week.evaluated,
+        week.outsideLimits,
+        band,
+      ),
+    ),
+    low:
+      grounds.low &&
+      lines.low(
+        grounds.low.count,
+        formatVolts(grounds.low.extremeDv),
+        formatLisbonDateTime(grounds.low.at),
+        band,
+      ),
+    high:
+      grounds.high &&
+      lines.high(
+        grounds.high.count,
+        formatVolts(grounds.high.extremeDv),
+        formatLisbonDateTime(grounds.high.at),
+        band,
+      ),
+    outages:
+      outages?.standard && zone
+        ? lines.outages(
+            outages.year,
+            outages.longCount,
+            formatDuration(outages.longSeconds),
+            zone,
+            outages.standard.interruptions,
+            outages.standard.hours,
+          )
+        : null,
+  });
+}
+
+/**
+ * "Reclamar": the steps (RQS art. 66.º, 124.º, 125.º) and a letter with the facts,
+ * editable, copied or printed after the report. Nothing to send when there are no grounds.
+ */
+function ComplaintSection({
+  grounds,
+  house,
+  zone,
+}: {
+  grounds: ComplaintGrounds | null;
+  house: string;
+  zone: QualityZone | null;
+}) {
+  const lines = texts.complaint;
+  const generated = grounds ? complaintLetter(grounds, house, zone) : '';
+  // The user's edits, kept while the facts behind them stay the same.
+  const [edited, setEdited] = useState<{ from: string; text: string } | null>(null);
+  const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const letter = edited?.from === generated ? edited.text : generated;
+
+  function copy() {
+    void navigator.clipboard.writeText(letter).then(
+      () => setStatus({ kind: 'done', text: lines.copied }),
+      () => setStatus({ kind: 'error', text: lines.copyFailed }),
+    );
+  }
+
+  if (!grounds) {
+    return (
+      <section className="card no-print" id="reclamar">
+        <h2>{lines.title}</h2>
+        <p className="hint">{lines.nothing}</p>
+      </section>
+    );
+  }
+  return (
+    <>
+      <section className="card form no-print" id="reclamar">
+        <h2>{lines.title}</h2>
+        <p>{lines.intro}</p>
+        <ol className="complaint-steps">
+          {lines.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <label>
+          {lines.letterLabel}
+          <textarea
+            className="complaint-letter"
+            rows={16}
+            value={letter}
+            onChange={(event) => setEdited({ from: generated, text: event.target.value })}
+          />
+        </label>
+        <button type="button" className="secondary" onClick={copy}>
+          {lines.copy}
+        </button>
+        <StatusLine status={status} />
+      </section>
+      <section className="print-only complaint-print">
+        <h2>{lines.letterTitle}</h2>
+        <p className="complaint-text">{letter}</p>
+      </section>
+    </>
+  );
+}
+
 /** The page's conclusion first: outages against the zone, the voltage against the standard. */
 function QualityVerdict({
   data,
@@ -401,7 +524,11 @@ function QualityVerdict({
           {failing > 0 ? verdict.voltageFails(weeks, failing) : verdict.voltageMeets(weeks)}
         </p>
       )}
-      {(over || failing > 0) && <p className="hint">{verdict.complain}</p>}
+      {(over || failing > 0) && (
+        <p className="hint">
+          <a href="#reclamar">{verdict.complain}</a>
+        </p>
+      )}
     </section>
   );
 }
@@ -549,6 +676,25 @@ export function Quality() {
 
   const data = loaded?.from === from ? loaded.quality : null;
   const outages = useMemo(() => (boots ? outagesFromBoots(boots) : null), [boots]);
+  // The letter's facts: every meter's weeks and minutes over the voltage period.
+  const grounds = useMemo(() => {
+    if (!data || !outages) return null;
+    const weeks = data.intervals.map(({ intervals }) =>
+      weeklyCompliance(
+        intervals.map(([ts, , avgDv]) => ({ ts, avgDv })),
+        outages,
+        VOLTAGE_LIMITS,
+      ),
+    );
+    const episodes = data.outside.flatMap(({ minutes }) =>
+      voltageEpisodes(
+        minutes.map(([ts, minDv, maxDv]) => ({ ts, minDv, maxDv })),
+        VOLTAGE_LIMITS,
+        1,
+      ),
+    );
+    return complaintGrounds(weeks, episodes, yearSummary(outages, year, zone));
+  }, [data, outages, year, zone]);
 
   async function exclude(outage: Outage, excluded: boolean) {
     for (const boot of outage.boots) {
@@ -592,6 +738,8 @@ export function Quality() {
       />
       <VoltageSection data={data} weeks={weeks} onWeeks={setWeeks} outages={outages ?? []} />
       <ZoneSection zone={zone} onChange={setZone} />
+
+      <ComplaintSection grounds={grounds} house={me.householdName} zone={zone} />
 
       <section className="card">
         <h2>{texts.sourcesTitle}</h2>

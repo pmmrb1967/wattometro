@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Every text the user sees, in European Portuguese (post-1990 agreement, "tu"). */
+/** The voltage band of a complaint letter, already formatted ("207 V"). */
+interface Band {
+  low: string;
+  high: string;
+  floor: string;
+}
+
 const minutes = (count: number) => `${count} ${count === 1 ? 'minuto' : 'minutos'}`;
 
 export const t = {
@@ -617,8 +624,7 @@ export const t = {
       voltageMeets: (weeks: number) => `Tensão dentro da norma nas últimas ${weeks} semanas.`,
       voltageFails: (weeks: number, failing: number) =>
         `Tensão fora da norma em ${failing} das últimas ${weeks} semanas.`,
-      complain:
-        'Imprime esta página (botão no fim) e junta-a a uma reclamação ao teu comercializador ou à E-Redes.',
+      complain: 'Em "Reclamar", no fim da página, tens os passos e uma carta já com estes factos.',
     },
     title: 'Qualidade da energia',
     intro:
@@ -629,7 +635,7 @@ export const t = {
     reportGenerated: (when: string) => `Gerado pelo Wattómetro em ${when}`,
     print: 'Imprimir ou guardar em PDF',
     printHint:
-      'O relatório tem só factos medidos (datas, horas, valores) e as fontes dos limites. Podes anexá-lo a uma reclamação à E-Redes.',
+      'O relatório tem só factos medidos (datas, horas, valores) e as fontes dos limites, e a carta de reclamação numa página à parte quando há o que reclamar. Podes anexá-lo a uma reclamação à E-Redes.',
     zone: {
       title: 'Zona de qualidade de serviço',
       label: 'Zona',
@@ -719,6 +725,76 @@ export const t = {
         'O valor de 10 minutos é a média dos valores médios de cada minuto. Cavas e picos com menos de cerca de 1 segundo podem não aparecer.',
         'A norma aplica-se em exploração normal; ficam de fora a exploração perturbada e os eventos excecionais.',
       ],
+    },
+    complaint: {
+      title: 'Reclamar',
+      nothing:
+        'Nada a reclamar no período escolhido: a tensão cumpre a norma em todas as semanas e as falhas estão dentro do padrão da tua zona.',
+      intro:
+        'Os teus registos mostram valores fora dos limites. Uma reclamação tem de descrever esses factos (RQS, art. 66.º); a carta abaixo já os tem. Completa os campos entre [ ] antes de a enviar.',
+      steps: [
+        'Envia a carta à E-Redes, no Balcão Digital (Contacte-nos), ou ao teu comercializador, que a tem de passar à E-Redes em 3 dias úteis. Junta o PDF desta página (botão no fim).',
+        'A E-Redes tem 15 dias úteis para explicar as causas e o que vai corrigir, ver os dados do teu contador inteligente ou medir no local (RQS, art. 66.º). Se falhar o prazo, tens direito a compensação (art. 61.º).',
+        'Antes de medições demoradas, a E-Redes tem de te dizer quanto podem custar: se a tensão estiver dentro dos limites, os custos podem ser-te cobrados (art. 66.º, n.º 10).',
+        'Sem resposta a tempo, ou com uma resposta que não te satisfaz, pede por escrito a intervenção da ERSE, com os factos e as provas (art. 124.º). Também podes usar o Livro de Reclamações ou um centro de arbitragem de conflitos de consumo (art. 125.º).',
+      ],
+      letterLabel: 'Carta (podes alterá-la)',
+      copy: 'Copiar o texto',
+      copied: 'Texto copiado.',
+      copyFailed: 'Não foi possível copiar. Seleciona o texto e copia-o.',
+      letterTitle: 'Carta de reclamação',
+      week: (week: string, outside: number, evaluated: number, limits: number, band: Band) =>
+        `semana de ${week}: ${outside} de ${evaluated} valores de 10 minutos fora de ${band.low} a ${band.high}` +
+        (limits > 0 ? `, ${limits} abaixo de ${band.floor} ou acima de ${band.high}` : ''),
+      letter: (facts: {
+        house: string;
+        band: Band;
+        weeks: string[];
+        low: string | null;
+        high: string | null;
+        outages: string | null;
+      }) =>
+        [
+          'Assunto: Reclamação sobre a qualidade da energia elétrica — CPE [preencher]',
+          '',
+          'Exmos. Senhores,',
+          '',
+          `Sou titular do contrato de fornecimento de energia elétrica da instalação com o CPE [preencher], na morada [preencher] (${facts.house}).`,
+          '',
+          'Ao abrigo do artigo 66.º do Regulamento da Qualidade de Serviço (Regulamento n.º 826/2023), apresento reclamação sobre a qualidade da energia elétrica nesta instalação, com base nos factos seguintes, registados por um medidor instalado no quadro elétrico (valores indicativos, de um equipamento não certificado):',
+          '',
+          ...(facts.weeks.length > 0
+            ? [
+                `Tensão fora dos limites da NP EN 50160 (entre ${facts.band.low} e ${facts.band.high} em 95 % dos valores médios de 10 minutos de cada semana, e sempre entre ${facts.band.floor} e ${facts.band.high}):`,
+                ...facts.weeks.map((line) => `- ${line};`),
+                '',
+              ]
+            : []),
+          ...(facts.low ? [`- ${facts.low}`] : []),
+          ...(facts.high ? [`- ${facts.high}`] : []),
+          ...(facts.low || facts.high ? [''] : []),
+          ...(facts.outages ? [`- ${facts.outages}`, ''] : []),
+          'Junto o registo detalhado, com datas, horas e valores.',
+          '',
+          'Solicito que adotem um dos procedimentos previstos no n.º 2 do artigo 66.º do Regulamento da Qualidade de Serviço (informação das causas e das ações corretivas, verificação dos dados registados pelo contador inteligente ou verificação no local) e que me respondam por escrito no prazo de 15 dias úteis previsto no n.º 4 do mesmo artigo.',
+          '',
+          'Com os melhores cumprimentos,',
+          '[Nome]',
+          '[Contacto]',
+        ].join('\n'),
+      low: (count: number, volts: string, when: string, band: Band) =>
+        `${count} ${count === 1 ? 'episódio' : 'episódios'} com a tensão de algum minuto abaixo de ${band.low}; o valor mais baixo foi ${volts}, a ${when};`,
+      high: (count: number, volts: string, when: string, band: Band) =>
+        `${count} ${count === 1 ? 'episódio' : 'episódios'} com a tensão de algum minuto acima de ${band.high}; o valor mais alto foi ${volts}, a ${when};`,
+      outages: (
+        year: number,
+        count: number,
+        duration: string,
+        zone: string,
+        standardCount: number,
+        standardHours: number,
+      ) =>
+        `Em ${year}, ${count} ${count === 1 ? 'interrupção longa' : 'interrupções longas'} (mais de 3 minutos), com a duração total de ${duration}, acima do padrão individual da zona ${zone} (${standardCount} interrupções e ${standardHours} horas por ano, Anexo I do Regulamento da Qualidade de Serviço).`,
     },
     sourcesTitle: 'Fontes',
     sources: [

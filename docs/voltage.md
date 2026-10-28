@@ -64,6 +64,16 @@ Consultado em **2026-10-28**. Fontes: RQS (fonte 1), art. 102.º, 106.º e 110.�
 - O operador de rede responde em **15 dias úteis** (explicação, dados do contador inteligente ou verificação no local).
 - Medições complementares podem ter custos para o reclamante, que tem de ser informado antes.
 
+Consultado de novo em **2026-10-28** (RQS, fonte 1), para a carta e os passos em "Qualidade › Reclamar" (`src/domain/complaint.ts`):
+
+- **A quem** (art. 66.º, n.ºs 3 e 4): ao operador de rede (E-Redes) ou ao comercializador; este tem **3 dias úteis** para pedir à E-Redes um dos procedimentos, e a E-Redes tem **15 dias úteis** a contar desse pedido.
+- **O que a E-Redes tem de fazer** (n.º 2): informar por escrito as causas e as ações corretivas, verificar os dados do contador inteligente e do posto de transformação, ou verificar no local.
+- **Custos** (n.ºs 9 e 10): a investigação é paga pelo operador; se se verificar que os limites são cumpridos (ou a falta é do cliente), o reclamante reembolsa-a, até um valor publicado pela ERSE.
+- **Prazo falhado** (art. 60.º e 61.º): 15 dias úteis para responder; o incumprimento dá direito a compensação.
+- **Se não houver resposta satisfatória:** pedido escrito de intervenção da ERSE com os factos e as provas (art. 124.º, n.ºs 4 e 5); livro de reclamações (art. 123.º); centros de arbitragem de conflitos de consumo (art. 125.º).
+- **Canal da E-Redes:** Balcão Digital, "Contacte-nos" (E-Redes, contactos: <https://www.e-redes.pt/en/help/contacts-e-redes>, consultado a 2026-10-28).
+- A carta só cita factos medidos e os artigos; não afirma que houve incumprimento. Os campos que a app não guarda (CPE, morada, nome) ficam entre [ ] para o utilizador preencher.
+
 ## O que o Shelly consegue e não consegue
 
 - **Não é um analisador de classe A** (IEC 61000-4-30). Os valores são **indicativos**; o relatório diz isso.

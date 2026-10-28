@@ -297,7 +297,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 
 - [x] Tarifários indexados (OMIE horário/15 min) com o perfil real, comparados com os fixos e com o risco: `pnpm omie:sync` → `public/data/omie-pt.json`; nas ofertas à hora, a estimativa da ERSE corrigida pelo efeito do horário da casa (`src/domain/indexed.ts`, `docs/omie.md`); também no Início e na ferramenta `simulate_tariffs`
 - [x] "Melhores horas de amanhã" pelo OMIE do dia seguinte, com aviso no telemóvel: o Cron lê o ficheiro do dia seguinte (`server/src/omie.ts`, `omie_days`), cartão "Amanhã no mercado" em Tarifários e aviso opcional "Horas mais baratas de amanhã"
-- [ ] Dossiê de reclamação: PDF com episódios de tensão, cortes, zona e referências; minuta para E-Redes/ERSE (confirmar o processo)
+- [x] Dossiê de reclamação: em Qualidade › Reclamar, os passos (RQS art. 60.º, 61.º, 66.º, 123.º a 125.º) e uma carta com os factos medidos (semanas fora da norma, extremos, cortes acima do padrão), editável, copiável e impressa numa página à parte do PDF (`src/domain/complaint.ts`, `docs/voltage.md`)
 - [x] Compensações por interrupções (RQS): número e duração contra os limites da zona; estimativa em euros pelo art. 102.º com os valores do Anexo I e o limite de 200 % da tarifa de uso das redes (`src/domain/compensation.ts`, `docs/voltage.md`)
 - [ ] Mudar de potência: poupança, risco de disparo e os passos (comercializador ou E-Redes)
 - [ ] E-Redes com menos trabalho: lembrete mensal, falhas nos dados, guia passo a passo; modo "só E-Redes" sem Shelly
