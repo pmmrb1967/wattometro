@@ -76,8 +76,7 @@ export const t = {
     peakHint: 'maior valor de um segundo',
     nothing: '—',
     cost: 'Custo hoje',
-    costParts: (energy: string, power: string, taxes: string) =>
-      `energia ${energy} · potência ${power} · taxas ${taxes}`,
+    costParts: { energy: 'Energia', power: 'Potência', taxes: 'Taxas' },
     costNote: 'Estimativa com IVA, com o teu tarifário.',
     noTariff: 'Para veres quanto custa, indica o teu tarifário em Definições.',
     databaseNear: (used: number, limit: number) =>
@@ -359,7 +358,7 @@ export const t = {
       attribution: 'Dados meteorológicos e de localidades:',
       deviceIntro:
         'Ou usa a localização deste telemóvel ou computador, se estiver em casa. O browser pede-te autorização; depois confirmas antes de guardar. Só fica guardada com precisão de ~1 km.',
-      device: 'Usar a localização deste dispositivo',
+      device: 'Usar a minha localização',
       deviceName: 'Localização do dispositivo',
       deviceFailed: {
         unsupported: 'Este browser não indica a localização. Procura a localidade pelo nome.',
@@ -444,6 +443,7 @@ export const t = {
       removeConfirm: (date: string) => `Remover o tarifário em vigor desde ${date}?`,
       none: 'Ainda não indicaste o teu tarifário.',
       newTitle: 'Novo tarifário ou mudança de preços',
+      expand: 'Mudar ou corrigir o tarifário',
       editHint:
         'Para corrigir o tarifário atual, guarda com a mesma data de início; com outra data, fica um novo a partir desse dia.',
       validFrom: 'Em vigor desde',
@@ -858,6 +858,9 @@ export const t = {
     cost: (more: boolean, euros: string) =>
       more ? `Custou cerca de ${euros} a mais.` : `Poupaste cerca de ${euros}.`,
     more: 'Ver os dias fora do habitual',
+    showMore: (count: number) =>
+      `Ver ${count === 1 ? 'mais 1 dia' : `mais ${count} dias`} fora do habitual`,
+    showLess: 'Mostrar só o mais recente',
     method: (days: number) =>
       `Cada dia é comparado com os ${days} dias mais recentes do mesmo tipo (dia útil, sábado, ou domingo e feriado), pela mediana e pelo desvio típico entre eles: só aparece quando se afasta claramente, não por uns poucos por cento. O custo é o da energia, com IEC e IVA, com o teu tarifário.`,
     temperature:
@@ -1084,7 +1087,21 @@ export const t = {
     noLoyalty: 'Sem fidelização',
     noServices: 'Sem serviços obrigatórios',
     count: (count: number) =>
-      `${count.toLocaleString('pt-PT')} ofertas comparáveis; as ${15} mais baratas:`,
+      `${count.toLocaleString('pt-PT')} ofertas comparáveis, da mais barata para a mais cara:`,
+    showMore: (count: number) => `Ver mais ${count} ${count === 1 ? 'oferta' : 'ofertas'}`,
+    showLess: (count: number) => `Mostrar só as ${count} primeiras`,
+    prices: {
+      toggle: 'Ver preços',
+      power: 'Potência',
+      energy: 'Energia',
+      taxes: 'Taxas e impostos',
+      services: 'Serviços obrigatórios',
+      perYear: (euros: string) => `${euros} no ano`,
+      energyLine: (period: string | null, price: string, kwh: string) =>
+        `${period ? `${period}: ` : ''}${price} × ${kwh}`,
+      note: 'Preços sem IVA, como os publica a ERSE; os valores do ano têm IVA, para o teu consumo.',
+      adjusted: 'Energia com o ajuste ao teu horário (preço à hora).',
+    },
     colOffer: 'Oferta',
     colOption: 'Opção',
     colYear: 'Por ano',

@@ -381,22 +381,26 @@ export function TariffSection() {
           ) : (
             <p>{texts.none}</p>
           )}
-          {others.length > 0 && (
-            <>
-              <h3>{texts.history}</h3>
-              <ul className="devices">
-                {others.map((tariff) => (
-                  <TariffItem
-                    key={tariff.id}
-                    tariff={tariff}
-                    onRemove={() => void remove(tariff)}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
-          {/* Filled once, when the list arrives; after saving it keeps what was typed. */}
-          <TariffForm initial={current ?? tariffs.at(-1) ?? null} onSaved={saved} />
+          {/* Long: folded once there is a tariff (open while there is none to see). */}
+          <details className="adjust" open={current === null}>
+            <summary>{current ? texts.expand : texts.newTitle}</summary>
+            {others.length > 0 && (
+              <>
+                <h3>{texts.history}</h3>
+                <ul className="devices">
+                  {others.map((tariff) => (
+                    <TariffItem
+                      key={tariff.id}
+                      tariff={tariff}
+                      onRemove={() => void remove(tariff)}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+            {/* Filled once, when the list arrives; after saving it keeps what was typed. */}
+            <TariffForm initial={current ?? tariffs.at(-1) ?? null} onSaved={saved} />
+          </details>
         </>
       )}
     </section>

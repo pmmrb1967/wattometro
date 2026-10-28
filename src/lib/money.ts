@@ -147,6 +147,15 @@ export function formatPricePerKwh(micro: MicroEuros): string {
   return `${euros}\u00a0€/kWh`;
 }
 
+/** A fixed (power) term to show, e.g. 265_500 → "0,2655\u00a0€/dia" (4 decimals). */
+export function formatPricePerDay(micro: MicroEuros): string {
+  const euros = new Intl.NumberFormat('pt-PT', {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(micro / 1_000_000);
+  return `${euros}\u00a0€/dia`;
+}
+
 /** Micro-euros as text for an input field, without trailing zeros (e.g. 166500 → "0,1665"). */
 export function microToPtInput(micro: MicroEuros): string {
   if (!Number.isSafeInteger(micro) || micro < 0) throw new TypeError(`Not a price: ${micro}`);

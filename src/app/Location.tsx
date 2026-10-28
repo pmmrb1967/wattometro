@@ -136,9 +136,21 @@ export function LocationSection() {
         </ul>
       )}
       <p className="hint">{texts.deviceIntro}</p>
-      <button type="button" className="secondary" disabled={busy} onClick={() => void locate()}>
-        {texts.device}
-      </button>
+      <div className="actions even">
+        <button type="button" className="secondary" disabled={busy} onClick={() => void locate()}>
+          {texts.device}
+        </button>
+        {location && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() => void save(null)}
+          >
+            {texts.clear}
+          </button>
+        )}
+      </div>
       {found && (
         <div className="confirm" role="group" aria-label={texts.confirmTitle}>
           <p>
@@ -185,11 +197,6 @@ export function LocationSection() {
         </div>
       )}
       <StatusLine status={status} />
-      {location && (
-        <button type="button" className="secondary" disabled={busy} onClick={() => void save(null)}>
-          {texts.clear}
-        </button>
-      )}
       <p className="hint">
         {texts.attribution}{' '}
         <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">

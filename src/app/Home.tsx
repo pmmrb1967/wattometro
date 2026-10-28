@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { electricityCost, energyByPeriod } from '../domain/electricity-cost';
 import { OPTION_PERIODS, tariffOn, type Tariff } from '../domain/tariff';
+import { InfoTip } from '../components/InfoTip';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatLisbonTime, lisbonDate } from '../lib/time';
@@ -36,13 +37,25 @@ function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
   const periods = OPTION_PERIODS[tariff.option];
   return (
     <>
-      <dd>{formatCents(cost.totalCents)}</dd>
+      <dd className="has-info">
+        {formatCents(cost.totalCents)}
+        <InfoTip text={t.now.costNote} inline />
+      </dd>
       <dd className="hint">
-        {t.now.costParts(
-          formatCents(cost.energyCents),
-          formatCents(cost.powerCents),
-          formatCents(cost.taxesCents),
-        )}
+        <ul className="cost-parts">
+          {(
+            [
+              [t.now.costParts.energy, cost.energyCents],
+              [t.now.costParts.power, cost.powerCents],
+              [t.now.costParts.taxes, cost.taxesCents],
+            ] as const
+          ).map(([label, cents]) => (
+            <li key={label}>
+              <span>{label}</span>
+              <span>{formatCents(cents)}</span>
+            </li>
+          ))}
+        </ul>
       </dd>
       {periods.length > 1 && (
         <dd className="hint">
@@ -53,7 +66,6 @@ function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
             .join(' · ')}
         </dd>
       )}
-      <dd className="hint">{t.now.costNote}</dd>
     </>
   );
 }

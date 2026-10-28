@@ -1103,10 +1103,53 @@ h2 {
   display: block;
 }
 
+/* Next to a value (InfoTip inline): the note under it, as wide as its words. */
+.has-info {
+  position: relative;
+}
+
+.info-tip.inline {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: 0.15em;
+}
+
+.info-tip.inline .info-text {
+  right: auto;
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 72px));
+}
+
+.cost-parts {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 11rem;
+}
+
+.cost-parts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 @media (hover: hover) {
   .info-button:hover + .info-text {
     display: block;
   }
+}
+
+/* A form inside a card (a card form has the card's grid): its fields apart. */
+:where(form.form) {
+  display: grid;
+  gap: 12px;
+}
+
+/* The form's button a little apart from the last field. */
+.form > button[type='submit'] {
+  margin-top: 8px;
 }
 
 .form fieldset {
@@ -1806,4 +1849,66 @@ a.button-link {
 .name-group .warning {
   margin: 0;
   font-weight: 600;
+}
+
+/* "Tarifários": an offer's prices, and the toggles of a long list. */
+.offer-prices {
+  margin-top: 4px;
+  font-size: 0.875rem;
+}
+
+.offer-prices summary {
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.offer-prices dl {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.offer-prices dt {
+  font-weight: 600;
+}
+
+.offer-prices dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.list-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+/* An offer's row and the row of its prices read as one. */
+.table tr.has-prices td {
+  border-bottom: 0;
+}
+
+.table tr.prices-row td {
+  padding-top: 0;
+}
+
+@media (max-width: 559px) {
+  .table.stacked tr.has-prices {
+    padding-bottom: 4px;
+    border-bottom: 0;
+  }
+
+  .table.stacked tr.prices-row {
+    padding-top: 0;
+  }
+}
+
+/* Buttons of the same weight: side by side, or one under the other as wide as each other. */
+.form .actions.even {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+.form .actions.even button {
+  justify-self: stretch;
 }

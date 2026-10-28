@@ -96,7 +96,10 @@ export function AnomalyCard({ energy }: { energy: HouseholdEnergy }) {
 /** "Consumo": the recent unusual days and how they are found. */
 export function AnomalyList({ energy }: { energy: HouseholdEnergy }) {
   const anomalies = useAnomalies(energy);
+  const [open, setOpen] = useState(false);
   if (anomalies === undefined) return null;
+  // The latest day at first; the others on request.
+  const hidden = Math.min(anomalies.length, MAX_LISTED) - 1;
   return (
     <section className="card form" id="fora-do-habitual">
       <h2>{texts.title}</h2>
@@ -104,14 +107,23 @@ export function AnomalyList({ energy }: { energy: HouseholdEnergy }) {
       {anomalies.length === 0 ? (
         <p>{texts.none(LIST_DAYS)}</p>
       ) : (
-        <ul>
-          {anomalies.slice(0, MAX_LISTED).map((anomaly) => (
-            <li key={anomaly.date}>
-              <Sentence anomaly={anomaly} when={dayLabel(anomaly.date)} />
-              <ExplainButton subject="unusualDay" facts={() => anomalyFacts(anomaly)} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul>
+            {anomalies.slice(0, open ? MAX_LISTED : 1).map((anomaly) => (
+              <li key={anomaly.date}>
+                <Sentence anomaly={anomaly} when={dayLabel(anomaly.date)} />
+                <ExplainButton subject="unusualDay" facts={() => anomalyFacts(anomaly)} />
+              </li>
+            ))}
+          </ul>
+          {hidden > 0 && (
+            <p className="list-toggle">
+              <button type="button" className="link-button" onClick={() => setOpen(!open)}>
+                {open ? texts.showLess : texts.showMore(hidden)}
+              </button>
+            </p>
+          )}
+        </>
       )}
       <HowItWorks>
         <ul className="hint caveats">

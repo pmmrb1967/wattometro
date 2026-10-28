@@ -11,7 +11,12 @@
 import { eurosToMicro, type Cents, type MicroEuros } from '../lib/money';
 import type { EpochSeconds } from '../lib/time';
 import type { Wh } from '../lib/units';
-import { electricityCost, type EnergyByPeriod, type OfferTerms } from './electricity-cost';
+import {
+  electricityCost,
+  type Cost,
+  type EnergyByPeriod,
+  type OfferTerms,
+} from './electricity-cost';
 import { powerKey, type CycleCode, type CyclePrices, type Offer } from './erse';
 import type {
   BillingPeriod,
@@ -142,6 +147,13 @@ export interface OfferResult {
   savingCents: Cents;
   /** The energy prices were adjusted to the household's hours (a dynamic indexed offer). */
   adjusted: boolean;
+  /** The year's cost by part, with VAT (what annualCents adds up). */
+  cost: Cost;
+  /** The prices it was costed with, without VAT: power µ€/day, energy µ€/kWh by period. */
+  fixedPerDay: number;
+  energyPrices: Partial<Record<BillingPeriod, number>>;
+  /** The household's year of energy in the option's periods, Wh. */
+  energy: EnergyByPeriod;
 }
 
 /**
@@ -266,21 +278,25 @@ export function compareOffers(input: {
       const prices = byCycle[code];
       if (!prices) continue;
       const option = OPTION_OF[code];
-      let best: { cycle: Cycle; cents: Cents } | null = null;
+      let best: {
+        cycle: Cycle;
+        cents: Cents;
+        cost: Cost;
+        tariff: TariffInput;
+        energy: EnergyByPeriod;
+      } | null = null;
       for (const cycle of CYCLES_OF[option]) {
         const { tariff, terms } = offerContract(offer, prices, option, cycle, current, adjust);
-        let cents: Cents;
+        const energy = energyFor(option, cycle, usage);
+        let cost: Cost;
         try {
-          cents = electricityCost(
-            energyFor(option, cycle, usage),
-            YEAR_DAYS,
-            tariff,
-            terms,
-          ).totalCents;
+          cost = electricityCost(energy, YEAR_DAYS, tariff, terms);
         } catch {
           continue; // A price missing for one of the option's periods: not comparable.
         }
-        if (!best || cents < best.cents) best = { cycle, cents };
+        if (!best || cost.totalCents < best.cents) {
+          best = { cycle, cents: cost.totalCents, cost, tariff, energy };
+        }
       }
       if (best) {
         results.push({
@@ -290,6 +306,10 @@ export function compareOffers(input: {
           annualCents: best.cents,
           savingCents: currentCents - best.cents,
           adjusted: adjust?.(offer, option, best.cycle) != null,
+          cost: best.cost,
+          fixedPerDay: best.tariff.fixedPerDay,
+          energyPrices: best.tariff.energy,
+          energy: best.energy,
         });
       }
     }

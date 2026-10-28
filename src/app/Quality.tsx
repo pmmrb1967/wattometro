@@ -17,6 +17,7 @@ import {
   type QualityZone,
 } from '../domain/voltage';
 import { HowItWorks } from '../components/HowItWorks';
+import { InfoTip } from '../components/InfoTip';
 import { t } from '../i18n/pt-PT';
 import {
   formatDuration,
@@ -248,10 +249,10 @@ function MeterVoltage({
             {weeks.map((week) => (
               <tr key={week.week}>
                 <td>{formatLocalDate(week.week)}</td>
-                <td data-label={columns.evaluated}>
+                <td className="has-info" data-label={columns.evaluated}>
                   {texts.voltage.evaluated(week.evaluated, week.expected)}
                   {week.excluded > 0 && (
-                    <span className="hint"> · {texts.voltage.excluded(week.excluded)}</span>
+                    <InfoTip text={texts.voltage.excluded(week.excluded)} inline />
                   )}
                 </td>
                 <td data-label={columns.outside}>{week.outsideBand}</td>

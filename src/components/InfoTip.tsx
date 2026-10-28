@@ -5,13 +5,14 @@ import { t } from '../i18n/pt-PT';
 /**
  * An (i) next to a field's label: the note shows on hover and on a tap or
  * click (touch screens have no hover), and hides again on a second tap or
- * when the focus moves on.
+ * when the focus moves on. `inline`: next to a value rather than a field, the
+ * note as wide as its words (its container is `.has-info`).
  */
-export function InfoTip({ text }: { text: string }) {
+export function InfoTip({ text, inline = false }: { text: string; inline?: boolean }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   return (
-    <span className="info-tip">
+    <span className={inline ? 'info-tip inline' : 'info-tip'}>
       <button
         type="button"
         className="info-button"

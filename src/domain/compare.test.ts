@@ -91,6 +91,15 @@ describe('compareOffers', () => {
     ]);
   });
 
+  it('keeps the prices and the parts each offer was costed with (B, weekly: by hand above)', () => {
+    const b = comparison.results.find((result) => result.offer.id === 'B')!;
+    expect(b.energy).toEqual({ offEmpty: 2_100_000, empty: 900_000 });
+    expect(b.energyPrices).toEqual({ offEmpty: 250_000, empty: 100_000 });
+    const { energyCents, powerCents, taxesCents, servicesCents, totalCents } = b.cost;
+    expect(totalCents).toBe(b.annualCents);
+    expect(energyCents + powerCents + taxesCents + servicesCents).toBe(totalCents);
+  });
+
   it('says how much to move to empty for bi-hourly to beat the cheapest simple choice', () => {
     // The cheapest simple choice is offer A (589,74 €). Each kWh moved saves
     // (0,25 − 0,10) × m = 0,1638 €; it must save 671,65 − 589,74 = 81,91 €:

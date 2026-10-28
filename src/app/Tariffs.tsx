@@ -5,7 +5,7 @@
  * would have to move to the empty period for bi- or tri-hourly to pay off.
  * Calculation: src/domain/compare.ts.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   annualUsage,
@@ -17,7 +17,7 @@ import {
   type EnergyAdjust,
   type Shift,
 } from '../domain/compare';
-import type { Cycle, MeterPeriod, TariffInput } from '../domain/tariff';
+import type { BillingPeriod, Cycle, MeterPeriod, TariffInput } from '../domain/tariff';
 import type { RecentAppliances } from '../nilm/recent';
 import type { HouseholdEnergy } from './household-energy';
 import { useRecentAppliances } from './use-recent-appliances';
@@ -26,7 +26,7 @@ import { dynamicAdjust, indexedKind, profileEffect, type ProfileEffect } from '.
 import type { OmieFile } from '../domain/omie';
 import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
-import { formatCents, formatPricePerKwh, omieToMicro } from '../lib/money';
+import { formatCents, formatPricePerDay, formatPricePerKwh, omieToMicro } from '../lib/money';
 import { lisbonToday } from '../lib/time';
 import { formatKva, formatKwh } from '../lib/units';
 import { fetchOffers, fetchOmie } from './api';
@@ -36,7 +36,9 @@ import { meterLabel } from './meters';
 import { MeterSelect } from './MeterSelect';
 
 const texts = t.tariffs;
-const SHOWN = 15;
+/** Offers shown at first, and how many more each "Ver mais" adds. */
+const FIRST_SHOWN = 5;
+const MORE_SHOWN = 10;
 
 const optionLabel = (result: OfferResult) =>
   result.option === 'simple'
@@ -164,6 +166,51 @@ function Indexed({ effect, offers }: { effect: ProfileEffect; offers: readonly O
   );
 }
 
+/** An offer's prices and what each part costs in the year, under "Ver preços". */
+function OfferPrices({ result }: { result: OfferResult }) {
+  const prices = texts.prices;
+  const periods = Object.keys(result.energyPrices) as BillingPeriod[];
+  return (
+    <details className="offer-prices">
+      <summary>{prices.toggle}</summary>
+      <dl>
+        <div>
+          <dt>{prices.power}</dt>
+          <dd>{formatPricePerDay(result.fixedPerDay)}</dd>
+          <dd>{prices.perYear(formatCents(result.cost.powerCents))}</dd>
+        </div>
+        <div>
+          <dt>{prices.energy}</dt>
+          {periods.map((period) => (
+            <dd key={period}>
+              {prices.energyLine(
+                period === 'simple' ? null : t.settings.tariff.periods[period],
+                formatPricePerKwh(result.energyPrices[period] ?? 0),
+                formatKwh(result.energy[period] ?? 0, 0),
+              )}
+            </dd>
+          ))}
+          <dd>{prices.perYear(formatCents(result.cost.energyCents))}</dd>
+        </div>
+        <div>
+          <dt>{prices.taxes}</dt>
+          <dd>{prices.perYear(formatCents(result.cost.taxesCents))}</dd>
+        </div>
+        {result.cost.servicesCents > 0 && (
+          <div>
+            <dt>{prices.services}</dt>
+            <dd>{prices.perYear(formatCents(result.cost.servicesCents))}</dd>
+          </div>
+        )}
+      </dl>
+      <p className="hint">
+        {prices.note}
+        {result.adjusted && ` ${prices.adjusted}`}
+      </p>
+    </details>
+  );
+}
+
 function ShiftLine({ option, shift }: { option: 'bi' | 'tri'; shift: Shift | null }) {
   const name = t.settings.tariff.options[option];
   if (!shift) return <li>{texts.shiftNever(name)}</li>;
@@ -191,6 +238,7 @@ export function Tariffs() {
   const [offers, setOffers] = useState<Offer[] | null | 'none'>(null);
   const [omie, setOmie] = useState<OmieFile | null>(null);
   const [filters, setFilters] = useState({ option: 'all', noLoyalty: false, noServices: false });
+  const [shown, setShown] = useState(FIRST_SHOWN);
 
   useEffect(() => {
     let active = true;
@@ -376,55 +424,84 @@ export function Tariffs() {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.slice(0, SHOWN).map((result) => (
-                    <tr key={`${result.offer.id}:${result.option}`}>
-                      <td>
-                        <strong>{result.offer.supplier}</strong>
-                        <br />
-                        {result.offer.links.offer ? (
-                          <a href={result.offer.links.offer} rel="noreferrer" target="_blank">
-                            {result.offer.name}
-                          </a>
-                        ) : (
-                          result.offer.name
-                        )}
-                        {(result.offer.loyalty ||
-                          result.offer.servicesPerYearWithVat > 0 ||
-                          result.offer.indexedPrices ||
-                          result.offer.supply === 'DUAL') && (
-                          <span className="hint">
-                            {' · '}
-                            {[
-                              result.offer.supply === 'DUAL' && texts.tagDual,
-                              result.offer.loyalty && texts.tagLoyalty,
-                              result.offer.servicesPerYearWithVat > 0 && texts.tagServices,
-                              result.offer.indexedPrices &&
-                                (result.adjusted
-                                  ? texts.tagDynamic
-                                  : indexedKind(result.offer) === 'average'
-                                    ? texts.tagAverage
-                                    : texts.tagIndexed),
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </span>
-                        )}
-                      </td>
-                      <td className="stacked-sub">{optionLabel(result)}</td>
-                      <td className="number" data-label={texts.colYear}>
-                        {formatCents(result.annualCents)}
-                      </td>
-                      <td
-                        className={result.savingCents > 0 ? 'number success' : 'number'}
-                        data-label={texts.colSaving}
-                      >
-                        {formatCents(result.savingCents)}
-                      </td>
-                    </tr>
+                  {results.slice(0, shown).map((result) => (
+                    <Fragment key={`${result.offer.id}:${result.option}`}>
+                      <tr className="has-prices">
+                        <td>
+                          <strong>{result.offer.supplier}</strong>
+                          <br />
+                          {result.offer.links.offer ? (
+                            <a href={result.offer.links.offer} rel="noreferrer" target="_blank">
+                              {result.offer.name}
+                            </a>
+                          ) : (
+                            result.offer.name
+                          )}
+                          {(result.offer.loyalty ||
+                            result.offer.servicesPerYearWithVat > 0 ||
+                            result.offer.indexedPrices ||
+                            result.offer.supply === 'DUAL') && (
+                            <span className="hint">
+                              {' · '}
+                              {[
+                                result.offer.supply === 'DUAL' && texts.tagDual,
+                                result.offer.loyalty && texts.tagLoyalty,
+                                result.offer.servicesPerYearWithVat > 0 && texts.tagServices,
+                                result.offer.indexedPrices &&
+                                  (result.adjusted
+                                    ? texts.tagDynamic
+                                    : indexedKind(result.offer) === 'average'
+                                      ? texts.tagAverage
+                                      : texts.tagIndexed),
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          )}
+                        </td>
+                        <td className="stacked-sub">{optionLabel(result)}</td>
+                        <td className="number" data-label={texts.colYear}>
+                          {formatCents(result.annualCents)}
+                        </td>
+                        <td
+                          className={result.savingCents > 0 ? 'number success' : 'number'}
+                          data-label={texts.colSaving}
+                        >
+                          {formatCents(result.savingCents)}
+                        </td>
+                      </tr>
+                      <tr className="prices-row">
+                        <td colSpan={4}>
+                          <OfferPrices result={result} />
+                        </td>
+                      </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
+            {(results.length > shown || shown > FIRST_SHOWN) && (
+              <p className="list-toggle">
+                {results.length > shown && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setShown(shown + MORE_SHOWN)}
+                  >
+                    {texts.showMore(Math.min(MORE_SHOWN, results.length - shown))}
+                  </button>
+                )}
+                {shown > FIRST_SHOWN && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setShown(FIRST_SHOWN)}
+                  >
+                    {texts.showLess(FIRST_SHOWN)}
+                  </button>
+                )}
+              </p>
+            )}
           </section>
 
           {effect && Array.isArray(offers) && <Indexed effect={effect} offers={offers} />}
