@@ -116,6 +116,19 @@ describe('pairCycles', () => {
     expect(pairCycles(events)).toMatchObject([{ start: START + 30, durationS: 52 }]);
   });
 
+  it('closes two appliances off in one step even when the larger alone would fit', () => {
+    // The demonstration's 25/10: dishwasher +1900 W (100 var), fridge +110 W (70 var),
+    // both off in one step of −2010 W (−170 var). The dishwasher alone is within 10 %.
+    const power = [...flat(30, 300), ...flat(420, 2200), ...flat(1080, 2310), ...flat(30, 300)];
+    const nonActive = [...flat(30, 50), ...flat(420, 150), ...flat(1080, 220), ...flat(30, 50)];
+    const events = detectEvents(series(power, 2300, nonActive));
+    expect(events.map((event) => event.deltaW)).toEqual([1900, 110, -2010]);
+    expect(pairCycles(events).map((cycle) => [cycle.powerW, cycle.durationS])).toEqual([
+      [1900, 1500],
+      [110, 1080],
+    ]);
+  });
+
   it('follows an appliance that changes state in the same second', () => {
     // Washing machine: heating 2000 W (100 var) for 20 min, then the motor 400 W (300 var)
     // for 60 min. 2000 × 1200 / 3600 + 400 × 3600 / 3600 = 666,7 + 400 = 1067 Wh.

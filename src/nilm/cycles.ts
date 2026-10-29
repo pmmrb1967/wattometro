@@ -28,7 +28,9 @@
  * Two appliances switching off in the same second (a dryer's motor and its
  * compressor at the end of the programme) make one step, the sum of both: it
  * closes the two open ones it mirrors. Without this, the motor stayed open
- * and was paired with a step hours later.
+ * and was paired with a step hours later. A large appliance alone may mirror
+ * that step within its tolerance (a dishwasher and the fridge): the pair is
+ * taken when it fits clearly better.
  *
  * Periodic patterns (an induction hob pulsing) come out as several cycles
  * here; mergePulses (periodic.ts) makes each run of them one.
@@ -179,16 +181,15 @@ function absorbSteps(open: Open[], since: EpochSeconds, extraW: number): void {
 }
 
 /**
- * Closes the two open appliances whose sum the off step mirrors best, up to
- * `slackW` more (small steps one of them rose by, taken off the open ones).
+ * The two open appliances whose sum the off step mirrors best, up to `slackW`
+ * more (small steps one of them rose by), and by how much it misses, W.
  */
-function closePair(
-  open: Open[],
+function bestPair(
+  open: readonly Open[],
   event: PowerEvent,
   recent: (item: Open) => boolean,
-  cycles: Cycle[],
   slackW: number,
-): boolean {
+): { pair: [number, number]; errorW: number } | null {
   let pair: [number, number] | null = null;
   let pairError = Infinity;
   for (let first = 0; first < open.length; first++) {
@@ -212,26 +213,45 @@ function closePair(
       }
     }
   }
-  if (!pair) return false;
+  return pair ? { pair, errorW: pairError } : null;
+}
+
+/** Closes the two open appliances of `pair`; the slack as in bestPair. */
+function closePair(
+  open: Open[],
+  event: PowerEvent,
+  pair: [number, number],
+  cycles: Cycle[],
+  slackW: number,
+): void {
   const [a, b] = [open[pair[0]] as Open, open[pair[1]] as Open];
   for (const item of [a, b]) cycles.push(close(item, share(event, current(item))));
   open.splice(pair[1], 1);
   open.splice(pair[0], 1);
   if (slackW > 0) absorbSteps(open, b.on.ts, -event.deltaW - current(a).w - current(b).w);
-  return true;
 }
 
 /** Closes the open appliance(s) an off step switched off; false when it fits none. */
 function closeOff(open: Open[], event: PowerEvent, cycles: Cycle[]): boolean {
   const recent = (item: Open) => event.ts - item.on.ts <= MAX_CYCLE_S;
   const mirrored = open.findLastIndex((item) => recent(item) && mirrors(current(item), event));
+  // Two appliances switching off in the same second: the pair it mirrors.
+  const pair = bestPair(open, event, recent, 0);
   if (mirrored >= 0) {
-    cycles.push(close(open[mirrored] as Open, event));
-    open.splice(mirrored, 1);
+    // One appliance within its tolerance, unless a pair fits clearly better (the demo's
+    // dishwasher, 1878 W, and fridge, 109 W, off in one step of −1974 W: alone it missed
+    // by 96 W, the two by 13 W).
+    const errorW = Math.abs(current(open[mirrored] as Open).w230 + event.deltaW230);
+    if (pair === null || errorW <= MIN_STEP_W || pair.errorW * 2 >= errorW) {
+      cycles.push(close(open[mirrored] as Open, event));
+      open.splice(mirrored, 1);
+      return true;
+    }
+  }
+  if (pair) {
+    closePair(open, event, pair.pair, cycles, 0);
     return true;
   }
-  // Two appliances switching off in the same second: the pair it mirrors.
-  if (closePair(open, event, recent, cycles, 0)) return true;
   // An appliance that drew more as it ran: the house goes back to its level before it.
   const risen = open.findLastIndex((item) => {
     const level = current(item);
@@ -251,7 +271,10 @@ function closeOff(open: Open[], event: PowerEvent, cycles: Cycle[]): boolean {
     return true;
   }
   // The same, a little more: one of them rose in small steps since it switched on.
-  return closePair(open, event, recent, cycles, MIN_STEP_W);
+  const risenPair = bestPair(open, event, recent, MIN_STEP_W);
+  if (!risenPair) return false;
+  closePair(open, event, risenPair.pair, cycles, MIN_STEP_W);
+  return true;
 }
 
 /** Two steps a few seconds apart as one, from the level before the first to after the second. */
