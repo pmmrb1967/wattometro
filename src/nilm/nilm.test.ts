@@ -103,6 +103,19 @@ describe('pairCycles', () => {
     ]);
   });
 
+  it('pairs a large resistance whose non-active power came back different', () => {
+    // The coffee machine of 29/10: +1271 W with +85 var, 52 s later −1312 W with −52 var
+    // (√(S² − P²) is ill-conditioned next to 1.3 kW; 30 var would not fit).
+    const power = [...flat(30, 184), ...flat(52, 1455), ...flat(30, 143)];
+    const nonActive = [...flat(30, 50), ...flat(52, 135), ...flat(30, 83)];
+    const events = detectEvents(series(power, 2300, nonActive));
+    expect(events.map((event) => [event.deltaW, event.deltaVar])).toEqual([
+      [1271, 85],
+      [-1312, -52],
+    ]);
+    expect(pairCycles(events)).toMatchObject([{ start: START + 30, durationS: 52 }]);
+  });
+
   it('follows an appliance that changes state in the same second', () => {
     // Washing machine: heating 2000 W (100 var) for 20 min, then the motor 400 W (300 var)
     // for 60 min. 2000 × 1200 / 3600 + 400 × 3600 / 3600 = 666,7 + 400 = 1067 Wh.

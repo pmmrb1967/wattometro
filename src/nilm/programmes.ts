@@ -15,7 +15,8 @@
  * heating of the run is part of it. After the last heating, the
  * programme goes on while the machine still works: a minute whose seconds
  * spread over ACTIVE_SPREAD_W or more (a drum turning), or that stays
- * ACTIVE_LEVEL_W above the level before the programme (a drum turning steadily, a spin), with
+ * ACTIVE_LEVEL_W above the level before the programme and still spreads
+ * LEVEL_SPREAD_W (a drum turning steadily, a spin), with
  * quiet stretches of at most MAX_QUIET_S, for at most MAX_TAIL_S, and never
  * past the start of another heating. Another appliance working right after
  * (the microwave) still lengthens it. A single heating is a programme only when long (SINGLE_HEAT_S)
@@ -51,6 +52,13 @@ export const FRAGMENT_GAP_S = 30;
  * 26/10), or a drum turning steadily (+85 to +210 W on 27/10).
  */
 export const ACTIVE_LEVEL_W = 80;
+/**
+ * ...and still spread this much: a drum turning spreads 60–150 W a minute,
+ * a few minutes less now and then (a spin's plateau, 38–56 W, at most 3 in a
+ * row). Something left on after the programme is flat: on 29/10, +120 W for
+ * 40 min at 37–53 W kept the washing machine's tail going an hour too long.
+ */
+export const LEVEL_SPREAD_W = 60;
 /** The longest quiet stretch within a tail (a washing machine soaking). */
 export const MAX_QUIET_S = 300;
 export const MAX_TAIL_S = 2 * 3600;
@@ -113,9 +121,10 @@ function tailEnd(series: SecondsSeries, from: number, baseW: number, until: numb
   for (let at = from; at < seriesEnd && at < from + MAX_TAIL_S; at += WINDOW_S) {
     if (at - end > MAX_QUIET_S) break;
     const values = powers(series, at, at + WINDOW_S);
+    const spreadW = spread(values);
     const active =
-      spread(values) >= ACTIVE_SPREAD_W ||
-      (values.length > 0 && middle(values) - baseW >= ACTIVE_LEVEL_W);
+      spreadW >= ACTIVE_SPREAD_W ||
+      (spreadW >= LEVEL_SPREAD_W && middle(values) - baseW >= ACTIVE_LEVEL_W);
     if (active) end = Math.min(at + WINDOW_S, seriesEnd);
   }
   return end;

@@ -58,9 +58,14 @@ export function matchToleranceW(deltaW: number): number {
   return Math.max(30, Math.abs(deltaW) * 0.1);
 }
 
-/** For non-active power: 30 var, or 25 % (it adds up less exactly than active power). */
-function matchToleranceVar(deltaVar: number): number {
-  return Math.max(30, Math.abs(deltaVar) * 0.25);
+/**
+ * For non-active power: 30 var, 25 % (it adds up less exactly than active
+ * power), or 5 % of the active power. √(S² − P²) is ill-conditioned when Q is
+ * small next to P: a coffee machine's 1.3 kW resistance (29/10) switched on
+ * with +85 var and off with −52 var.
+ */
+function matchToleranceVar(deltaVar: number, deltaW: number): number {
+  return Math.max(30, Math.abs(deltaVar) * 0.25, Math.abs(deltaW) * 0.05);
 }
 
 export interface CycleState {
@@ -155,7 +160,7 @@ function share(off: PowerEvent, level: Level): PowerEvent {
 
 const mirrors = (level: { w230: number; var: number }, event: PowerEvent) =>
   Math.abs(level.w230 + event.deltaW230) <= matchToleranceW(level.w230) &&
-  Math.abs(level.var + event.deltaVar) <= matchToleranceVar(level.var);
+  Math.abs(level.var + event.deltaVar) <= matchToleranceVar(level.var, level.w230);
 
 /**
  * The small steps an appliance rose by after `since` (each seen as something
@@ -200,7 +205,7 @@ function closePair(
       const fits =
         overW >= -tolerance &&
         overW <= tolerance + slackW &&
-        Math.abs(sumVar + event.deltaVar) <= matchToleranceVar(sumVar);
+        Math.abs(sumVar + event.deltaVar) <= matchToleranceVar(sumVar, sumW230);
       if (fits && Math.abs(overW) < pairError) {
         pair = [first, second];
         pairError = Math.abs(overW);
@@ -235,7 +240,7 @@ function closeOff(open: Open[], event: PowerEvent, cycles: Cycle[]): boolean {
     return (
       extraW <= RISE_MAX_SHARE * level.w &&
       Math.abs(event.afterW - item.on.beforeW) <= matchToleranceW(level.w) + MIN_STEP_W &&
-      Math.abs(level.var + event.deltaVar) <= matchToleranceVar(level.var)
+      Math.abs(level.var + event.deltaVar) <= matchToleranceVar(level.var, level.w230)
     );
   });
   if (risen >= 0) {

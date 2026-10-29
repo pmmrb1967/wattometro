@@ -21,6 +21,22 @@ const flat = (seconds: number, watts: number) => Array.from({ length: seconds },
 /** A drum turning: 10 s at +300 W, 20 s still, for `seconds` (a spread of 300 W a minute). */
 const drum = (seconds: number) =>
   Array.from({ length: seconds }, (_, second) => (second % 30 < 10 ? BASE + 300 : BASE));
+/**
+ * A drum turning steadily at +`watts`: a wobble of ±35 W every 5 s (real ones
+ * spread 60–150 W a minute; on 27/10, 88–179 W).
+ */
+const steadyDrum = (seconds: number, watts: number) =>
+  Array.from({ length: seconds }, (_, second) => BASE + watts + (second % 10 < 5 ? 35 : -35));
+/**
+ * A spin: the drum speeds up over 3 min (+200, +400, +600 W), then 2½ min at
+ * full speed; it stops within a minute, as real ones do (29/10: 11:06:41).
+ */
+const spin = () => [
+  ...steadyDrum(60, 200),
+  ...steadyDrum(60, 400),
+  ...steadyDrum(60, 600),
+  ...flat(150, BASE + 600),
+];
 const cyclesOf = (power: number[]) => {
   const day = series(power);
   return findCycles(detectEvents(day), day);
@@ -42,14 +58,14 @@ const dishwasher = [
 ];
 
 // The washing machine of 26/10, simplified: one 11-minute heating, 40 min of
-// drum (from 20 s later), 5 min quiet (soaking), a 4-minute spin at +600 W.
+// drum (from 20 s later), 5 min quiet (soaking), a 5½-minute spin up to +600 W.
 const washer = [
   ...flat(120, BASE),
   ...flat(660, BASE + 1960),
   ...flat(20, BASE),
   ...drum(2380),
   ...flat(300, BASE),
-  ...flat(240, BASE + 600),
+  ...spin(),
   ...flat(900, BASE),
 ];
 
@@ -77,17 +93,18 @@ describe('mergeProgrammes', () => {
     const programmes = cycles.filter((cycle) => cycle.heats);
     expect(programmes).toHaveLength(1);
     const [programme] = programmes;
-    // Until the spin ends: 660 + 2400 + 300 + 240 s.
+    // Until the end of the minute the spin stops in: 660 + 2400 + 300 + 330 s, and 30 s.
     expect(programme).toMatchObject({ start: START + 120, heats: { count: 1, onS: 660 } });
-    expect(programme!.durationS).toBe(3600);
-    // 1960 W × 660 s, 300 W a third of 2400 s, 600 W × 240 s: 359 + 67 + 40 = 466 Wh.
+    expect(programme!.durationS).toBe(3720);
+    // 1960 W × 660 s, 300 W a third of 2400 s, the spin (200 + 400 + 600) × 60 s
+    // and 600 W × 150 s: 359 + 67 + 20 + 25 = 471 Wh.
     expect(programme!.energyWh).toBeGreaterThanOrEqual(460);
-    expect(programme!.energyWh).toBeLessThanOrEqual(470);
+    expect(programme!.energyWh).toBeLessThanOrEqual(477);
   });
 
   it('takes a heating that paused for a few seconds as one', () => {
     // The washing machine of 27/10: heating 70 s, 14 s off, 100 s, 11 s off, 8 min;
-    // then the drum turning steadily, +150 W, for 30 min (a spread of only 0 W).
+    // then the drum turning steadily, +150 W, for 30 min (a spread under ACTIVE_SPREAD_W).
     const power = [
       ...flat(120, BASE),
       ...flat(70, BASE + 1950),
@@ -95,7 +112,7 @@ describe('mergeProgrammes', () => {
       ...flat(100, BASE + 1950),
       ...flat(11, BASE),
       ...flat(480, BASE + 1950),
-      ...flat(1800, BASE + 150),
+      ...steadyDrum(1800, 150),
       ...flat(900, BASE),
     ];
     const programmes = cyclesOf(power).filter((cycle) => cycle.heats);
@@ -106,6 +123,13 @@ describe('mergeProgrammes', () => {
       heats: { count: 1, onS: 70 + 100 + 480 },
     });
     expect(programmes[0]!.end).toBe(START + 120 + 70 + 14 + 100 + 11 + 480 + 1800);
+  });
+
+  it('ends when the machine stops, not with something left on after it', () => {
+    // 29/10: after the spin, the house stayed +120 W higher, flat, for 40 min.
+    const power = [...washer.slice(0, -900), ...flat(2400, BASE + 120), ...flat(600, BASE)];
+    const [programme] = cyclesOf(power).filter((cycle) => cycle.heats);
+    expect(programme!.durationS).toBe(3720);
   });
 
   it('keeps the two machines in groups of their own', () => {
