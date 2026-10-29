@@ -7,6 +7,9 @@ import { Link } from 'react-router';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
 import { SettingsGroup } from './SettingsGroup';
+import { isLocal } from '../local/mode';
+import { SOURCE_URL } from './build-info';
+import { LocalDataSection } from './LocalData';
 import { ThemeSection } from './ThemeSection';
 import { changePassword, renameHousehold } from './api';
 import { DevicesSection } from './Devices';
@@ -125,7 +128,58 @@ function PasswordForm() {
 /** The page's groups, most used first: [id, name]. */
 const GROUPS = t.settings.groups;
 
+/** The local mode's settings: no account, no Shelly, no alerts; the data in this browser. */
+function LocalSettings() {
+  const groups = GROUPS.filter(([id]) => id !== 'avisos').map(([id, name]) =>
+    id === 'conta' ? ([id, t.local.lookGroup] as const) : ([id, name] as const),
+  );
+  return (
+    <>
+      <h1>{t.settings.title}</h1>
+      <nav className="toc" aria-label={t.settings.tocLabel}>
+        {groups.map(([id, name]) => (
+          <Link key={id} to={`#${id}`}>
+            {name}
+          </Link>
+        ))}
+      </nav>
+
+      <SettingsGroup id="tarifario" name={GROUPS[0][1]}>
+        <TariffSection />
+      </SettingsGroup>
+      <SettingsGroup id="dados" name={GROUPS[1][1]}>
+        <LocalDataSection />
+        <EredesImportSection />
+        <section className="card">
+          <p className="hint">
+            {t.local.shelly}{' '}
+            <a href={`${SOURCE_URL}#usar-o-código-na-tua-própria-instalação`} rel="noreferrer">
+              {t.local.shellyLink}
+            </a>
+          </p>
+        </section>
+      </SettingsGroup>
+      <SettingsGroup id="ia" name={GROUPS[3][1]}>
+        <AiSection />
+      </SettingsGroup>
+      <SettingsGroup id="casa" name={GROUPS[4][1]}>
+        <LocationSection />
+        <InstallationSection />
+      </SettingsGroup>
+      <SettingsGroup id="conta" name={t.local.lookGroup}>
+        <ThemeSection />
+        <InstallSection />
+      </SettingsGroup>
+    </>
+  );
+}
+
 export function Settings() {
+  if (isLocal()) return <LocalSettings />;
+  return <AccountSettings />;
+}
+
+function AccountSettings() {
   const { me, signOut } = useSession();
   return (
     <>

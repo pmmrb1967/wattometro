@@ -5,9 +5,11 @@
  * daily totals (one row per day) and fetches only the days that are missing or
  * whose sum no longer matches (new data, a new E-Redes import, late Shelly
  * minutes). Pages share the result for a few minutes in memory. Cleared on
- * sign-out; the demonstration is never kept.
+ * sign-out; the demonstration and the local mode (already in this browser) are
+ * never kept.
  */
 import { isDemo } from '../demo/mode';
+import { isLocal } from '../local/mode';
 import {
   lisbonDate,
   nextDate,
@@ -163,7 +165,7 @@ export async function loadQuarters(
   from: EpochSeconds,
   to: EpochSeconds,
 ): Promise<{ ok: true; quarters: Quarter[]; days: DayEnergy[] } | Failure> {
-  if (isDemo()) {
+  if (isDemo() || isLocal()) {
     const [quarters, daily] = await Promise.all([
       fetchQuarterEnergy(meter, from, to),
       fetchDailyEnergy(meter, from, to),

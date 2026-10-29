@@ -18,9 +18,11 @@ export const SIGN_IN_PATH = '/entrar';
 export function Landing({
   onSignedIn,
   onDemo,
+  onLocal,
 }: {
   onSignedIn: (me: Me) => void;
   onDemo: () => void;
+  onLocal: () => void;
 }) {
   const { pathname } = useLocation();
 
@@ -45,11 +47,15 @@ export function Landing({
             <button type="button" className="primary" onClick={onDemo}>
               {t.demo.title}
             </button>
+            <button type="button" className="secondary" onClick={onLocal}>
+              {t.local.title}
+            </button>
             <a href="#como-funciona" className="secondary button-link">
               {copy.howItWorksLink}
             </a>
           </div>
           <p className="hint">{t.demo.intro}</p>
+          <p className="hint">{t.local.intro}</p>
         </div>
         <LandingDay />
       </section>

@@ -41,6 +41,7 @@ import { MeterSelect } from './MeterSelect';
 import { SocialTariff } from './SocialTariff';
 import { CarCharging } from './CarCharging';
 import { SolarPanels } from './SolarPanels';
+import { isLocal } from '../local/mode';
 import { optionLabel } from './offer-label';
 
 const texts = t.tariffs;
@@ -592,9 +593,17 @@ export function Tariffs() {
             <CarCharging usage={usage} tariff={tariff} offers={offers} />
           )}
 
-          {usage && quarters && Array.isArray(offers) && (
-            <SolarPanels quarters={quarters} tariff={tariff} offers={offers} />
-          )}
+          {usage &&
+            quarters &&
+            Array.isArray(offers) &&
+            (isLocal() ? (
+              <section className="card">
+                <h2>{t.tariffs.solar.title}</h2>
+                <p className="hint">{t.local.solar}</p>
+              </section>
+            ) : (
+              <SolarPanels quarters={quarters} tariff={tariff} offers={offers} />
+            ))}
 
           <SocialTariff
             tariff={tariff}

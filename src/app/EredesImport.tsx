@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { eredesCoverage, type EredesDay } from '../domain/eredes-coverage';
 import { parseEredesXlsx, type EredesFile } from '../import/eredes';
+import { isLocal } from '../local/mode';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonDateTime, formatLocalDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
@@ -175,7 +176,7 @@ export function EredesImportSection() {
   return (
     <section className="card form">
       <h2>{texts.title}</h2>
-      <p className="hint">{texts.intro}</p>
+      <p className="hint">{isLocal() ? texts.introLocal : texts.intro}</p>
       <ol className="hint steps">
         {/* The dates once the summary is in (not "a year" while it loads). */}
         {[texts.steps[0], summary && askFor(summary.to), ...texts.steps.slice(1)]

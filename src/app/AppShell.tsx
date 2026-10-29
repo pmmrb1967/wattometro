@@ -7,6 +7,8 @@ import { fetchHealth, fetchMe, logout, type Me, recordVisit } from './api';
 import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
 import { enterDemo, exitDemo, isDemo } from '../demo/mode';
+import { enterLocal, exitLocal, isLocal } from '../local/mode';
+import { LOCAL_ME } from '../local/server';
 import { DEMO_ME } from '../demo/server';
 import { Landing, SIGN_IN_PATH } from './Landing';
 import { clearWeatherCache } from '../weather/weather';
@@ -116,6 +118,12 @@ export function AppShell() {
       setMe(null);
       return;
     }
+    // The local household stays in this browser for the next time.
+    if (isLocal()) {
+      exitLocal();
+      setMe(null);
+      return;
+    }
     void logout().then(() => setMe(null));
   }, [setMe]);
   // Signing in, or opening the demonstration, always starts on Início, not on
@@ -128,6 +136,10 @@ export function AppShell() {
   const startDemo = () => {
     enterDemo();
     enter(DEMO_ME);
+  };
+  const startLocal = () => {
+    enterLocal();
+    enter(LOCAL_ME);
   };
   const [collapsed, setCollapsed] = useState(savedCollapsed);
   const toggleNav = () => {
@@ -164,15 +176,15 @@ export function AppShell() {
               type="button"
               className="signout"
               onClick={signOut}
-              aria-label={isDemo() ? t.demo.exit : t.signOutLabel}
-              title={isDemo() ? t.demo.exit : t.signOutLabel}
+              aria-label={isDemo() ? t.demo.exit : isLocal() ? t.local.exit : t.signOutLabel}
+              title={isDemo() ? t.demo.exit : isLocal() ? t.local.exit : t.signOutLabel}
             >
               {t.signOut}
             </button>
           </div>
         )}
       </header>
-      {server === 'unavailable' && !isDemo() && (
+      {server === 'unavailable' && !isDemo() && !isLocal() && (
         <p className="server-banner" role="alert">
           {t.server.banner}
         </p>
@@ -181,6 +193,15 @@ export function AppShell() {
         <p className="server-banner" role="alert">
           {t.server.limitBanner(resetsAt === null ? null : formatLisbonTime(resetsAt))}
         </p>
+      )}
+
+      {context && isLocal() && (
+        <div className="demo-banner" role="status">
+          <span>{t.local.banner}</span>
+          <Link to="/definicoes#dados" className="demo-exit">
+            {t.local.backupLink}
+          </Link>
+        </div>
       )}
 
       {context && isDemo() && (
@@ -237,7 +258,7 @@ export function AppShell() {
         <div className="main">
           <main className="content">
             {me === undefined && <p className="hint">{t.loading}</p>}
-            {me === null && <Landing onSignedIn={enter} onDemo={startDemo} />}
+            {me === null && <Landing onSignedIn={enter} onDemo={startDemo} onLocal={startLocal} />}
             {context && <Outlet context={context} />}
           </main>
 

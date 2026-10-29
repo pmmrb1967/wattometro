@@ -1775,6 +1775,8 @@ export const t = {
     title: 'Consumos da E-Redes',
     intro:
       'Importa o histórico a 15 minutos do teu contador inteligente: serve para o simulador de tarifários e para os meses antes do Shelly. O ficheiro é lido no teu browser; só os consumos vão para o servidor (o CPE e o número do contador não).',
+    introLocal:
+      'Importa o histórico a 15 minutos do teu contador inteligente: serve para o simulador de tarifários, a potência contratada e o consumo base. O ficheiro é lido no teu browser e os consumos ficam guardados só nele.',
     steps: [
       'No Balcão Digital da E-Redes: "Consultar histórico", consumos a 15 minutos, estado real e estimado.',
       'Exporta: o ficheiro .xlsx fica pronto até 24 horas depois (o portal avisa).',
@@ -1837,6 +1839,36 @@ export const t = {
       bad_row: (row: number) => `Linha ${row} do ficheiro com valores que não consigo ler.`,
       duplicate: (row: number) => `A linha ${row} repete um quarto de hora já lido.`,
       empty: () => 'O ficheiro não tem consumos.',
+    },
+  },
+  local: {
+    title: 'Usar sem conta',
+    intro:
+      'Só com o ficheiro da E-Redes: a tua casa fica guardada neste browser e não é enviada para o servidor. Não precisas de conta nem de Shelly.',
+    who: 'Neste browser',
+    householdName: 'A minha casa',
+    banner: 'Sem conta: os dados ficam só neste browser. Guarda uma cópia de vez em quando.',
+    backupLink: 'Guardar cópia',
+    exit: 'Sair do modo sem conta',
+    lookGroup: 'Aspeto',
+    shelly:
+      'Com um Shelly no quadro elétrico, a app mostra também a potência a cada segundo, os aparelhos, a tensão e avisos no telemóvel. Isso precisa de uma instalação própria, com o servidor da app na tua conta Cloudflare:',
+    shellyLink: 'como instalar',
+    solar:
+      'Os painéis solares precisam do servidor da app para pedir a produção ao PVGIS, por isso não estão disponíveis sem conta.',
+    data: {
+      title: 'Dados deste browser',
+      intro:
+        'A tua casa (o ficheiro da E-Redes, o tarifário, a localidade) está guardada só neste browser. Se limpares os dados do browser ou mudares de aparelho, perdes-a: guarda uma cópia num ficheiro e repõe-na quando precisares.',
+      save: 'Guardar cópia',
+      restore: 'Repor cópia',
+      restoreConfirm: 'Repor a cópia substitui a casa guardada neste browser. Continuar?',
+      restored: 'Cópia reposta.',
+      badFile: 'Este ficheiro não é uma cópia do Wattómetro.',
+      notKept: 'O browser não deixou guardar os dados (espaço cheio ou janela privada).',
+      remove: 'Apagar os dados deste browser',
+      removeConfirm: 'Apagar a casa guardada neste browser? Não dá para desfazer.',
+      fileName: (date: string) => `wattometro-${date}.json`,
     },
   },
   demo: {

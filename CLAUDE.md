@@ -41,6 +41,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - **Agregações** (1 min → 15 min → dia) feitas por Cron Trigger com `INSERT … SELECT` em SQL (o trabalho é do D1, não da CPU do Worker), sempre incrementais.
 - **Cálculos de domínio** (custos, simulador de tarifários, potência contratada, consumo base, previsões, ML) correm **no browser**, em `src/domain/` e `src/ml/`, sobre agregados pedidos ao Worker e guardados em cache no Dexie.
 - **Uma só origem:** o Worker `app` serve a PWA (Workers Assets) e encaminha `/v1/*` para o Worker `api` por *service binding* (`server/src/gateway.ts`). O `api` não tem endereço `workers.dev`; o Shelly envia para `https://app.wattometro.workers.dev/v1/ingest`. O cookie de sessão fica na mesma origem da API (sem CORS).
+- **Modo sem conta:** só com a E-Redes, a casa fica no IndexedDB do browser e `src/local/server.ts` responde às rotas `/v1` no browser, como a demonstração (`src/demo/server.ts`); nada vai para o servidor (`docs/local-mode.md`). Uma rota nova no Worker precisa de resposta nos dois, se a página a usar sem Shelly.
 - **Tempo real = último minuto.** A PWA não consegue ler o Shelly diretamente (HTTPS → HTTP local é bloqueado pelos browsers). O valor ao segundo continua disponível na app oficial do Shelly.
 
 ## Stack

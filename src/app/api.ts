@@ -3,6 +3,8 @@
 import { z } from 'zod';
 import { isDemo } from '../demo/mode';
 import { demoResponse } from '../demo/server';
+import { isLocal } from '../local/mode';
+import { localResponse } from '../local/server';
 import { parsePvgis, type SolarYear } from '../domain/solar';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
@@ -91,6 +93,8 @@ const Locked = z.object({ retryAfter: z.number().int() });
 async function send(method: string, path: string, body?: unknown): Promise<Response | null> {
   // The demonstration answers in the browser; nothing goes to the server.
   if (isDemo()) return demoResponse(method, path, body);
+  // The local mode too: its household is kept in this browser (src/local/).
+  if (isLocal()) return localResponse(method, path, body);
   try {
     return await fetch(path, {
       method,
@@ -129,7 +133,9 @@ export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
 export async function fetchMe(signal?: AbortSignal): Promise<Me | null> {
   const response = isDemo()
     ? demoResponse('GET', '/v1/auth/me')
-    : await fetch('/v1/auth/me', { signal });
+    : isLocal()
+      ? await localResponse('GET', '/v1/auth/me')
+      : await fetch('/v1/auth/me', { signal });
   if (response.status === 401) return null;
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return Me.parse(await response.json());

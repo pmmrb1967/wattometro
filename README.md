@@ -53,6 +53,10 @@ A app funciona só com os dados da E-Redes, mas **sem o Shelly não há o detalh
 
 As imagens são da **conta de demonstração** (uma casa fictícia), que qualquer pessoa pode abrir na página de entrada com "Ver demonstração", sem conta.
 
+## Usar sem conta
+
+Só com o ficheiro da E-Redes, qualquer pessoa pode usar a app publicada **sem conta**: na página de entrada, "Usar sem conta". A casa fica guardada **só nesse browser** e nada é enviado para o servidor; em Definições › Dados guardas uma cópia num ficheiro e repõe-la noutro aparelho. Dá os tarifários, a potência contratada aproximada, o consumo base e a fatura prevista; não dá o que precisa do Shelly nem os painéis solares. Detalhes em [`docs/local-mode.md`](docs/local-mode.md).
+
 ## Privacidade
 
 - Os dados ficam numa conta Cloudflare do dono da instalação, numa base de dados na UE. Sem estatísticas nem registos remotos com dados de consumo.
@@ -61,7 +65,7 @@ As imagens são da **conta de demonstração** (uma casa fictícia), que qualque
 
 ## Usar o código na tua própria instalação
 
-A app publicada em `app.wattometro.workers.dev` é a do autor, para uso familiar: **não tem registo público** (as contas são criadas pelo dono) e o plano gratuito da Cloudflare chega para poucas casas. Para a usares por tua conta, **crias a tua própria conta Cloudflare** (o plano gratuito chega para uma casa) e publicas lá o código. Os dados ficam na tua conta. Não é preciso mudar nada no código da app: só a configuração.
+A app publicada em `app.wattometro.workers.dev` é a do autor, para uso familiar: **não tem registo público** (as contas são criadas pelo dono) e o plano gratuito da Cloudflare chega para poucas casas. Só com a E-Redes, basta [usá-la sem conta](#usar-sem-conta). Com um Shelly, para a usares por tua conta, **crias a tua própria conta Cloudflare** (o plano gratuito chega para uma casa) e publicas lá o código. Os dados ficam na tua conta. Não é preciso mudar nada no código da app: só a configuração.
 
 ### O que precisas
 

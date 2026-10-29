@@ -18,6 +18,7 @@ import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
 import { lisbonDate, lisbonToday, nextDate, startOfLisbonDay, startOfMadridDay } from '../lib/time';
 import { DEMO_DAYS, generateDemo, type DemoData } from './model';
+import { dailyEnergy, empty, energyRecords, invalid, json } from './responses';
 
 const MINUTE = 60;
 const DAY = 86_400;
@@ -214,11 +215,7 @@ export function resetDemo(): void {
   state = null;
 }
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-const empty = (status = 204) => new Response(null, { status });
 const readOnly = () => json({ error: 'demo' }, 409);
-const invalid = () => json({ error: 'invalid_request' }, 400);
 
 /** Indexes of the minutes in [from, to). */
 function minuteRange(data: DemoData, from: number, to: number): [number, number] {
@@ -413,34 +410,6 @@ function meterQuarters(data: DemoData, meter: string, from: number, to: number) 
         Math.round(wh * 0.98),
       ])
     : null;
-}
-
-/**
- * Energy per Lisbon day of quarter hours (GET /v1/energy/days, server/src/repo/eredes.ts),
- * with the minutes of a Shelly (its quarters are whole) or null for E-Redes.
- */
-function dailyEnergy(
-  quarters: [number, number][],
-  shelly = false,
-): [string, number, number | null][] {
-  const days = new Map<string, [number, number]>();
-  for (const [ts, wh] of quarters) {
-    const date = lisbonDate(ts);
-    const [energy, count] = days.get(date) ?? [0, 0];
-    days.set(date, [energy + wh, count + 1]);
-  }
-  return [...days].map(([date, [wh, count]]) => [date, wh, shelly ? count * 15 : null]);
-}
-
-/** Records of GET /v1/energy/quarters (server/src/repo/eredes.ts): uint32 ts · uint32 Wh. */
-function energyRecords(quarters: [number, number][]): Response {
-  const records = new Uint8Array(quarters.length * 8);
-  const view = new DataView(records.buffer);
-  quarters.forEach(([ts, wh], index) => {
-    view.setUint32(index * 8, ts, true);
-    view.setUint32(index * 8 + 4, wh, true);
-  });
-  return new Response(records, { headers: { 'Content-Type': 'application/octet-stream' } });
 }
 
 /** Records of GET /v1/seconds (server/src/repo/seconds.ts). */
