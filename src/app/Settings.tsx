@@ -3,6 +3,7 @@ import { AdminSection } from './AdminStats';
 import { AiSection } from './AiSettings';
 import { AlertSection } from './AlertSettings';
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
 import { SettingsGroup } from './SettingsGroup';
@@ -129,11 +130,12 @@ export function Settings() {
   return (
     <>
       <h1>{t.settings.title}</h1>
+      {/* Router links: each click is a new location, which SettingsGroup follows. */}
       <nav className="toc" aria-label={t.settings.tocLabel}>
         {(me.admin ? [...GROUPS, t.settings.adminGroup] : GROUPS).map(([id, name]) => (
-          <a key={id} href={`#${id}`}>
+          <Link key={id} to={`#${id}`}>
             {name}
-          </a>
+          </Link>
         ))}
       </nav>
 
