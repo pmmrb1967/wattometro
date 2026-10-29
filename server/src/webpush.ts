@@ -9,7 +9,7 @@
  * (isPushEndpoint): the Worker never posts anywhere else.
  */
 
-import { fromBase64Url, toBase64Url } from './base64url';
+import { fromBase64Url, toBase64Url } from '../../src/lib/base64url';
 
 const encoder = new TextEncoder();
 const RECORD_SIZE = 4096;

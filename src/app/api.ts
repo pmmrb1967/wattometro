@@ -553,6 +553,39 @@ const Appliance = z.object({
 export type Appliance = z.infer<typeof Appliance>;
 
 /** The appliances the house named (server/src/repo/appliances.ts). */
+const NilmDayRow = z.object({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  version: z.number().int(),
+  minutes: z.number().int(),
+  data: z.string(),
+});
+export type NilmDayRow = z.infer<typeof NilmDayRow>;
+
+/** The days' cycles kept on the server (src/nilm/stored.ts), from and to inclusive. */
+export async function fetchNilmDays(
+  meter: string,
+  from: string,
+  to: string,
+): Promise<{ ok: true; days: NilmDayRow[] } | Failure> {
+  const query = new URLSearchParams({ meter, from, to });
+  const response = await send('GET', `/v1/nilm/days?${query}`);
+  if (response?.ok) {
+    const { days } = z.object({ days: z.array(NilmDayRow) }).parse(await response.json());
+    return { ok: true, days };
+  }
+  return failure(response, []);
+}
+
+/** Keeps the days' cycles on the server, each replacing what was there. */
+export async function saveNilmDays(
+  meter: string,
+  days: readonly NilmDayRow[],
+): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', '/v1/nilm/days', { meter, days });
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
 export async function fetchAppliances(): Promise<{ ok: true; appliances: Appliance[] } | Failure> {
   const response = await send('GET', '/v1/appliances');
   if (response?.ok) {

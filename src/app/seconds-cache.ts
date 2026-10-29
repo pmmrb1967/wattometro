@@ -13,7 +13,7 @@ import { fetchSeconds, type Failure } from './api';
 const DB_NAME = 'wattometro-seconds';
 const STORE = 'days';
 /** The Shelly's queue (4 h) and a margin: after this a day is complete. */
-const SETTLED_SECONDS = 6 * 3600;
+export const SETTLED_SECONDS = 6 * 3600;
 export const KEEP_DAYS = 14;
 
 function openDb(): Promise<IDBDatabase | null> {

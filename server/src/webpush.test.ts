@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { fromBase64Url, toBase64Url } from './base64url';
+import { fromBase64Url, toBase64Url } from '../../src/lib/base64url';
 import {
   encryptionInputs,
   encryptPayload,

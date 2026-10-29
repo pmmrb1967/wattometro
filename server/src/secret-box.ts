@@ -8,7 +8,7 @@
  *
  * Format: "v1.<iv>.<ciphertext>" (base64url), versioned so the scheme can change.
  */
-import { fromBase64Url, toBase64Url } from './base64url';
+import { fromBase64Url, toBase64Url } from '../../src/lib/base64url';
 
 /** As SESSION_SECRET: at least 32 random characters. */
 export const MIN_SECRET_LENGTH = 32;

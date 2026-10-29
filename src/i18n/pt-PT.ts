@@ -1132,6 +1132,16 @@ export const t = {
     onlyNamed:
       'Só conta os aparelhos com nome, e só os dias com valores ao segundo quase completos. Para dar nome a um aparelho, usa "O que é?" em "Ao segundo".',
   },
+  reprocess: {
+    title: 'Reprocessar',
+    intro:
+      'A app guarda o que encontrou em cada dia, para os aparelhos terem histórico depois de os valores ao segundo se apagarem (90 dias). Quando a deteção melhora, os últimos 7 dias voltam a guardar-se sozinhos; aqui refazes de uma vez os últimos 90. Os dias mais antigos ficam como foram guardados.',
+    action: 'Reprocessar os últimos 90 dias',
+    working: (done: number, total: number) => `A reprocessar… ${done} de ${total} dias`,
+    done: (days: number) =>
+      days === 1 ? 'Reprocessado: 1 dia guardado.' : `Reprocessado: ${days} dias guardados.`,
+    failed: 'Não foi possível ler ou guardar um dos dias. Tenta outra vez mais tarde.',
+  },
   knownAppliances: {
     title: 'Aparelhos que a app reconhece',
     intro:

@@ -19,7 +19,7 @@ import {
 import { lisbonDayLength, nextDate, startOfLisbonDay } from '../../src/lib/time';
 import { UNKNOWN_INSTALLATION } from '../../src/domain/installation';
 import { createApp } from './app';
-import { toBase64Url } from './base64url';
+import { toBase64Url } from '../../src/lib/base64url';
 import type { Sql } from './db';
 import { hashPassword } from './password';
 import { createDevice } from './repo/devices';

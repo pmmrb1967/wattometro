@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-/** base64url without padding (JWT, Web Push keys, sealed secrets). */
+/** base64url without padding (JWT, Web Push keys, sealed secrets, stored NILM days). */
 export function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);

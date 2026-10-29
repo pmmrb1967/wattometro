@@ -64,6 +64,12 @@
  *   GET  /v1/signatures        → {signatures: [{id, meter, label, from, to, minutes, createdAt}]}
  *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
  *   DELETE /v1/signatures/:id  → 204
+ *   GET  /v1/nilm/days?meter&from&to → {days: [{day, version, minutes, data}]}: the cycles the
+ *                              browser found on each Lisbon day [from, to] (≤ 400 days), data
+ *                              base64url as the browser stored it (repo/nilm.ts)
+ *   PUT  /v1/nilm/days         {meter, days: [{day, version, minutes, data}]} (≤ 31 days, days
+ *                              before today) → 204, each day replacing what was there; 404
+ *                              unknown meter
  *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing,
  *                              minDurationS, maxDurationS, heats, createdAt}]}
  *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?,
@@ -111,6 +117,7 @@ import {
 } from './auth';
 import { isDatabaseLimit, type Sql } from './db';
 import { floorTo, lisbonDate, nextDate, QUARTER_HOUR, startOfLisbonDay } from '../../src/lib/time';
+import { fromBase64Url, toBase64Url } from '../../src/lib/base64url';
 import { DEFAULT_REQUESTS_PER_MINUTE, ingest, MAX_INGEST_BYTES } from './ingest';
 import { MIN_PASSWORD_LENGTH } from './password';
 import {
@@ -155,6 +162,7 @@ import {
   signatureRecords,
 } from './repo/signatures';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
+import { nilmDays, saveNilmDays } from './repo/nilm';
 import { getState } from './repo/rollups';
 import { rowsReadOn, usageSince, utcDay } from './repo/usage';
 import { STATE } from './rollups';
@@ -342,6 +350,39 @@ const ApplianceBody = z
 const ApplianceChange = z
   .object({ label: ApplianceLabel.optional(), durations: Durations.optional() })
   .refine(({ label, durations }) => label !== undefined || durations !== undefined);
+
+const nilmMeter = z.string().regex(/^[^:]{1,64}:[0-3]$/);
+const localDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/** A year and a little: the appliances' history at most in one read. */
+const MAX_NILM_SPAN_DAYS = 400;
+/** A day's compressed cycles (base64url): hundreds of cycles take a few tens of KB. */
+export const MAX_NILM_DAY_CHARS = 200_000;
+export const MAX_NILM_BYTES = 2 * 1024 * 1024;
+const NilmQuery = z
+  .object({ meter: nilmMeter, from: localDay, to: localDay })
+  .refine(
+    ({ from, to }) =>
+      from <= to && startOfLisbonDay(to) - startOfLisbonDay(from) <= MAX_NILM_SPAN_DAYS * 86_400,
+  );
+const NilmBody = z.object({
+  meter: nilmMeter,
+  days: z
+    .array(
+      z.object({
+        day: localDay,
+        version: z.number().int().min(1).max(1_000_000),
+        minutes: z.number().int().min(0).max(1500),
+        data: z
+          .string()
+          .min(1)
+          .max(MAX_NILM_DAY_CHARS)
+          .regex(/^[A-Za-z0-9_-]+$/),
+      }),
+    )
+    .min(1)
+    .max(31)
+    .refine((days) => new Set(days.map((item) => item.day)).size === days.length),
+});
 
 const SignatureBody = z
   .object({
@@ -954,6 +995,41 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     );
     c.header('Content-Type', 'application/octet-stream');
     return c.body(records.buffer as ArrayBuffer);
+  });
+
+  // Each day's cycles (Phase 8.1): worked out in the browser, kept past the per-second values.
+  app.get('/v1/nilm/days', requireUser, async (c) => {
+    const parsed = NilmQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { meter, from, to } = parsed.data;
+    const days = await nilmDays(config.sql, c.get('user').householdId, meter, from, to);
+    return c.json({
+      days: days.map((day) => ({ ...day, data: toBase64Url(day.data) })),
+    });
+  });
+
+  app.put('/v1/nilm/days', requireUser, async (c) => {
+    if (Number(c.req.header('Content-Length') ?? 0) > MAX_NILM_BYTES) {
+      return c.json({ error: 'too_large' }, 413);
+    }
+    const parsed = await body(c, NilmBody);
+    const today = lisbonDate(now());
+    if (!parsed.success || parsed.data.days.some((item) => item.day >= today)) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const { meter, days } = parsed.data;
+    const { householdId } = c.get('user');
+    const [deviceId = ''] = meter.split(':');
+    const known = (await listDevices(config.sql, householdId)).some((d) => d.id === deviceId);
+    if (!known) return c.json({ error: 'not_found' }, 404);
+    await saveNilmDays(
+      config.sql,
+      householdId,
+      meter,
+      days.map((item) => ({ ...item, data: fromBase64Url(item.data) })),
+      now(),
+    );
+    return c.body(null, 204);
   });
 
   // Named appliances (Phase 8.3): the browser classifies cycles with their descriptors.

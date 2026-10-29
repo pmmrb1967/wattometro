@@ -10,6 +10,7 @@
  * as when the last file was downloaded a few days back, 2 % lower (a Shelly
  * reads a little differently from the grid meter).
  */
+import { z } from 'zod';
 import { addDays } from '../domain/consumption';
 import { budgetSchema, type Budget } from '../domain/budget';
 import { installationSchema, type Installation } from '../domain/installation';
@@ -44,6 +45,8 @@ interface DemoState {
   excluded: Set<number>;
   signatures: DemoSignature[];
   appliances: DemoAppliance[];
+  /** PUT /v1/nilm/days, by day (the browser's own encoding). */
+  nilmDays: Map<string, { day: string; version: number; minutes: number; data: string }>;
 }
 
 interface DemoAppliance {
@@ -162,6 +165,7 @@ function current(): DemoState {
       excluded: new Set(),
       signatures: demoSignatures(),
       appliances: [],
+      nilmDays: new Map(),
     };
   }
   return state;
@@ -521,6 +525,20 @@ function demoOmieDays() {
   }));
 }
 
+const DemoNilmBody = z.object({
+  meter: z.literal(METER),
+  days: z.array(
+    z.object({
+      day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      version: z.number().int().min(1),
+      minutes: z.number().int().min(0),
+      data: z.string().min(1),
+    }),
+  ),
+});
+
+const demoNilmDays = (body: unknown) => DemoNilmBody.safeParse(body).data?.days ?? null;
+
 /** Answers one API request of the demonstration. */
 export function demoResponse(method: string, path: string, body?: unknown): Response {
   const url = new URL(path, 'https://demo.invalid');
@@ -694,6 +712,22 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       if (view.minutes === 0) return invalid();
       demo.signatures.push(signature);
       return json({ signature: view }, 201);
+    }
+    case 'GET /v1/nilm/days': {
+      const first = url.searchParams.get('from') ?? '';
+      const last = url.searchParams.get('to') ?? '';
+      if (url.searchParams.get('meter') !== METER) return invalid();
+      return json({
+        days: [...demo.nilmDays.values()]
+          .filter((item) => item.day >= first && item.day <= last)
+          .sort((a, b) => a.day.localeCompare(b.day)),
+      });
+    }
+    case 'PUT /v1/nilm/days': {
+      const days = demoNilmDays(body);
+      if (!days) return invalid();
+      for (const item of days) demo.nilmDays.set(item.day, item);
+      return empty();
     }
     case 'GET /v1/appliances':
       return json({

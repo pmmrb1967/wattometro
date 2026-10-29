@@ -33,6 +33,8 @@ import {
 } from './api';
 import { addAppliance, useAppliances } from './appliances-store';
 import { KnownAppliances } from './KnownAppliances';
+import { SECONDS_DAYS } from './nilm-days';
+import { Reprocess } from './Reprocess';
 import {
   loadPending,
   MAX_RUN_S,
@@ -45,8 +47,6 @@ import { useHouseholdEnergy } from './household-energy';
 import { failureText, useSession } from './session';
 
 const texts = t.calibrate;
-/** As long as readings_1s keeps the per-second values. */
-const SECONDS_DAYS = 90;
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
@@ -455,6 +455,10 @@ export function Calibrate() {
       </section>
 
       <KnownAppliances />
+
+      {meter && (
+        <Reprocess householdId={me.householdId} meter={meter} shellyFrom={energy.shellyFrom} />
+      )}
     </>
   );
 }
