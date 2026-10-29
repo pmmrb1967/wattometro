@@ -4,10 +4,11 @@
  * is read in the browser (src/import/eredes.ts); only the quarter hours go to
  * the server, in batches. The CPE and meter number in the file are not sent.
  */
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { eredesCoverage, type EredesDay } from '../domain/eredes-coverage';
 import { parseEredesXlsx, type EredesFile } from '../import/eredes';
 import { t } from '../i18n/pt-PT';
-import { formatLisbonDateTime } from '../lib/time';
+import { formatLisbonDateTime, formatLocalDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
 import {
   deleteEredesImport,
@@ -23,6 +24,70 @@ const texts = t.eredes;
 
 function Period({ from, to }: { from: number; to: number }) {
   return <>{texts.period(formatLisbonDateTime(from), formatLisbonDateTime(to))}</>;
+}
+
+/** Lists shown in full up to this many; longer ones end with "e mais N". */
+const SHOWN = 5;
+
+function Items({ items }: { items: string[] }) {
+  const shown = items.length > SHOWN ? items.slice(0, SHOWN - 1) : items;
+  const rest = items.length - shown.length;
+  return (
+    <>
+      {shown.join(' · ')}
+      {rest > 0 && ` · ${texts.coverage.more(rest)}`}
+    </>
+  );
+}
+
+/** The gaps in what is stored: missing and incomplete days, estimated quarter hours. */
+function Coverage({ days }: { days: readonly EredesDay[] }) {
+  const coverage = useMemo(() => eredesCoverage(days), [days]);
+  const copy = texts.coverage;
+  const { missing, partial, estimated } = coverage;
+  if (missing.length === 0 && partial.length === 0 && estimated.length === 0) {
+    return <p className="hint">{copy.whole}</p>;
+  }
+  const missingDays = missing.reduce((sum, range) => sum + range.days, 0);
+  const estimatedQuarters = estimated.reduce((sum, day) => sum + day.quarters, 0);
+  return (
+    <ul className="hint coverage">
+      {missing.length > 0 && (
+        <li>
+          {copy.missing(missingDays)}{' '}
+          <Items
+            items={missing.map((range) =>
+              copy.range(formatLocalDate(range.from), formatLocalDate(range.to), range.days),
+            )}
+          />
+        </li>
+      )}
+      {partial.length > 0 && (
+        <li>
+          {copy.partial(partial.length)}{' '}
+          <Items
+            items={partial.map((day) =>
+              copy.partialDay(formatLocalDate(day.day), day.missingQuarters),
+            )}
+          />
+        </li>
+      )}
+      {(missing.length > 0 || partial.length > 0) && <li>{copy.gapsHint}</li>}
+      {estimated.length > 0 && (
+        <>
+          <li>
+            {copy.estimated(estimatedQuarters, estimated.length)}{' '}
+            <Items
+              items={estimated.map((day) =>
+                copy.estimatedDay(formatLocalDate(day.day), day.quarters),
+              )}
+            />
+          </li>
+          <li>{copy.estimatedHint}</li>
+        </>
+      )}
+    </ul>
+  );
 }
 
 export function EredesImportSection() {
@@ -94,7 +159,7 @@ export function EredesImportSection() {
     if (!window.confirm(texts.removeConfirm)) return;
     const outcome = await deleteEredesImport();
     if (outcome.ok) {
-      setSummary({ quarters: 0, estimated: 0, energyWh: 0, from: null, to: null });
+      setSummary({ quarters: 0, estimated: 0, energyWh: 0, from: null, to: null, days: [] });
       setStatus({ kind: 'done', text: texts.removed });
       return;
     }
@@ -128,6 +193,7 @@ export function EredesImportSection() {
               summary.estimated,
             )}
           </p>
+          <Coverage days={summary.days} />
         </div>
       )}
 

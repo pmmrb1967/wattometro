@@ -605,6 +605,8 @@ const EredesSummary = z.object({
   energyWh: int,
   from: int.nullable(),
   to: int.nullable(),
+  /** Each day imported: [day, quarters, estimated] (null when not counted). */
+  days: z.array(z.tuple([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), int.nullable(), int.nullable()])),
 });
 export type EredesSummary = z.infer<typeof EredesSummary>;
 

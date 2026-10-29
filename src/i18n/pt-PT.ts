@@ -1506,6 +1506,25 @@ export const t = {
       `${count.toLocaleString('pt-PT')} valores estimados pela E-Redes (falha de comunicação do contador): ficam marcados.`,
     fileMissing: (count: number) =>
       `${count.toLocaleString('pt-PT')} quartos de hora em falta no ficheiro (a E-Redes perde a hora repetida no dia em que a hora muda em outubro).`,
+    coverage: {
+      whole: 'Nenhum dia em falta ou incompleto, e nenhum valor estimado.',
+      missing: (days: number) =>
+        `${days.toLocaleString('pt-PT')} ${days === 1 ? 'dia' : 'dias'} sem dados:`,
+      range: (from: string, to: string, days: number) =>
+        days === 1 ? from : `${from} a ${to} (${days} dias)`,
+      partial: (days: number) =>
+        `${days.toLocaleString('pt-PT')} ${days === 1 ? 'dia incompleto' : 'dias incompletos'}:`,
+      partialDay: (day: string, quarters: number) =>
+        `${day} (${quarters === 1 ? 'falta 1 quarto de hora' : `faltam ${quarters} quartos de hora`})`,
+      estimated: (quarters: number, days: number) =>
+        `${quarters.toLocaleString('pt-PT')} ${quarters === 1 ? 'quarto de hora estimado' : 'quartos de hora estimados'} pela E-Redes em ${days.toLocaleString('pt-PT')} ${days === 1 ? 'dia' : 'dias'}:`,
+      estimatedDay: (day: string, quarters: number) => `${day} (${quarters})`,
+      more: (count: number) => `e mais ${count.toLocaleString('pt-PT')}`,
+      gapsHint:
+        'Para os preencher, pede no Balcão Digital um ficheiro com esses dias e importa-o aqui: o que já tens não se duplica.',
+      estimatedHint:
+        'A E-Redes estima quando não consegue ler o contador. Se mais tarde os corrigir, um ficheiro novo substitui-os.',
+    },
     send: 'Importar',
     sending: (percent: number) => `A enviar… ${percent} %`,
     done: (written: number) =>

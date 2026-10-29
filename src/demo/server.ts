@@ -582,12 +582,15 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     }
     case 'GET /v1/import/eredes': {
       const quarters = meterQuarters(data, 'eredes', data.start, Number.MAX_SAFE_INTEGER) ?? [];
+      const days = new Map<string, number>();
+      for (const [ts] of quarters) days.set(lisbonDate(ts), (days.get(lisbonDate(ts)) ?? 0) + 1);
       return json({
         quarters: quarters.length,
         estimated: 0,
         energyWh: quarters.reduce((sum, [, wh]) => sum + wh, 0),
         from: quarters[0]?.[0] ?? null,
         to: quarters.length > 0 ? (quarters.at(-1)?.[0] ?? 0) + 900 : null,
+        days: [...days].map(([day, count]) => [day, count, 0]),
       });
     }
     case 'GET /v1/tariffs':

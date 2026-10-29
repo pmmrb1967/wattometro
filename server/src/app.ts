@@ -75,7 +75,8 @@
  *                              and tomorrow, once published (omie.ts; cents per MWh)
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
  *                              quarter hour) → {written}; idempotent (repo/eredes.ts); 413 if too big
- *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to} (from/to null without data)
+ *   GET  /v1/import/eredes     → {quarters, estimated, energyWh, from, to, days: [day, quarters,
+ *                              estimated][]} (from/to null without data; days oldest first)
  *   DELETE /v1/import/eredes   → 204, removes the imported E-Redes data
  *   GET  /v1/energy?from&to    → {meters: [{meter, days, energyWh}]} (≤ 430 days)
  *   GET  /v1/energy/days?meter&from&to → {days: [[date, Wh, minutes | null]]}, the daily totals

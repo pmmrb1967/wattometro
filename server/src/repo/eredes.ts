@@ -70,11 +70,24 @@ export interface EredesSummary {
   /** Start of the first quarter and end of the last, or null without data. */
   from: number | null;
   to: number | null;
+  /** Each Lisbon day imported, oldest first: [day, quarters, estimated] (null if not counted). */
+  days: [day: string, quarters: number | null, estimated: number | null][];
+}
+
+/** The days imported, one row each (~365 a year). */
+async function eredesDays(sql: Sql, householdId: string): Promise<EredesSummary['days']> {
+  const rows = await sql.all<{ day: string; quarters: number | null; estimated: number | null }>(
+    `SELECT day, quarters, estimated FROM daily
+     WHERE household_id = ? AND meter = '${EREDES_METER}' ORDER BY day`,
+    householdId,
+  );
+  return rows.map((row) => [row.day, row.quarters, row.estimated]);
 }
 
 /**
- * From the daily totals (~365 rows a year) and the first and last quarter
- * hours (one primary-key row each); days imported before the daily counts
+ * From the daily totals (~365 rows a year, read twice: the sums and the days)
+ * and the first and last quarter hours (one primary-key row each); days
+ * imported before the daily counts
  * existed (migration 0012) fall back to reading every quarter hour.
  */
 export async function eredesSummary(sql: Sql, householdId: string): Promise<EredesSummary> {
@@ -97,6 +110,7 @@ export async function eredesSummary(sql: Sql, householdId: string): Promise<Ered
     householdId,
     householdId,
   );
+  const days = await eredesDays(sql, householdId);
   if (daily && !daily.unknown) {
     return {
       quarters: daily.quarters ?? 0,
@@ -104,6 +118,7 @@ export async function eredesSummary(sql: Sql, householdId: string): Promise<Ered
       energyWh: daily.energy_wh ?? 0,
       from: daily.first,
       to: daily.last === null ? null : daily.last + 900,
+      days,
     };
   }
   const row = await sql.first<{
@@ -124,6 +139,7 @@ export async function eredesSummary(sql: Sql, householdId: string): Promise<Ered
     energyWh: row?.energy_wh ?? 0,
     from: row?.first ?? null,
     to: row?.last === null || row?.last === undefined ? null : row.last + 900,
+    days,
   };
 }
 
