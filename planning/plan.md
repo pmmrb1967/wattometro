@@ -249,6 +249,17 @@ Toda a lógica corre em `src/nilm/`, sobre `readings_1s`. Pode ser melhorada e r
 
 ## Fase 9 — Crescimento e extensões
 
+Capacidade medida e opções para abrir a app a outras pessoas: [`docs/hosting.md`](../docs/hosting.md) (plano gratuito: uma casa com Shelly; Workers Paid: ~30 casas com Shelly incluídas).
+
+### Modo local (divulgar sem servidor)
+- [ ] Modo local só com a E-Redes, sem conta: dados no browser (Dexie), sobre a base da demonstração; gratuito e sem limite de pessoas
+
+### Instalação própria
+- [x] README com os passos para uma conta Cloudflare própria
+- [ ] Botão "Deploy to Cloudflare": um só Worker (ou um botão por Worker), migrações no `deploy`, primeira conta criada na app; confirmar que a base fica na UE
+- [ ] Entrada Node + SQLite em ficheiro (Raspberry Pi, Docker)
+- [ ] Menos linhas escritas por casa (o limite que trava primeiro, no gratuito e no pago)
+
 ### Plano pago / primeiros utilizadores
 - [ ] Passar a Workers Paid; rever limites em `wrangler.toml`
 - [ ] Registo de casas e convites; limites de capacidade (padrão do Faturómetro: `MAX_ACCOUNTS`, admissão)
@@ -419,3 +430,4 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 - 2026-10-29 — **Eventos guardados por dia, não por evento.** O plano pedia uma tabela `events`; ficou `nilm_days`, uma linha por contador e dia com os ciclos do dia comprimidos pelo browser. Uma linha por evento seriam centenas de linhas escritas e lidas por dia (o limite de linhas lidas do D1 já foi atingido a 22/10); assim, um ano de histórico de aparelhos são 365 linhas e ~4 MB. O Worker só guarda os bytes (não os interpreta); o browser valida-os com zod ao ler. Os nomes não se guardam com os ciclos: aplicam-se por cima, para mudar um nome não obrigar a reprocessar. `NILM_VERSION` sobe sempre que a deteção muda o que encontra; os dias de outra versão voltam a ser analisados enquanto houver valores ao segundo, e os mais antigos ficam como foram guardados.
 - 2026-10-29 — **PVGIS pelo Worker, autorizado pelo dono** (regra 1 do `CLAUDE.md` alargada). O PVGIS recusa pedidos do browser, por isso o Worker pede e reencaminha a resposta sem a ler (≈830 KB de JSON; interpretar no Worker gastaria CPU que o plano gratuito não tem); o browser valida-a com zod. Pede-se sempre 1 kWp e a potência real multiplica-se no browser; o pedido leva só o centro da localidade (~1 km), a inclinação, a orientação e as perdas. Um ano real (2023, o último da base SARAH3), não a média de 19 anos (16 MB por pedido). As horas do PVGIS são UTC (verificado pela altura do sol, `docs/pvgis.md`). O excedente não tem preço por omissão: a app não sabe quanto o comercializador paga. A demonstração lê uma resposta real guardada (`public/data/pvgis-demo.json`, Lisboa, 35°, sul) e não chama o PVGIS.
 - 2026-10-29 — **Horas verdes postas de parte** (decisão do dono). A REN não publica a intensidade carbónica nem tem uma API documentada: o Data Hub (datahub.ren.pt) só tem pontos internos do site, sem garantia de estabilidade, e a exportação CSV dá totais diários por fonte, não horários. Calcular a intensidade exigiria fatores de emissão por fonte com fonte oficial (regra 6) e tratar a importação de Espanha (a 28/10, 63 GWh importados para 105 GWh produzidos), cujo mix a REN não detalha. Alternativas vistas e não seguidas: a percentagem de renováveis por hora a partir do Data Hub (sem CO₂ e sem a importação) e a intensidade da plataforma de transparência da ENTSO-E (exige token e seria mais um serviço externo, a autorizar pela regra 1). Retomar só se aparecer uma fonte oficial, horária e documentada.
+- 2026-10-29 — **Como abrir a app a outras pessoas** (`docs/hosting.md`). Medido nas 24 h até 29/10: a casa do dono gasta 60 % das linhas lidas e 52 % das escritas do plano gratuito do D1, por isso cabe uma casa com Shelly por conta gratuita. No Workers Paid, o que trava são as escritas: as incluídas chegam para ~30 casas com Shelly, depois ~1,6 USD por casa e por mês. Recomendação: divulgar com um modo local só com a E-Redes (dados no browser, custo zero, sem RGPD de contas); quem tiver Shelly instala na sua conta Cloudflare (README, mais tarde o botão de deploy); instância partilhada só quando houver procura.

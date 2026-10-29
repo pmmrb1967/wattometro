@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 600" width="1100" height="600" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#1f2a30">
+  <title>Wattómetro: do quadro elétrico à app</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0f6e6e"/>
+    </marker>
+    <marker id="arrow-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6b7a80"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1100" height="600" rx="16" fill="#ffffff"/>
+
+  <!-- At home -->
+  <rect x="20" y="20" width="440" height="410" rx="14" fill="#f5f4f1" stroke="#c9cfd2" stroke-dasharray="6 5"/>
+  <text x="40" y="48" font-size="15" font-weight="700">Em casa</text>
+
+  <!-- Smart meter -->
+  <rect x="40" y="95" width="120" height="80" rx="8" fill="#ffffff" stroke="#6b7a80"/>
+  <text x="100" y="125" text-anchor="middle" font-weight="600">Contador</text>
+  <text x="100" y="143" text-anchor="middle">inteligente</text>
+  <text x="100" y="161" text-anchor="middle" fill="#6b7a80">E-Redes</text>
+
+  <!-- Board -->
+  <rect x="190" y="70" width="250" height="235" rx="10" fill="#ffffff" stroke="#1f2a30" stroke-width="1.5"/>
+  <text x="315" y="92" text-anchor="middle" font-weight="700">Quadro elétrico</text>
+
+  <!-- Phase cable -->
+  <line x1="160" y1="135" x2="425" y2="135" stroke="#8a4b20" stroke-width="4"/>
+  <text x="168" y="125" font-size="11" fill="#8a4b20">fase</text>
+  <!-- Main breaker -->
+  <rect x="215" y="112" width="34" height="46" rx="4" fill="#e6e9ea" stroke="#1f2a30"/>
+  <text x="232" y="176" text-anchor="middle" font-size="11">disjuntor</text>
+  <text x="232" y="189" text-anchor="middle" font-size="11">geral</text>
+  <text x="425" y="125" text-anchor="end" font-size="11" fill="#6b7a80">→ circuitos da casa</text>
+
+  <!-- Clamp -->
+  <ellipse cx="295" cy="135" rx="11" ry="22" fill="none" stroke="#0f6e6e" stroke-width="5"/>
+  <text x="312" y="172" font-size="11" fill="#0f6e6e" font-weight="600">pinça 50 A</text>
+  <path d="M295,157 L295,250 L315,250" fill="none" stroke="#0f6e6e" stroke-width="2"/>
+
+  <!-- Voltage tap -->
+  <path d="M385,135 L385,215" fill="none" stroke="#8a4b20" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="392" y="182" font-size="11" fill="#8a4b20">L/N</text>
+  <text x="392" y="196" font-size="11" fill="#8a4b20">(tensão)</text>
+
+  <!-- Shelly -->
+  <rect x="315" y="215" width="105" height="75" rx="8" fill="#0f6e6e"/>
+  <text x="367" y="245" text-anchor="middle" fill="#ffffff" font-weight="700">Shelly</text>
+  <text x="367" y="263" text-anchor="middle" fill="#ffffff" font-weight="700">EM Gen3</text>
+  <text x="367" y="280" text-anchor="middle" fill="#cfe9e7" font-size="11">módulo DIN</text>
+  <text x="200" y="232" font-size="11" fill="#6b7a80">mede ao segundo:</text>
+  <text x="200" y="246" font-size="11" fill="#6b7a80">potência, tensão,</text>
+  <text x="200" y="260" font-size="11" fill="#6b7a80">fator de potência</text>
+
+  <!-- Router -->
+  <rect x="270" y="355" width="150" height="50" rx="8" fill="#ffffff" stroke="#6b7a80"/>
+  <text x="345" y="385" text-anchor="middle" font-weight="600">Router Wi-Fi</text>
+  <path d="M367,290 L345,355" fill="none" stroke="#0f6e6e" stroke-width="2" stroke-dasharray="3 4"/>
+  <path d="M330,322 q8,-8 16,0 M326,314 q12,-12 24,0" fill="none" stroke="#0f6e6e" stroke-width="1.5"/>
+  <text x="372" y="330" font-size="11" fill="#0f6e6e">Wi-Fi</text>
+
+  <!-- Ingest arrow -->
+  <text x="474" y="446" font-size="11" fill="#0f6e6e" font-weight="600">Internet · HTTPS</text>
+  <text x="474" y="460" font-size="11" fill="#0f6e6e">POST /v1/ingest, 1 vez por minuto:</text>
+  <text x="474" y="474" font-size="11" fill="#0f6e6e">resumo do minuto + 60 valores ao segundo</text>
+
+  <!-- Cloudflare -->
+  <rect x="535" y="20" width="300" height="330" rx="14" fill="#fff6ec" stroke="#f38020" stroke-width="1.5"/>
+  <text x="555" y="48" font-size="15" font-weight="700">Cloudflare</text>
+  <text x="555" y="66" font-size="11" fill="#6b7a80">conta do dono · plano gratuito · dados na UE</text>
+
+  <rect x="555" y="80" width="260" height="52" rx="8" fill="#ffffff" stroke="#f38020"/>
+  <text x="567" y="102" font-weight="600">Worker app</text>
+  <text x="567" y="120" font-size="11" fill="#6b7a80">serve a PWA e encaminha /v1/*</text>
+
+  <rect x="555" y="148" width="260" height="52" rx="8" fill="#ffffff" stroke="#f38020"/>
+  <text x="567" y="170" font-weight="600">Worker api</text>
+  <text x="567" y="188" font-size="11" fill="#6b7a80">valida, grava e autentica (≤ 10 ms CPU)</text>
+
+  <rect x="555" y="216" width="260" height="52" rx="8" fill="#ffffff" stroke="#f38020"/>
+  <text x="567" y="238" font-weight="600">D1 (SQLite, jurisdição UE)</text>
+  <text x="567" y="256" font-size="11" fill="#6b7a80">minutos, segundos (90 dias), 15 min, dias</text>
+
+  <rect x="555" y="284" width="260" height="48" rx="8" fill="#ffffff" stroke="#f38020"/>
+  <text x="567" y="304" font-weight="600">Cron a cada 5 min</text>
+  <text x="567" y="321" font-size="11" fill="#6b7a80">agregações em SQL, avisos push, OMIE</text>
+
+  <!-- Browser -->
+  <rect x="875" y="80" width="205" height="190" rx="14" fill="#e3f1ef" stroke="#0f6e6e" stroke-width="1.5"/>
+  <text x="977" y="108" text-anchor="middle" font-size="15" font-weight="700">Telemóvel ou PC</text>
+  <text x="977" y="128" text-anchor="middle" fill="#6b7a80" font-size="11">app instalável (PWA)</text>
+  <text x="890" y="160" font-size="12">Os cálculos correm aqui:</text>
+  <text x="890" y="180" font-size="12">· custos e fatura prevista</text>
+  <text x="890" y="198" font-size="12">· tarifários ERSE, potência</text>
+  <text x="890" y="216" font-size="12">· aparelhos (ao segundo)</text>
+  <text x="890" y="234" font-size="12">· tensão e falhas</text>
+  <text x="890" y="252" font-size="12">· IA opcional</text>
+  <path d="M835,175 L873,175" fill="none" stroke="#0f6e6e" stroke-width="2.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="854" y="166" text-anchor="middle" font-size="11" fill="#0f6e6e">HTTPS</text>
+
+  <!-- External services -->
+  <rect x="535" y="370" width="545" height="62" rx="10" fill="#ffffff" stroke="#6b7a80" stroke-dasharray="5 4"/>
+  <text x="550" y="393" font-weight="600">Serviços externos (nunca recebem consumos)</text>
+  <text x="550" y="414" font-size="11" fill="#6b7a80">Open-Meteo (clima) · OMIE (preços do mercado) · PVGIS (produção solar) · Anthropic (IA, com a tua chave)</text>
+
+  <!-- E-Redes path -->
+  <path d="M100,175 L100,500" fill="none" stroke="#6b7a80" stroke-width="2" marker-end="url(#arrow-grey)"/>
+  <text x="108" y="300" font-size="11" fill="#6b7a80">leituras a</text>
+  <text x="108" y="314" font-size="11" fill="#6b7a80">15 min</text>
+  <rect x="20" y="502" width="230" height="70" rx="10" fill="#ffffff" stroke="#6b7a80"/>
+  <text x="135" y="530" text-anchor="middle" font-weight="600">E-Redes · Balcão Digital</text>
+  <text x="135" y="550" text-anchor="middle" font-size="11" fill="#6b7a80">exportas o CSV dos consumos</text>
+  <path d="M250,537 L977,537 L977,272" fill="none" stroke="#6b7a80" stroke-width="2" marker-end="url(#arrow-grey)"/>
+  <text x="270" y="528" font-size="11" fill="#6b7a80">sem Shelly: o ficheiro CSV (15 min, com dias de atraso) é lido no browser e enviado com POST /v1/import</text>
+  <text x="270" y="562" font-size="11" fill="#6b7a80">o Shelly e a E-Redes podem ser usados juntos: o histórico da E-Redes e o detalhe do Shelly</text>
+  <path d="M420,380 L500,380 L500,106 L553,106" fill="none" stroke="#0f6e6e" stroke-width="2.5" marker-end="url(#arrow)"/>
+</svg>
