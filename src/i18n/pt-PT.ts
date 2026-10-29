@@ -50,6 +50,18 @@ export const t = {
     signIn: 'Entrar',
     howItWorksLink: 'Como funciona',
     back: '← Voltar',
+    day: {
+      title: 'Um dia de consumo de uma casa',
+      label:
+        'Gráfico ilustrativo da potência ao longo de um dia: consumo base de noite, um pico ao jantar abaixo da potência contratada, a máquina de lavar de manhã e as horas de vazio.',
+      contracted: 'Potência contratada',
+      peak: 'Pico',
+      base: 'Consumo base',
+      wash: 'Máquina de lavar',
+      offPeak: 'Vazio',
+      caption:
+        'Ilustração. Com os dados da tua casa, a app diz se a potência contratada pode baixar, quanto custa o consumo base e quanto poupas a mudar as máquinas para o vazio.',
+    },
     features: {
       title: 'O que faz por ti',
       items: [
@@ -96,7 +108,7 @@ export const t = {
       title: 'Os teus dados ficam contigo',
       items: [
         'As medições ficam num servidor na União Europeia, sem publicidade nem estatísticas de terceiros.',
-        'As contas são feitas no teu browser; o servidor só guarda e resume as medições.',
+        'Os cálculos são feitos no teu browser; o servidor só guarda e resume as medições.',
         'A inteligência artificial é opcional, usa a tua própria chave e só recebe resultados já calculados, nunca as medições.',
         'O código é aberto: podes ver tudo o que a app faz.',
       ],
