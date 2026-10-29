@@ -573,7 +573,7 @@ h2 {
 
 @media (min-width: 900px) {
   .landing-hero {
-    grid-template-columns: 1.1fr 1fr;
+    grid-template-columns: 1.25fr 1fr;
     align-items: center;
     padding: 24px 0 56px;
   }
@@ -611,9 +611,10 @@ h2 {
   gap: 8px;
 }
 
-.landing-actions > * {
+.landing-actions > .primary,
+.landing-actions > .secondary {
   justify-content: center;
-  padding-inline: 16px;
+  padding-inline: 14px;
   white-space: nowrap;
 }
 
