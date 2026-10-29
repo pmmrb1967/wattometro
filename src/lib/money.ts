@@ -180,3 +180,13 @@ export function nanoToCents(nano: bigint): Cents {
 export function energyValueCents(wh: number, microPerKwh: MicroEuros): Cents {
   return Math.round((wh * microPerKwh) / 10_000_000);
 }
+
+/** A quantity in millionths (kWh, days, months) times a unit price, rounded to the cent. */
+export function unitsValueCents(millionths: number, micro: MicroEuros): Cents {
+  return Math.round((millionths * micro) / 10_000_000_000);
+}
+
+/** An amount used as a unit price (e.g. 0,07 € a month): cents → µ€. */
+export function centsToMicro(cents: Cents): MicroEuros {
+  return cents * 10_000;
+}

@@ -19,6 +19,8 @@ import { bpToPtInput, microToPtInput, parsePtPercent, parsePtPrice } from '../li
 import { formatLocalDate, lisbonToday } from '../lib/time';
 import { formatKva } from '../lib/units';
 import { deleteTariff, fetchTariffs, saveTariff } from './api';
+import type { InvoiceFields } from '../import/repsol-invoice';
+import { InvoiceImport, type InvoiceFill } from './InvoiceImport';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 
@@ -110,7 +112,7 @@ function TariffForm({
   initial,
   onSaved,
 }: {
-  initial: Tariff | null;
+  initial: Partial<TariffInput> | null;
   onSaved: (tariff: Tariff) => void;
 }) {
   const { signOut } = useSession();
@@ -230,7 +232,7 @@ function TariffForm({
             name={`energy-${period}`}
             label={texts.periods[period]}
             info={info.energy}
-            value={initial?.energy[period]}
+            value={initial?.energy?.[period]}
           />
         ))}
         <Field label={texts.energyDiscount} info={info.energyDiscount}>
@@ -325,10 +327,57 @@ function TariffItem({ tariff, onRemove }: { tariff: Tariff; onRemove: () => void
   );
 }
 
+/** The fields an invoice fills, with their names for "not found". */
+const INVOICE_FIELDS: [keyof InvoiceFields, string][] = [
+  ['powerVa', texts.power],
+  ['option', texts.option],
+  ['energy', texts.energy],
+  ['fixedPerDay', texts.fixedPerDay],
+  ['energyDiscountBp', texts.energyDiscount],
+  ['socialEnergyPerKwh', texts.socialEnergy],
+  ['socialPowerPerDay', texts.socialPower],
+  ['socialFinancingPerKwh', texts.socialFinancing],
+  ['iecPerKwh', texts.iec],
+  ['cavPerMonth', texts.cav],
+  ['dgegPerMonth', texts.dgeg],
+];
+
+/**
+ * The form's values after reading an invoice: what it states over what the
+ * form had. Prices equal to the base tariff's keep its start date (nothing
+ * changed); otherwise the invoice's first day is proposed.
+ */
+function fromInvoice(base: Tariff | null, fill: InvoiceFill) {
+  const { fields } = fill;
+  const same =
+    base !== null &&
+    INVOICE_FIELDS.every(
+      ([key]) =>
+        fields[key] === undefined || JSON.stringify(fields[key]) === JSON.stringify(base[key]),
+    );
+  const missing = INVOICE_FIELDS.filter(([key]) => fields[key] === undefined).map(
+    ([, name]) => name,
+  );
+  return {
+    initial: { ...base, ...fields, validFrom: same ? base.validFrom : fields.validFrom },
+    notes: [
+      same ? texts.invoice.same : texts.invoice.newFrom,
+      ...(missing.length > 0 ? [texts.invoice.missing(missing.join(', '))] : []),
+      texts.invoice.notOnInvoice,
+    ],
+  };
+}
+
 export function TariffSection() {
   const { signOut } = useSession();
   const [tariffs, setTariffs] = useState<Tariff[] | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  // The form refilled from an invoice; `read` remounts it with the new values.
+  const [filled, setFilled] = useState<{
+    initial: Partial<TariffInput>;
+    notes: string[];
+    read: number;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -381,8 +430,16 @@ export function TariffSection() {
           ) : (
             <p>{texts.none}</p>
           )}
-          {/* Long: folded once there is a tariff (open while there is none to see). */}
-          <details className="adjust" open={current === null}>
+          <InvoiceImport
+            onRead={(fill) =>
+              setFilled((before) => ({
+                ...fromInvoice(current ?? tariffs.at(-1) ?? null, fill),
+                read: (before?.read ?? 0) + 1,
+              }))
+            }
+          />
+          {/* Long: folded once there is a tariff (open while there is none to see, or just filled). */}
+          <details className="adjust" open={current === null || filled !== null}>
             <summary>{current ? texts.expand : texts.newTitle}</summary>
             {others.length > 0 && (
               <>
@@ -398,8 +455,17 @@ export function TariffSection() {
                 </ul>
               </>
             )}
-            {/* Filled once, when the list arrives; after saving it keeps what was typed. */}
-            <TariffForm initial={current ?? tariffs.at(-1) ?? null} onSaved={saved} />
+            {filled?.notes.map((note) => (
+              <p key={note} className="hint">
+                {note}
+              </p>
+            ))}
+            {/* Filled once, when the list arrives (or an invoice is read); after saving it keeps what was typed. */}
+            <TariffForm
+              key={filled?.read ?? 0}
+              initial={filled?.initial ?? current ?? tariffs.at(-1) ?? null}
+              onSaved={saved}
+            />
           </details>
         </>
       )}

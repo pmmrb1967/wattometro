@@ -636,6 +636,34 @@ export const t = {
       none: 'Ainda não indicaste o teu tarifário.',
       newTitle: 'Novo tarifário ou mudança de preços',
       expand: 'Mudar ou corrigir o tarifário',
+      invoice: {
+        title: 'Preencher com uma fatura',
+        intro:
+          'Escolhe o PDF de uma fatura de eletricidade da Repsol: a app copia os preços para o formulário, para os reveres antes de guardar. O ficheiro é lido neste aparelho e não é enviado. Para outros comercializadores, copia os valores à mão.',
+        choose: 'Fatura em PDF',
+        pick: 'Escolher ficheiro',
+        noFile: 'Nenhum ficheiro escolhido',
+        reading: 'A ler a fatura…',
+        password: 'Password do PDF',
+        passwordHint: 'Na Repsol, costuma ser o NIF do titular. Fica só neste ecrã.',
+        open: 'Abrir',
+        wrongPassword: 'Password errada. Tenta outra vez.',
+        unreadable: 'Não foi possível abrir este ficheiro como PDF.',
+        problems: {
+          notRepsol:
+            'Isto não parece uma fatura de eletricidade da Repsol, a única que a app sabe ler por agora. Copia os valores à mão.',
+          totalMismatch:
+            'As linhas lidas não somam o total sem IVA da fatura, por isso nenhum valor foi usado. Copia os valores à mão.',
+        },
+        read: (from: string, to: string) =>
+          `Formulário preenchido com a fatura de ${from} a ${to}. Revê os valores e carrega em Guardar.`,
+        same: 'Os preços da fatura são iguais aos do tarifário atual: não há nada a mudar.',
+        newFrom:
+          'A data de início ficou a do começo da fatura. Se os preços mudaram antes, corrige-a.',
+        missing: (fields: string) => `Não encontrados na fatura, ficaram como estavam: ${fields}.`,
+        notOnInvoice:
+          'O ciclo, os horários dos períodos e a família numerosa não vêm na fatura: ficaram como estavam.',
+      },
       editHint:
         'Para corrigir o tarifário atual, guarda com a mesma data de início; com outra data, fica um novo a partir desse dia.',
       validFrom: 'Em vigor desde',
