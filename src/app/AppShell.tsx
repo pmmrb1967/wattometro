@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useCallback, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonTime } from '../lib/time';
 import { fetchHealth, fetchMe, logout, type Me, recordVisit } from './api';
@@ -118,9 +118,16 @@ export function AppShell() {
     }
     void logout().then(() => setMe(null));
   }, [setMe]);
+  // Signing in, or opening the demonstration, always starts on Início, not on
+  // the page left at the last sign out (the address stays when signed out).
+  const navigate = useNavigate();
+  const enter = (who: Me) => {
+    if (pathname !== '/') void navigate('/', { replace: true });
+    setMe(who);
+  };
   const startDemo = () => {
     enterDemo();
-    setMe(DEMO_ME);
+    enter(DEMO_ME);
   };
   const [collapsed, setCollapsed] = useState(savedCollapsed);
   const toggleNav = () => {
@@ -230,7 +237,7 @@ export function AppShell() {
         <div className="main">
           <main className="content">
             {me === undefined && <p className="hint">{t.loading}</p>}
-            {me === null && <Landing onSignedIn={setMe} onDemo={startDemo} />}
+            {me === null && <Landing onSignedIn={enter} onDemo={startDemo} />}
             {context && <Outlet context={context} />}
           </main>
 
