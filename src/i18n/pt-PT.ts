@@ -157,8 +157,8 @@ export const t = {
           ? 'Como o habitual'
           : `${Math.abs(pct)} % ${pct > 0 ? 'acima' : 'abaixo'} do habitual`
       } a esta hora (média de ${days} ${WEEKDAYS_PLURAL[weekday]} anteriores; o traço marca-a).`,
-    today: 'Hoje',
-    todayMinutes: (count: number) => `${minutes(count)} com dados`,
+    today: 'Energia hoje',
+    todayMinutes: (count: number) => `desde as 0h · ${minutes(count)} com dados`,
     peak: 'Pico de hoje',
     peakHint: 'maior valor de um segundo',
     nothing: '—',
