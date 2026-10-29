@@ -83,6 +83,43 @@ describe('solarEffect', () => {
   });
 });
 
+describe('solarEffect with a battery', () => {
+  const year = () => parsePvgis(pvgisYear()) ?? new Map<string, number>();
+
+  it('keeps surplus for later, losing the round trip on the way in', () => {
+    // 1 kWh at 90 %, 2 kWp. Each noon hour leaves 400 Wh a quarter: 400 in (360 kept),
+    // 400 in (720), 311 in (999), 1 in (999); after 13:00 the house takes the 999 Wh back.
+    // A day: 400 + 999 used, 1600 − 1112 = 488 Wh of surplus.
+    const effect = solarEffect(quarters, year(), 20, 'pre-2027', {
+      tenthsKwh: 10,
+      efficiencyPct: 90,
+      tenthsKw: null,
+    });
+    expect(effect).toMatchObject({
+      productionWh: 730_000,
+      selfWh: 1399 * 365,
+      surplusWh: 488 * 365,
+      batteryWh: 999 * 365,
+    });
+    expect(effect?.usage.totalWh).toBe(3_504_000 - 1399 * 365);
+  });
+
+  it('charges no faster than its power', () => {
+    // 0,5 kW: 125 Wh a quarter, 4 × 125 in → 4 × 112 kept = 448 Wh a day.
+    const effect = solarEffect(quarters, year(), 20, 'pre-2027', {
+      tenthsKwh: 10,
+      efficiencyPct: 90,
+      tenthsKw: 5,
+    });
+    expect(effect?.batteryWh).toBe(448 * 365);
+    expect(effect?.surplusWh).toBe(1100 * 365);
+  });
+
+  it('gives nothing without a battery', () => {
+    expect(solarEffect(quarters, year(), 20, 'pre-2027')?.batteryWh).toBe(0);
+  });
+});
+
 describe('solarSaving', () => {
   it('prices what comes off the bill, the surplus and the payback', () => {
     const saving = solarSaving({
@@ -118,5 +155,32 @@ describe('solarSaving', () => {
     });
     expect(saving?.surplusCents).toBeNull();
     expect(saving?.paybackYears).toBeNull();
+  });
+
+  it('prices what the battery adds to the panels, less the surplus no longer sold', () => {
+    const saving = solarSaving({
+      quarters,
+      year: parsePvgis(pvgisYear()) ?? new Map(),
+      tenthsKwp: 20,
+      current: simple,
+      offers: [],
+      today: '2026-10-29',
+      surplusMicro: 50_000,
+      installCents: null,
+      battery: { tenthsKwh: 10, efficiencyPct: 90, tenthsKw: null },
+      batteryCents: 500_000,
+    });
+    // The panels alone are unchanged.
+    expect(saving?.savingCents).toBe(86_198 - 82_607);
+    // 3504 kWh − 510,635 kWh = 2993,365 kWh at 0,246 €: 736,37 €.
+    expect(saving?.currentWithSolarCents).toBe(73_637);
+    expect(saving?.battery).toMatchObject({
+      batteryWh: 364_635,
+      savingCents: 82_607 - 73_637,
+      // 178,12 kWh at 0,05 €: 8,91 €, 20,29 € less sold than without the battery.
+      surplusCents: 891,
+      // 5000 € / (89,70 € − 20,29 €) a year: 72 years.
+      paybackYears: 72,
+    });
   });
 });

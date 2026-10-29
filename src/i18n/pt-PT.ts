@@ -1554,6 +1554,40 @@ export const t = {
       best: (name: string, supplier: string, option: string, amount: string, saving: string) =>
         `Com os painéis, o mais barato é ${name} (${supplier}, ${option}): ${amount} por ano, menos ${saving} do que o teu tarifário com os painéis.`,
       keep: 'Com os painéis, o teu tarifário continua a ser o mais barato.',
+      bestWithBattery: (
+        name: string,
+        supplier: string,
+        option: string,
+        amount: string,
+        saving: string,
+      ) =>
+        `Com os painéis e a bateria, o mais barato é ${name} (${supplier}, ${option}): ${amount} por ano, menos ${saving} do que o teu tarifário com os painéis e a bateria.`,
+      keepWithBattery: 'Com os painéis e a bateria, o teu tarifário continua a ser o mais barato.',
+      battery: {
+        title: 'Bateria (opcional)',
+        intro:
+          'O que uma bateria acrescentaria: guarda o que sobra dos painéis e dá-o à casa quando eles não chegam. Os valores estão na ficha técnica da bateria.',
+        capacity: 'Capacidade útil (kWh)',
+        capacityHint: 'A que se pode mesmo usar, não a nominal.',
+        efficiency: 'Eficiência de ida e volta (%)',
+        efficiencyHint: 'Quanto volta de cada 100 kWh guardados.',
+        power: 'Potência máxima (kW, opcional)',
+        powerHint: 'A mais alta a que carrega ou descarrega. Sem ela, não há limite.',
+        cost: 'Custo da bateria, € (opcional)',
+        invalid:
+          'Verifica a bateria: a capacidade e a potência com uma casa decimal no máximo, a eficiência de 1 a 100.',
+        used: (self: string, pct: number, fromBattery: string) =>
+          `Com a bateria, a casa gastaria ${self} dos painéis (${pct} % da produção), dos quais ${fromBattery} vindos da bateria.`,
+        saving: (amount: string) =>
+          `A fatura baixaria mais ${amount} por ano do que só com os painéis.`,
+        surplus: (kwh: string) => `Iriam para a rede só ${kwh} por ano.`,
+        surplusValue: (kwh: string, amount: string) =>
+          `Iriam para a rede só ${kwh} por ano (${amount} ao preço que indicaste): o que fica na bateria deixa de ser vendido, e isso entra nas contas.`,
+        payback: (years: string) => `A bateria pagar-se-ia em cerca de ${years} anos.`,
+        noPayback: 'Com estes valores, a bateria não se pagaria.',
+        limits:
+          'A bateria começa vazia, carrega só com o que sobra dos painéis (não da rede) e perde a eficiência ao carregar. Não entra o desgaste ao longo dos anos.',
+      },
       partYear: (days: number) =>
         `Só há ${days} dias de consumo: as contas usam a produção desses mesmos dias, alargada a um ano. Como o sol muda muito com a estação, com dias de verão o resultado sai otimista e com dias de inverno sai pessimista. Fica mais certo com um ano inteiro.`,
       limits:

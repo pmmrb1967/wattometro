@@ -46,3 +46,14 @@ JSON (~830 KB por ano), `outputs.hourly`: 8760 linhas (8784 num ano bissexto), p
 - A produção varia dentro da hora (nuvens): com médias horárias, o autoconsumo calculado tende a ser um pouco otimista.
 - Sombras de prédios ou árvores próximas não entram (o PVGIS usa o horizonte do relevo, `use_horizon`).
 - O excedente só vale o que o utilizador indicar (preço de venda): a app não inventa o preço da venda à rede.
+
+## Bateria (opcional)
+
+Simulada quarto de hora a quarto de hora sobre a mesma produção (`solarEffect` em `src/domain/solar.ts`). Todos os valores vêm do utilizador, da ficha técnica da bateria; a app não tem valores por omissão:
+
+- **capacidade útil** (kWh), a que se pode usar, não a nominal;
+- **eficiência de ida e volta** (%), aplicada toda ao carregar: de 100 Wh que entram, ficam guardados `eficiência` Wh;
+- **potência máxima** (kW, opcional), que limita a carga e a descarga em cada quarto de hora (kW × ¼ h); sem ela, não há limite;
+- **custo** (€, opcional), para o tempo de retorno.
+
+Regras: a bateria começa vazia; carrega só com o excedente dos painéis (nunca da rede); descarrega quando a casa gasta mais do que os painéis produzem. O excedente guardado deixa de ser vendido: o retorno da bateria desconta essa venda perdida quando há preço de venda. Fora do cálculo: o desgaste ao longo dos anos, a reserva mínima de carga e a carga pela rede nas horas baratas.
