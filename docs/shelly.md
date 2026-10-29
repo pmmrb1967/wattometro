@@ -117,6 +117,16 @@ Fonte: <https://shelly-api-docs.shelly.cloud/gen2/General/Authentication> (consu
 - Por RPC, o pedido repete-se com um objeto `auth`: `realm`, `username: "admin"`, `nonce` (texto desde o firmware 2.0.0; número antes), `cnonce` (número aleatório), `nc` (`"00000001"`), `algorithm: "SHA-256"` e `response = SHA256(ha1:nonce:nc:cnonce:auth:ha2)`, com `ha1 = SHA256(admin:realm:password)` e `ha2 = SHA256(dummy_method:dummy_uri)`.
 - O `curl` do Git para Windows (Schannel) não consegue fazer este digest SHA-256: `scripts/shelly/rpc.ts` faz-o em Node. `pnpm shelly:install` lê `SHELLY_HOST` e `SHELLY_PASSWORD` do `.env` (ver `.env.example`).
 
+## Instalação no quadro
+
+O que a folha para o eletricista (Definições → Dispositivos → Instalar um Shelly, `src/app/ShellySetup.tsx`) e a verificação da instalação (`src/domain/install-check.ts`) usam. Consultado a **2026-10-29**.
+
+- **Pinça só no condutor de fase.** No neutro, ou à volta da fase e do neutro juntos, a corrente que entra e a que sai anulam-se e a leitura fica perto de 0. A tensão de referência (terminal L) deve vir da mesma fase que a pinça mede. Fonte: Shelly, «Troubleshooting Inaccurate Measurements on Shelly EM/3EM Devices» (alterado a 2025-07-28), <https://allterco.freshdesk.com/en/support/solutions/articles/103000359876-troubleshooting-inaccurate-measurements-on-shelly-em-3em-devices>
+- **Sentido K → L.** Potência negativa num canal com consumo quer dizer pinça ao contrário (seta contra o sentido da corrente). Corrige-se virando a pinça ou com a opção de inverter o sentido na interface web; depois as leituras ficam positivas. Mesma fonte.
+- **`reverse` em `EM1.SetConfig`:** «Reverse CT measurement direction of active power and energy for the EM1 component»; mudar exige reinício. Fonte: <https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM1>
+- **Calha DIN e eletricista qualificado:** guia de utilização e segurança do Shelly EM Gen3 (que vem na caixa). A folha remete para esse guia em vez de copiar as regras de ligação.
+- **Limiar de «quase nada» (10 W):** juízo do Wattómetro, não valor de referência: uma casa com o router e o frigorífico ligados gasta mais. Por isso a mensagem também admite «a casa não tem mesmo nada ligado». Com painéis solares a injetar, a potência negativa é normal e a mensagem di-lo.
+
 ## Por confirmar com o aparelho (lista para a Fase 1.1)
 
 - [x] Modelo e firmware

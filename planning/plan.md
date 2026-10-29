@@ -307,7 +307,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 - [ ] Tarifa social: elegibilidade e desconto
 - [x] Lembrete para rever o tarifário duas vezes por ano (janeiro e julho); orçamento mensal com aviso (Consumo › Previsão; o browser converte euros em energia por dia, o Cron compara kWh: `src/domain/budget.ts`, `docs/alerts.md`)
 - [ ] Intensidade carbónica (REN Data Hub): "horas verdes"
-- [ ] Instalação guiada do Shelly (folha para o eletricista, verificação da pinça)
+- [x] Instalação guiada do Shelly: Definições → Dispositivos → "Instalar um Shelly" (`/definicoes/instalar-shelly`), com uma folha para imprimir e entregar ao eletricista (pinça só na fase, sentido K → L, alimentação da mesma fase; fontes em `docs/shelly.md`) e uma verificação do último minuto de cada Shelly (envia, tensão, pinça ao contrário, pinça que não mede nada) mais o teste com uma chaleira
 - [ ] Acompanhar o acesso a dados da E-Redes por terceiros (Regulamento de Execução (UE) 2023/1162)
 
 ---

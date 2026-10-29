@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Settings → Devices: the Shellies that may send readings, and their tokens. */
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonDateTime } from '../lib/time';
 import { createDevice, fetchDevices, renameDevice, revokeDevice, type Device } from './api';
@@ -9,7 +10,7 @@ import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.settings.devices;
-const INSTRUCTIONS_URL = `${SOURCE_URL}/blob/main/shelly/README.md`;
+export const INSTRUCTIONS_URL = `${SOURCE_URL}/blob/main/shelly/README.md`;
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -161,6 +162,9 @@ export function DevicesSection() {
     <section className="card">
       <h2>{texts.title}</h2>
       <p className="hint">{texts.intro}</p>
+      <p>
+        <Link to="/definicoes/instalar-shelly">{t.shellySetup.link}</Link>
+      </p>
 
       {devices === null ? (
         <p className="hint">{t.loading}</p>

@@ -11,6 +11,7 @@ import { Tariffs } from './Tariffs';
 import { Quality } from './Quality';
 import { Report } from './Report';
 import { Settings } from './Settings';
+import { ShellySetup } from './ShellySetup';
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
           { path: 'qualidade', element: <Quality /> },
           { path: 'perguntar', element: <Navigate to="/" replace /> },
           { path: 'definicoes', element: <Settings /> },
+          { path: 'definicoes/instalar-shelly', element: <ShellySetup /> },
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },

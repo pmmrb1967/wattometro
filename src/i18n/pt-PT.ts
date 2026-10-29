@@ -180,6 +180,7 @@ export const t = {
   home: {
     vatNote: 'Valores em euros com IVA, com o teu tarifário.',
     /** Home without a Shelly: the last day imported from E-Redes, or how to start. */
+
     eredes: {
       title: 'Consumos da E-Redes',
       lastDay: 'Último dia importado',
@@ -1499,6 +1500,82 @@ export const t = {
       'Ofertas "com gás" pedem o gás no mesmo comercializador; mudar só a eletricidade pode fazer perder o desconto dual que tens hoje.',
       'Bi e tri-horário: a app escolhe o ciclo (diário ou semanal) mais barato para ti; confirma com o comercializador qual oferece.',
     ],
+  },
+  /** Settings → Devices → "Instalar um Shelly": the electrician's sheet and the check. */
+  shellySetup: {
+    title: 'Instalar um Shelly',
+    link: 'Instalar um Shelly: folha para o eletricista e verificação',
+    back: 'Voltar às Definições',
+    intro:
+      'Um Shelly no quadro elétrico mede a casa toda ao segundo. A instalação no quadro é para um eletricista: imprime esta folha e entrega-lha. Depois de ligado, verifica aqui se ficou bem.',
+    sheetTitle: 'Folha para o eletricista',
+    sheet: [
+      [
+        'Aparelho',
+        'Shelly EM Gen3 (ou outro Shelly de 2.ª geração ou mais recente que meça energia; o Shelly EM de 1.ª geração não serve, porque não corre scripts). Monta em calha DIN, no quadro.',
+      ],
+      [
+        'Alimentação',
+        'Fase (L) e neutro (N). A fase que alimenta o Shelly deve ser a mesma em que fica a pinça: é a referência de tensão da medição.',
+      ],
+      [
+        'Pinça',
+        'Só no condutor de fase da entrada da casa, antes de qualquer derivação, para medir a casa toda. Nunca no neutro, nem à volta da fase e do neutro juntos (assim não mede nada). Bem fechada à volta do cabo.',
+      ],
+      [
+        'Sentido',
+        'A seta (K → L) no sentido da corrente, da rede para a casa. Ao contrário, a potência aparece negativa; corrige-se virando a pinça ou, na interface do Shelly, com a opção de inverter o sentido da pinça (pede reinício).',
+      ],
+      [
+        'Entrada',
+        'A pinça incluída na primeira entrada de pinça do Shelly (canal 0 no Wattómetro).',
+      ],
+      [
+        'Wi-Fi',
+        'A rede Wi-Fi da casa tem de chegar ao quadro: o Shelly envia as medições pela internet.',
+      ],
+      [
+        'Segurança',
+        'Instalação por um eletricista qualificado, com o quadro desligado, segundo o guia de segurança que vem com o Shelly.',
+      ],
+    ] as const,
+    afterTitle: 'Depois da instalação',
+    after:
+      'Liga o Shelly ao Wi-Fi com a app Shelly Smart Control, adiciona um dispositivo em Definições → Dispositivos e instala o script do Wattómetro.',
+    instructions: 'Instruções do script',
+    print: 'Imprimir a folha',
+    checkTitle: 'Verificar a instalação',
+    checkIntro:
+      'Com o script a enviar, a app olha para o último minuto de cada Shelly. Atualiza sozinha a cada 30 segundos.',
+    noDevices: 'Ainda não há nenhum Shelly. Adiciona-o em Definições → Dispositivos.',
+    meter: (name: string, channel: number) => `${name}, canal ${channel}`,
+    lastMinute: (power: string, volts: string, time: string) =>
+      `Último minuto (${time}): ${power}, ${volts}.`,
+    state: { ok: 'Bem', warn: 'Atenção', fail: 'Problema' },
+    checks: {
+      sending: { ok: 'Está a enviar as medições a cada minuto.' },
+      voltage: { ok: 'Mede a tensão dentro dos limites.' },
+      direction: { ok: 'A pinça está no sentido certo: a potência é positiva.' },
+      clamp: { ok: 'A pinça está a medir consumo.' },
+    },
+    findings: {
+      never:
+        'Ainda não enviou nada. Confirma o endereço e o token no Shelly e que o script está a correr (instruções do script, passo 5).',
+      stale:
+        'Não envia há mais de 3 minutos. Vê se o Shelly tem Wi-Fi e se o script está a correr.',
+      low: (volts: string) =>
+        `A tensão do último minuto (${volts}) está abaixo do limite. Confirma a ligação da fase e do neutro do Shelly.`,
+      high: (volts: string) =>
+        `A tensão do último minuto (${volts}) está acima do limite. Se se repetir, vê a página Qualidade.`,
+      reversed: (power: string) =>
+        `A potência é negativa (${power}): a pinça está ao contrário. Vira-a (seta da rede para a casa) ou inverte o sentido da pinça na interface do Shelly. Com painéis solares a injetar na rede, é normal.`,
+      idle: (power: string) =>
+        `A pinça quase não mede nada (${power}). Pode estar no neutro, à volta da fase e do neutro juntos, ou mal fechada; ou a casa não tem mesmo nada ligado.`,
+    },
+    testTitle: 'Teste com um aparelho',
+    test: 'Liga uma chaleira ou um secador de cabelo durante 2 minutos inteiros. No minuto seguinte, a potência deve subir mais ou menos o que diz a etiqueta do aparelho. Se não subir, a pinça não está no cabo que alimenta essa tomada.',
+    later:
+      'Ao fim de uns dias, se tiveres o ficheiro da E-Redes, compara os dois em Consumo: a diferença deve ser pequena.',
   },
   eredes: {
     title: 'Consumos da E-Redes',
