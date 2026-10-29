@@ -557,11 +557,94 @@ h2 {
   font-size: var(--fs-sm);
 }
 
-/* The page before signing in: what the app concludes, then the demo. */
+/* The page before signing in: what the app is for, the login and the demo. */
+.landing-hero {
+  display: grid;
+  gap: 16px;
+}
+
 .landing-title {
-  font-size: clamp(1.75rem, 6vw, 2.25rem);
+  margin: 8px 0 0;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
   line-height: 1.15;
   text-wrap: balance;
+}
+
+.landing-lead {
+  max-width: 40rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-lg);
+}
+
+.landing-hero .hint {
+  margin: 0;
+}
+
+.landing h3 {
+  margin: 0 0 4px;
+  font-size: var(--fs-md);
+}
+
+.landing-grid {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .landing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing-grid:not(.landing-grid-two) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.landing-item {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.landing-item p,
+.landing-steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.landing-list {
+  margin: 0;
+  padding-left: 1.4em;
+  line-height: 1.6;
+}
+
+.landing-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 1.6em;
+}
+
+.landing-steps li::marker {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+#como-funciona {
+  scroll-margin-top: 16px;
+}
+
+/* "← Voltar" above the login. */
+.back-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
 }
 
 /* "Início": the conclusions of each page, a link to it. */

@@ -21,7 +21,6 @@ const WEEKDAYS_PLURAL = [
 
 export const t = {
   appName: 'Wattómetro',
-  tagline: 'O consumo elétrico da casa transformado em poupança concreta.',
   loading: 'A carregar…',
   howItWorks: 'Como é calculado',
   infoLabel: 'Onde encontrar este valor',
@@ -47,22 +46,78 @@ export const t = {
   },
   landing: {
     title: 'Onde a tua casa pode gastar menos, em euros',
-    examplesLabel: 'Exemplos de conclusões',
-    examples: [
-      [
-        'Baixar a potência para 6,9\u00a0kVA',
-        '78\u00a0€/ano',
-        'Pelos picos ao segundo: o contador nunca teria cortado.',
+    lead: 'O Wattómetro lê o consumo elétrico da tua casa, de um Shelly no quadro elétrico ou do ficheiro da E-Redes, e transforma-o em conclusões concretas: a potência contratada certa, o tarifário mais barato para o teu consumo, o custo do que fica sempre ligado e a fatura do mês.',
+    signIn: 'Entrar',
+    howItWorksLink: 'Como funciona',
+    back: '← Voltar',
+    features: {
+      title: 'O que faz por ti',
+      items: [
+        {
+          title: 'Potência contratada certa',
+          body: 'Pelos picos medidos ao segundo, diz se podes baixar a potência sem o contador disparar, e quanto poupas por ano.',
+        },
+        {
+          title: 'Tarifário mais barato',
+          body: 'Compara as ofertas publicadas pela ERSE com o consumo real da tua casa, a cada 15 minutos, e não com um perfil médio.',
+        },
+        {
+          title: 'Consumo fantasma',
+          body: 'Mede o que fica ligado de noite e quanto custa por ano.',
+        },
+        {
+          title: 'Fatura do mês',
+          body: 'Prevê quanto vais pagar no fim do mês, a partir do que já gastaste.',
+        },
+        {
+          title: 'Aparelhos',
+          body: 'Reconhece os aparelhos pelo consumo e avisa quando um começa a gastar mais do que costumava.',
+        },
+        {
+          title: 'Qualidade da energia',
+          body: 'Regista as falhas de luz e a tensão fora dos limites da norma, para poderes reclamar com dados.',
+        },
       ],
-      [
-        'Mudar de tarifário',
-        '122\u00a0€/ano',
-        'A oferta mais barata da ERSE para o consumo real da casa.',
+    },
+    sources: {
+      title: 'De onde vêm os dados',
+      items: [
+        {
+          title: 'Um Shelly no quadro elétrico',
+          body: 'Envia o consumo minuto a minuto, com os valores ao segundo. É a fonte mais completa: vê os picos de potência, a tensão e os aparelhos.',
+        },
+        {
+          title: 'O ficheiro da E-Redes',
+          body: 'Sem instalar nada: descarregas do Balcão Digital da E-Redes o consumo a cada 15 minutos e carregas o ficheiro na app.',
+        },
       ],
-      ['Consumo base: 156\u00a0W', '289\u00a0€/ano', 'O que fica ligado de noite, e quanto custa.'],
-    ],
-    examplesNote:
-      'Valores da casa de exemplo. Com o teu Shelly ou o ficheiro da E-Redes, são os da tua casa.',
+    },
+    privacy: {
+      title: 'Os teus dados ficam contigo',
+      items: [
+        'As medições ficam num servidor na União Europeia, sem publicidade nem estatísticas de terceiros.',
+        'As contas são feitas no teu browser; o servidor só guarda e resume as medições.',
+        'A inteligência artificial é opcional, usa a tua própria chave e só recebe resultados já calculados, nunca as medições.',
+        'O código é aberto: podes ver tudo o que a app faz.',
+      ],
+    },
+    steps: {
+      title: 'Como funciona',
+      items: [
+        {
+          title: 'Liga os dados',
+          body: 'Instala o script no Shelly ou carrega o ficheiro da E-Redes.',
+        },
+        {
+          title: 'Indica o teu contrato',
+          body: 'A potência contratada e o tarifário que tens hoje, para as contas saírem em euros.',
+        },
+        {
+          title: 'Vê onde poupar',
+          body: 'O Início mostra as conclusões em euros por ano e o que fazer em cada caso.',
+        },
+      ],
+    },
   },
   login: {
     title: 'Entrar',
@@ -1457,10 +1512,9 @@ export const t = {
     },
   },
   demo: {
-    title: 'Experimentar sem conta',
+    title: 'Ver demonstração',
     intro:
       'Vê o que o Wattómetro faz com uma casa fictícia: consumo, custo, potência contratada e qualidade da energia. Os dados são gerados no teu browser; nada é enviado.',
-    enter: 'Experimentar com dados de exemplo',
     banner: 'Demonstração: casa fictícia com dados de exemplo. As alterações perdem-se ao sair.',
     exit: 'Sair da demonstração',
     readOnly: 'Na demonstração isto não se pode mudar.',
@@ -1480,11 +1534,6 @@ export const t = {
     intro:
       'Instala o Wattómetro no telemóvel ou no computador: abre pelo ícone, em ecrã inteiro, como uma app.',
     button: 'Instalar app',
-    installed: 'O Wattómetro está instalado neste dispositivo.',
-    installedPhone:
-      'O Wattómetro já está instalado neste telemóvel: abre-o pelo ícone no ecrã principal. Também podes continuar aqui no browser.',
-    installedComputer:
-      'O Wattómetro já está instalado neste computador: abre-o pelo ícone, ou pelo botão “Abrir na app” que o Chrome e o Edge mostram à direita da barra de endereço.',
     steps: {
       ios: [
         'Abre esta página no Safari.',

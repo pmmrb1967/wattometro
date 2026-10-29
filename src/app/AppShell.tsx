@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonTime } from '../lib/time';
 import { fetchHealth, fetchMe, logout, type Me, recordVisit } from './api';
 import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
-import { InstallSection } from '../components/InstallSection';
 import { enterDemo, exitDemo, isDemo } from '../demo/mode';
-import { ActionValue } from './HomeActions';
 import { DEMO_ME } from '../demo/server';
-import { Login } from './Login';
+import { Landing, SIGN_IN_PATH } from './Landing';
 import { clearWeatherCache } from '../weather/weather';
 import { isVisitPage } from '../lib/pages';
 import { clearEnergyCache } from './energy-cache';
@@ -147,6 +145,11 @@ export function AppShell() {
           <span className="dot" aria-hidden="true" />
           <span className="server-label">{t.server[server]}</span>
         </p>
+        {me === null && pathname !== SIGN_IN_PATH && (
+          <Link to={SIGN_IN_PATH} className="secondary button-link">
+            {t.landing.signIn}
+          </Link>
+        )}
         {context && (
           <div className="account">
             <span className="account-email">{context.me.email}</span>
@@ -227,32 +230,7 @@ export function AppShell() {
         <div className="main">
           <main className="content">
             {me === undefined && <p className="hint">{t.loading}</p>}
-            {me === null && (
-              <>
-                <h1 className="landing-title">{t.landing.title}</h1>
-                <p className="lead">{t.tagline}</p>
-                <section className="actions" aria-label={t.landing.examplesLabel}>
-                  {t.landing.examples.map(([title, value, hint], index) => (
-                    <div key={title} className="action">
-                      <span className="action-title">{title}</span>
-                      {/* The first two examples are savings, the last a cost. */}
-                      <ActionValue value={value} kind={index < 2 ? 'saving' : 'cost'} />
-                      <span className="action-hint">{hint}</span>
-                    </div>
-                  ))}
-                </section>
-                <p className="hint">{t.landing.examplesNote}</p>
-                <section className="card">
-                  <h2>{t.demo.title}</h2>
-                  <p className="hint">{t.demo.intro}</p>
-                  <button type="button" className="primary" onClick={startDemo}>
-                    {t.demo.enter}
-                  </button>
-                </section>
-                <Login onSignedIn={setMe} />
-                <InstallSection />
-              </>
-            )}
+            {me === null && <Landing onSignedIn={setMe} onDemo={startDemo} />}
             {context && <Outlet context={context} />}
           </main>
 

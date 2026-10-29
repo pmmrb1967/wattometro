@@ -22,7 +22,7 @@ export type ManualBrowser =
 export type InstallState =
   | { kind: 'installed' }
   /** Installed on this device, but opened in the browser. */
-  | { kind: 'installed-elsewhere'; phone: boolean }
+  | { kind: 'installed-elsewhere' }
   | { kind: 'prompt' }
   | { kind: 'manual'; browser: ManualBrowser };
 
@@ -93,12 +93,12 @@ function current(): InstallState {
       : deferred
         ? { kind: 'prompt' }
         : installedHere
-          ? { kind: 'installed-elsewhere', phone: /Android|Mobi/.test(navigator.userAgent) }
+          ? { kind: 'installed-elsewhere' }
           : {
               kind: 'manual',
               browser: manualBrowser(navigator.userAgent, navigator.maxTouchPoints),
             };
-  // Only kind and browser change while the page is open (phone does not).
+  // Only kind and browser change while the page is open.
   const same =
     next.kind === snapshot.kind &&
     (next.kind !== 'manual' || (snapshot.kind === 'manual' && snapshot.browser === next.browser));

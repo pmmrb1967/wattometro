@@ -6,15 +6,12 @@ import { t } from '../i18n/pt-PT';
 
 const copy = t.install;
 
-/** Install button (Chrome/Edge) or the steps for this browser; a note once installed. */
+/** Install button (Chrome/Edge) or the steps for this browser; nothing once installed. */
 export function InstallButton({ className = 'primary' }: { className?: string }) {
   const state = useInstallState();
   const [showSteps, setShowSteps] = useState(false);
 
-  if (state.kind === 'installed') return <p className="hint">{copy.installed}</p>;
-  if (state.kind === 'installed-elsewhere') {
-    return <p className="hint">{state.phone ? copy.installedPhone : copy.installedComputer}</p>;
-  }
+  if (state.kind === 'installed' || state.kind === 'installed-elsewhere') return null;
 
   if (state.kind === 'prompt') {
     return (
