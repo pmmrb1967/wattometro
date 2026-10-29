@@ -23,7 +23,10 @@ self.addEventListener('push', (event) => {
 // Opens the alert's page, in the app's window when it is open.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  const url = new URL(
+    (event.notification.data && event.notification.data.url) || '/',
+    self.location.origin,
+  ).href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       for (const client of windows) {

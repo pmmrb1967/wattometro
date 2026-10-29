@@ -35,9 +35,7 @@ export function MarketHours() {
   const day = tomorrow ?? days.find((item) => item.date === today);
   if (!day) return null;
   // Today: only the hours still to come.
-  const from = tomorrow
-    ? startOfLisbonDay(day.date)
-    : Math.max(startOfLisbonDay(day.date), now);
+  const from = tomorrow ? startOfLisbonDay(day.date) : Math.max(startOfLisbonDay(day.date), now);
   const windows = priceWindows(day.start, day.prices, from);
   if (!windows) return null;
   const { cheapest, dearest } = windows;
