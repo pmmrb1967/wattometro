@@ -1470,6 +1470,47 @@ export const t = {
         'Não inclui as perdas na rede, que os comercializadores somam ao preço do mercado: com elas, a diferença seria cerca de 15 % maior.',
       source: 'Preços do mercado diário para Portugal: OMIE (omie.es), sem IVA.',
     },
+    social: {
+      title: 'Tarifa social',
+      intro:
+        'Vê se a tua casa pode ter a tarifa social da luz e quanto pouparia com o teu consumo. As respostas ficam só neste ecrã: não são guardadas nem enviadas.',
+      already:
+        'O teu tarifário já tem o desconto da tarifa social (copiado da fatura em Definições).',
+      powerTooHigh:
+        'A tua potência contratada é maior do que 6,9 kVA: com ela não há tarifa social. Vê em Potência se podes baixar.',
+      benefitsLegend: 'Alguém do agregado recebe uma destas prestações sociais?',
+      benefits: {
+        csi: 'Complemento solidário para idosos',
+        rsi: 'Rendimento social de inserção',
+        unemployment: 'Prestação de desemprego',
+        family_allowance: 'Abono de família',
+        invalidity:
+          'Pensão social de invalidez (regime especial de proteção na invalidez ou complemento da prestação social para a inclusão)',
+        old_age: 'Pensão social de velhice',
+      },
+      income: 'Rendimento anual do agregado, em euros (opcional)',
+      incomeHint: 'Só conta se ninguém receber as prestações acima.',
+      incomeError: 'Escreve um valor em euros, por exemplo 6500.',
+      members: 'Pessoas do agregado sem nenhum rendimento (contigo, se for o caso)',
+      membersHint: 'Cada uma aumenta o limite de rendimento em 50 %, até 10 pessoas.',
+      eligibleBenefit:
+        'Pelas tuas respostas, tens direito: recebes uma das prestações que dão acesso.',
+      eligibleIncome: (limit: string) =>
+        `Pelas tuas respostas, tens direito: o rendimento está dentro do limite para a tua casa (${limit} por ano).`,
+      notEligible: (limit: string) =>
+        `Pelas tuas respostas, não tens direito. Sem prestações, o limite de rendimento para a tua casa é ${limit} por ano.`,
+      saving: (amount: string) =>
+        `Com a tarifa social e o consumo dos últimos 12 meses, pouparias cerca de ${amount} por ano.`,
+      savingParts: (discount: string, iec: string) =>
+        `Desconto médio de 33,8 % na energia e na potência: ${discount}; isenção do IEC: ${iec}. Valores com IVA.`,
+      conditions:
+        'Condições: o contrato tem de estar em teu nome, ser só para consumo doméstico na habitação permanente e ter potência até 6,9 kVA.',
+      how: 'É atribuída automaticamente pela DGEG e o teu comercializador avisa-te. Se achas que tens direito e não recebeste nada, pede um comprovativo à Segurança Social ou às Finanças e entrega-o ao comercializador. Depois, copia os descontos da fatura para o tarifário em Definições.',
+      estimate:
+        'Estimativa com o desconto médio publicado pela ERSE: o desconto real incide nas tarifas de acesso às redes e muda todos os anos.',
+      sources: 'Critérios da ERSE (outubro de 2026). Confirma sempre junto de:',
+      links: { dgeg: 'DGEG, tarifa social de energia', erse: 'Folheto da ERSE' },
+    },
     shiftTitle: 'Mudar consumo para o vazio',
     shiftIntro:
       'Máquinas e termoacumulador à noite ou ao fim de semana: quanto teria de passar para o vazio para a opção ficar mais barata do que a simples mais barata para ti.',

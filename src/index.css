@@ -2969,3 +2969,16 @@ h1,
 .install-check.is-fail {
   border-left-color: var(--danger);
 }
+
+/* Tarifários › Tarifa social: the benefits, one per line. */
+.social-benefits {
+  display: grid;
+  gap: 6px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.social-benefits legend {
+  font-weight: 600;
+  margin-bottom: 6px;
+}

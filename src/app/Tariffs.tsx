@@ -38,6 +38,7 @@ import { lastYear, useHouseholdEnergy } from './household-energy';
 import { meterLabel } from './meters';
 import { useSession } from './session';
 import { MeterSelect } from './MeterSelect';
+import { SocialTariff } from './SocialTariff';
 
 const texts = t.tariffs;
 /** Offers shown at first, and how many more each "Ver mais" adds. */
@@ -588,6 +589,12 @@ export function Tariffs() {
               />
             )}
           </section>
+
+          <SocialTariff
+            tariff={tariff}
+            cost={comparison.currentCost}
+            energy={comparison.currentEnergy}
+          />
 
           <div className="page-how">
             <HowItWorks>

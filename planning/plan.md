@@ -304,7 +304,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 - [ ] Solar: dimensionar com o perfil real (PVGIS) e medir a produção no 2.º canal do Shelly (UPAC)
 - [ ] Relés Shelly: termoacumulador e outras cargas nas horas baratas (o browser decide, o Shelly só cumpre horários)
 - [ ] Carro elétrico: custo de carregar e a melhor hora e tarifário
-- [ ] Tarifa social: elegibilidade e desconto
+- [x] Tarifa social: elegibilidade e desconto — cartão em Tarifários com os critérios da ERSE (outubro de 2026, adaptados do Faturómetro, só a luz; `docs/social-tariff.md`), respostas só no ecrã, e a poupança estimada com o consumo dos últimos 12 meses (desconto médio de 33,8 % na energia e na potência, mais o IEC); a quem já tem o desconto no tarifário, só o diz
 - [x] Lembrete para rever o tarifário duas vezes por ano (janeiro e julho); orçamento mensal com aviso (Consumo › Previsão; o browser converte euros em energia por dia, o Cron compara kWh: `src/domain/budget.ts`, `docs/alerts.md`)
 - [ ] Intensidade carbónica (REN Data Hub): "horas verdes"
 - [x] Instalação guiada do Shelly: Definições → Dispositivos → "Instalar um Shelly" (`/definicoes/instalar-shelly`), com uma folha para imprimir e entregar ao eletricista (pinça só na fase, sentido K → L, alimentação da mesma fase; fontes em `docs/shelly.md`) e uma verificação do último minuto de cada Shelly (envia, tensão, pinça ao contrário, pinça que não mede nada) mais o teste com uma chaleira
