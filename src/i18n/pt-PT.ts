@@ -1474,6 +1474,32 @@ export const t = {
         'Não inclui as perdas na rede, que os comercializadores somam ao preço do mercado: com elas, a diferença seria cerca de 15 % maior.',
       source: 'Preços do mercado diário para Portugal: OMIE (omie.es), sem IVA.',
     },
+    car: {
+      title: 'Carro elétrico',
+      intro:
+        'Quanto custaria carregar um carro em casa com o teu consumo real, e que tarifário fica mais barato com ele. Usa os teus números: os quilómetros por ano e o consumo que o carro indica.',
+      km: 'Quilómetros por ano',
+      consumption: 'Consumo do carro (kWh por 100 km)',
+      consumptionHint: 'O que o computador de bordo ou a ficha do carro indicam, por exemplo 16,5.',
+      charger: 'Potência do carregador em kW (opcional)',
+      chargerHint: 'Para saber quantas horas carrega por noite.',
+      invalid: 'Escreve um número com uma casa decimal no máximo, por exemplo 16,5.',
+      perYear: (kwh: string, share: number) =>
+        `O carro gastaria cerca de ${kwh} por ano: mais ${share} % do que a casa gasta hoje.`,
+      sameAnyHour: (amount: string, per100: string) =>
+        `Com o teu tarifário simples, o preço é o mesmo a qualquer hora: cerca de ${amount} por ano (${per100} por 100 km).`,
+      emptyVsAnytime: (empty: string, per100: string, anytime: string) =>
+        `Com o teu tarifário: carregar no vazio custa cerca de ${empty} por ano (${per100} por 100 km); a qualquer hora, ${anytime}.`,
+      best: (name: string, supplier: string, option: string, amount: string, saving: string) =>
+        `Com o carro a carregar no vazio, o mais barato é ${name} (${supplier}, ${option}): ${amount} por ano, menos ${saving} do que o teu tarifário com o carro.`,
+      keep: 'Com o carro a carregar no vazio, o teu tarifário continua a ser o mais barato.',
+      hours: (hours: string, kw: string) =>
+        `Em média, cerca de ${hours} h de carga por noite com um carregador de ${kw} kW.`,
+      overPower: (contracted: string) =>
+        `Só o carregador já chega à tua potência contratada (${contracted}): a carregar com outros aparelhos ligados, o contador pode cortar. Vê a página Potência antes de o instalar.`,
+      losses:
+        'Não conta as perdas do carregamento (a energia que se perde entre a tomada e a bateria), que a app não conhece: o custo real é um pouco maior. Valores com IVA, nos preços das ofertas da ERSE.',
+    },
     social: {
       title: 'Tarifa social',
       intro:

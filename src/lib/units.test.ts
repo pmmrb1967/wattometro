@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCelsius,
   formatKva,
+  parsePtTenths,
   formatKwh,
   formatPower,
   formatVolts,
@@ -80,5 +81,21 @@ describe('temperature', () => {
     expect(formatCelsius(-4)).toBe('-0,4\u00a0°C');
     expect(formatCelsius(155, 0)).toBe('16\u00a0°C');
     expect(() => formatCelsius(1.5)).toThrow(TypeError);
+  });
+});
+
+describe('parsePtTenths', () => {
+  it('reads one decimal, with a comma or a dot', () => {
+    expect(parsePtTenths('16,5')).toBe(165);
+    expect(parsePtTenths(' 16.5 ')).toBe(165);
+    expect(parsePtTenths('16')).toBe(160);
+    expect(parsePtTenths('7,4')).toBe(74);
+  });
+
+  it('refuses the rest', () => {
+    expect(parsePtTenths('')).toBeNull();
+    expect(parsePtTenths('16,55')).toBeNull();
+    expect(parsePtTenths('-3')).toBeNull();
+    expect(parsePtTenths('abc')).toBeNull();
   });
 });

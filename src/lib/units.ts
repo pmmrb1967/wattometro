@@ -91,3 +91,10 @@ export function formatCelsius(tenths: TenthsCelsius, digits = 1): string {
   assertInteger(tenths, '0.1 °C');
   return `${decimal(digits).format(tenths / 10)}${UNIT_SPACE}°C`;
 }
+
+/** "16,5" (or "16.5", "16") → 165 tenths; null unless a non-negative number with one decimal at most. */
+export function parsePtTenths(text: string): number | null {
+  const match = /^\s*(\d{1,5})(?:[.,](\d))?\s*$/.exec(text);
+  if (!match) return null;
+  return Number(match[1]) * 10 + Number(match[2] ?? 0);
+}
