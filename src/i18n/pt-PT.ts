@@ -164,7 +164,8 @@ export const t = {
     nothing: '—',
     cost: 'Custo hoje',
     costParts: { energy: 'Energia', power: 'Potência', taxes: 'Taxas' },
-    costNote: 'Estimativa com IVA, com o teu tarifário.',
+    costNote:
+      'Estimativa: a energia de hoje pelos preços do teu tarifário, mais a parte de um dia da potência contratada e das taxas.',
     noTariff: 'Para veres quanto custa, indica o teu tarifário em Definições.',
     databaseNear: (used: number, limit: number) =>
       `A base de dados está a ${used} MB de ${limit} MB. É preciso libertar espaço em breve.`,
@@ -179,6 +180,7 @@ export const t = {
     curveLabel: (energy: string) => `Consumo de hoje por quarto de hora, ${energy} até agora.`,
   },
   home: {
+    vatNote: 'Valores em euros com IVA, com o teu tarifário.',
     status: 'Em construção',
     intro:
       'O Wattómetro vai ler o consumo do teu quadro elétrico (Shelly) e os dados da E-Redes para te dizer, em euros, onde podes poupar.',

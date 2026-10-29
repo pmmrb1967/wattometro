@@ -2894,3 +2894,9 @@ h1,
     break-before: page;
   }
 }
+
+/* Início: one note for every amount in euros beside the meter. */
+.home-vat {
+  margin: 8px 0 0;
+  font-size: var(--fs-xs);
+}

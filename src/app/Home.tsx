@@ -358,6 +358,8 @@ export function Home() {
           {now !== null && now !== 'unavailable' && now.meters.length === 1 && (
             <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
           )}
+          {/* Every amount in euros here (actions, forecast, today's cost) includes VAT. */}
+          {todayTariff && <p className="hint home-vat">{t.home.vatNote}</p>}
         </div>
       </div>
     </>
