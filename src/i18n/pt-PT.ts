@@ -45,7 +45,7 @@ export const t = {
     unavailable: 'Não foi possível contactar o servidor. Tenta outra vez.',
   },
   landing: {
-    title: 'Onde a tua casa pode gastar menos, em euros',
+    title: 'Quanto pode a tua casa poupar na luz?',
     lead: 'O Wattómetro lê o consumo elétrico da tua casa, de um Shelly no quadro elétrico ou do ficheiro da E-Redes, e transforma-o em conclusões concretas: a potência contratada certa, o tarifário mais barato para o teu consumo, o custo do que fica sempre ligado e a fatura do mês.',
     signIn: 'Entrar',
     howItWorksLink: 'Como funciona',
