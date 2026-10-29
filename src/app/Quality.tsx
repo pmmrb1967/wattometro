@@ -5,7 +5,6 @@
  * to attach to a complaint: dates, values and the sources of the limits.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router';
 import {
   mondayOf,
   outagesFromBoots,
@@ -27,6 +26,7 @@ import { tariffOn } from '../domain/tariff';
 import voltageData from '../data/voltage.json';
 import { HowItWorks } from '../components/HowItWorks';
 import { InfoTip } from '../components/InfoTip';
+import { AddShellyLink } from './AddShellyLink';
 import { t } from '../i18n/pt-PT';
 import {
   formatDuration,
@@ -745,7 +745,7 @@ export function Quality() {
       {shellies === 0 ? (
         <section className="card">
           <p>{texts.noShelly}</p>
-          <Link to="/definicoes#dados">{t.home.eredes.addShelly}</Link>
+          <AddShellyLink>{t.home.eredes.addShelly}</AddShellyLink>
         </section>
       ) : (
         <>

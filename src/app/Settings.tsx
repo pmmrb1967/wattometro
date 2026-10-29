@@ -8,7 +8,7 @@ import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
 import { SettingsGroup } from './SettingsGroup';
 import { isLocal } from '../local/mode';
-import { SOURCE_URL } from './build-info';
+import { OWN_INSTALL_URL } from './build-info';
 import { LocalDataSection } from './LocalData';
 import { ThemeSection } from './ThemeSection';
 import { changePassword, renameHousehold } from './api';
@@ -153,7 +153,7 @@ function LocalSettings() {
         <section className="card">
           <p className="hint">
             {t.local.shelly}{' '}
-            <a href={`${SOURCE_URL}#usar-o-código-na-tua-própria-instalação`} rel="noreferrer">
+            <a href={OWN_INSTALL_URL} rel="noreferrer">
               {t.local.shellyLink}
             </a>
           </p>

@@ -1854,6 +1854,7 @@ export const t = {
     shelly:
       'Com um Shelly no quadro elétrico, a app mostra também a potência a cada segundo, os aparelhos, a tensão e avisos no telemóvel. Isso precisa de uma instalação própria, com o servidor da app na tua conta Cloudflare:',
     shellyLink: 'como instalar',
+    addShelly: 'Com um Shelly: precisa de uma instalação própria (como fazer)',
     solar:
       'Os painéis solares precisam do servidor da app para pedir a produção ao PVGIS, por isso não estão disponíveis sem conta.',
     data: {

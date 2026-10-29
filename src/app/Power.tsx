@@ -25,6 +25,7 @@ import {
 import type { Offer } from '../domain/erse';
 import { tariffOn, type Tariff } from '../domain/tariff';
 import { HowItWorks } from '../components/HowItWorks';
+import { AddShellyLink } from './AddShellyLink';
 import { t } from '../i18n/pt-PT';
 import { formatCents, microToPtInput, parsePtPrice, type MicroEuros } from '../lib/money';
 import { formatLisbonDateTime, lisbonToday } from '../lib/time';
@@ -575,7 +576,7 @@ export function Power() {
             <>
               <p>{texts.eredesOnly(formatPower(data.eredes.maxEnergyWh * 4))}</p>
               <p className="hint">
-                {texts.eredesShelly} <Link to="/definicoes#dados">{t.home.eredes.addShelly}</Link>
+                {texts.eredesShelly} <AddShellyLink>{t.home.eredes.addShelly}</AddShellyLink>
               </p>
             </>
           ) : (

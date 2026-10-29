@@ -13,6 +13,7 @@ import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatLocalDate, lisbonDate } from '../lib/time';
 import { formatKwh } from '../lib/units';
+import { AddShellyLink } from './AddShellyLink';
 import type { HouseholdEnergy } from './household-energy';
 
 const texts = t.home.eredes;
@@ -42,7 +43,7 @@ export function EredesHomeCard({ energy }: { energy: HouseholdEnergy }) {
             <Link to="/definicoes#dados">{texts.importFile}</Link>
           </li>
           <li>
-            <Link to="/definicoes#dados">{texts.orShelly}</Link>
+            <AddShellyLink>{texts.orShelly}</AddShellyLink>
           </li>
         </ul>
       </section>
@@ -69,7 +70,7 @@ export function EredesHomeCard({ energy }: { energy: HouseholdEnergy }) {
         <Link to="/definicoes#dados">{texts.importNewer}</Link>
       </p>
       <p className="hint">
-        {texts.shellyAdds} <Link to="/definicoes#dados">{texts.addShelly}</Link>
+        {texts.shellyAdds} <AddShellyLink>{texts.addShelly}</AddShellyLink>
       </p>
     </section>
   );
