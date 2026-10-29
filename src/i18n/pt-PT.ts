@@ -1510,6 +1510,55 @@ export const t = {
       losses:
         'Não conta as perdas do carregamento (a energia que se perde entre a tomada e a bateria), que a app não conhece: o custo real é um pouco maior. Valores com IVA, nos preços das ofertas da ERSE.',
     },
+    solar: {
+      title: 'Painéis solares',
+      intro:
+        'Quanto produziriam painéis em tua casa, quanto disso gastarias no momento e quanto pouparias na fatura, com o teu consumo real dos últimos 365 dias. A produção é a do PVGIS (Comissão Europeia) para a tua localidade.',
+      kwp: 'Potência dos painéis (kWp)',
+      kwpHint: 'A soma da potência dos painéis, por exemplo 2,2 para 5 painéis de 440 W.',
+      angle: 'Inclinação (graus)',
+      angleHint: '0 é deitado; num telhado comum, a inclinação do telhado.',
+      aspect: 'Orientação',
+      aspects: {
+        '-90': 'Este',
+        '-45': 'Sudeste',
+        '0': 'Sul',
+        '45': 'Sudoeste',
+        '90': 'Oeste',
+      } as Record<string, string>,
+      loss: 'Perdas do sistema (%)',
+      lossHint: 'Cabos, inversor e sujidade. O PVGIS sugere 14 %.',
+      surplusPrice: 'Preço de venda do excedente, €/kWh (opcional)',
+      surplusPriceHint: 'O que o comercializador te pagaria pela energia que vai para a rede.',
+      install: 'Custo da instalação, € (opcional)',
+      installHint: 'Para saber em quantos anos se paga.',
+      invalid:
+        'Verifica os valores: a potência com uma casa decimal no máximo, a inclinação de 0 a 90, as perdas de 0 a 50.',
+      calculate: 'Calcular',
+      calculating: 'A pedir a produção ao PVGIS…',
+      privacy:
+        'Ao calcular, o servidor da app pede ao PVGIS a produção para o centro da tua localidade, com a inclinação, a orientação e as perdas. Não envia consumos nem nada que identifique a casa.',
+      demo: 'Na demonstração, a produção é sempre a de painéis em Lisboa a 35° virados a sul.',
+      noLocation: 'Indica primeiro a localidade da casa em Definições › Casa.',
+      failed: 'O PVGIS não respondeu. Tenta outra vez mais tarde.',
+      production: (kwh: string, self: string, selfPct: number) =>
+        `Produziriam cerca de ${kwh} por ano. A casa gastaria ${self} no momento (${selfPct} % da produção).`,
+      covered: (pct: number) => `Isso cobre ${pct} % do que a casa gasta num ano.`,
+      saving: (amount: string) =>
+        `Com o teu tarifário, a fatura baixaria cerca de ${amount} por ano.`,
+      surplus: (kwh: string) => `Sobrariam ${kwh} por ano, que iriam para a rede.`,
+      surplusValue: (kwh: string, amount: string) =>
+        `Sobrariam ${kwh} por ano, que iriam para a rede: ${amount} ao preço que indicaste.`,
+      payback: (years: string) => `A instalação pagar-se-ia em cerca de ${years} anos.`,
+      noPayback: 'Com estes valores, a instalação não se pagaria.',
+      best: (name: string, supplier: string, option: string, amount: string, saving: string) =>
+        `Com os painéis, o mais barato é ${name} (${supplier}, ${option}): ${amount} por ano, menos ${saving} do que o teu tarifário com os painéis.`,
+      keep: 'Com os painéis, o teu tarifário continua a ser o mais barato.',
+      partYear: (days: number) =>
+        `Só há ${days} dias de consumo: as contas usam a produção desses mesmos dias, alargada a um ano. Como o sol muda muito com a estação, com dias de verão o resultado sai otimista e com dias de inverno sai pessimista. Fica mais certo com um ano inteiro.`,
+      limits:
+        'Produção de um ano real (2023), hora a hora, emparelhada com os teus dias. Dentro de cada hora a produção varia (nuvens), por isso o consumo no momento pode ser um pouco menor; sombras de prédios ou árvores não entram. Valores com IVA.',
+    },
     social: {
       title: 'Tarifa social',
       intro:

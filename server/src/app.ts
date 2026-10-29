@@ -70,6 +70,9 @@
  *   PUT  /v1/nilm/days         {meter, days: [{day, version, minutes, data}]} (≤ 31 days, days
  *                              before today) → 204, each day replacing what was there; 404
  *                              unknown meter
+ *   GET  /v1/solar?angle&aspect&loss → application/json, PVGIS's hourly PV series for 1 kWp at
+ *                              the household's locality, passed on unread (pvgis.ts,
+ *                              docs/pvgis.md); 409 no_location, 502 unavailable
  *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing,
  *                              minDurationS, maxDurationS, heats, createdAt}]}
  *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?,
@@ -162,6 +165,7 @@ import {
   signatureRecords,
 } from './repo/signatures';
 import { deleteTariff, listTariffs, saveTariff } from './repo/tariffs';
+import { pvgisFetch, pvgisUrl, type BodyFetcher } from './pvgis';
 import { nilmDays, saveNilmDays } from './repo/nilm';
 import { getState } from './repo/rollups';
 import { rowsReadOn, usageSince, utcDay } from './repo/usage';
@@ -220,6 +224,8 @@ export interface AppConfig {
   rowsReadLimit?: number;
   /** Administrators' emails, lower case (env.ts): they get GET /v1/admin/stats. */
   adminEmails?: string[];
+  /** For tests: what asks PVGIS (pvgis.ts). */
+  pvgisFetcher?: BodyFetcher;
 }
 
 export const DEFAULT_DATABASE_LIMIT_BYTES = 500 * 1000 * 1000;
@@ -382,6 +388,12 @@ const NilmBody = z.object({
     .min(1)
     .max(31)
     .refine((days) => new Set(days.map((item) => item.day)).size === days.length),
+});
+
+const SolarQuery = z.object({
+  angle: z.coerce.number().int().min(0).max(90),
+  aspect: z.coerce.number().int().min(-180).max(180),
+  loss: z.coerce.number().int().min(0).max(50),
 });
 
 const SignatureBody = z
@@ -1030,6 +1042,21 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       now(),
     );
     return c.body(null, 204);
+  });
+
+  // Solar panels (docs/pvgis.md): PVGIS refuses browsers, so the Worker asks for the user.
+  app.get('/v1/solar', requireUser, async (c) => {
+    const parsed = SolarQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const location = await getHouseholdLocation(config.sql, c.get('user').householdId);
+    if (!location) return c.json({ error: 'no_location' }, 409);
+    const upstream = await (config.pvgisFetcher ?? pvgisFetch)(pvgisUrl(location, parsed.data))
+      .then((response) => (response.ok && response.body ? response : null))
+      .catch(() => null);
+    if (!upstream) return c.json({ error: 'unavailable' }, 502);
+    return new Response(upstream.body, {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=86400' },
+    });
   });
 
   // Named appliances (Phase 8.3): the browser classifies cycles with their descriptors.

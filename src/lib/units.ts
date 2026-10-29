@@ -98,3 +98,8 @@ export function parsePtTenths(text: string): number | null {
   if (!match) return null;
   return Number(match[1]) * 10 + Number(match[2] ?? 0);
 }
+
+/** A power held for one hour (PVGIS's hourly PV power, docs/pvgis.md) as whole Wh. */
+export function hourWh(watts: number): Wh {
+  return Math.max(0, Math.round(watts));
+}

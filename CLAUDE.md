@@ -14,7 +14,7 @@ Projeto irmão: **Faturómetro** (`github.com/pmmrb1967/faturometro`). Mesmo sta
 
 ## Regras invioláveis
 
-1. **Dados só na conta Cloudflare do dono, na UE.** Bases D1 criadas com `--jurisdiction eu`. Sem analytics nem logs remotos com dados de consumo. Ligações externas permitidas: o Worker do projeto, `https://api.anthropic.com` (só por ação ou definição explícita do utilizador), Open-Meteo (clima, sem dados pessoais) os serviços de push dos browsers (só avisos que o utilizador ativou, cifrados de ponta a ponta, sem medições: `docs/alerts.md`) e o OMIE (o Cron do Worker lê os preços públicos do dia seguinte; o pedido não leva nada da casa: `docs/omie.md`).
+1. **Dados só na conta Cloudflare do dono, na UE.** Bases D1 criadas com `--jurisdiction eu`. Sem analytics nem logs remotos com dados de consumo. Ligações externas permitidas: o Worker do projeto, `https://api.anthropic.com` (só por ação ou definição explícita do utilizador), Open-Meteo (clima, sem dados pessoais) os serviços de push dos browsers (só avisos que o utilizador ativou, cifrados de ponta a ponta, sem medições: `docs/alerts.md`) o OMIE (o Cron do Worker lê os preços públicos do dia seguinte; o pedido não leva nada da casa: `docs/omie.md`) e o PVGIS (produção solar estimada, pedida pelo Worker só quando o utilizador carrega em "Calcular"; leva só as coordenadas da localidade e a inclinação, orientação e perdas dos painéis, nunca consumos: `docs/pvgis.md`).
 2. **A app tem de funcionar sem IA.** Qualquer funcionalidade nova precisa de um caminho sem chave de API.
 3. **O código calcula, a IA explica.** Nenhum número mostrado ao utilizador vem de um LLM. A IA recebe resultados já calculados (agregados pequenos) e interpreta-os. Nunca enviar séries temporais em bruto à IA.
 4. **Unidades inteiras.** Dinheiro em **cêntimos inteiros** (preços unitários em micro-euros inteiros); energia em **Wh inteiros**; potência em **W**. Nunca somar euros ou kWh em vírgula flutuante. Conversões só em `src/lib/money.ts` e `src/lib/units.ts`.
@@ -50,6 +50,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - **Servidor:** Cloudflare Worker em TypeScript (`server/`), D1, Cron Triggers, `zod`. Router: Hono (leve, portável para Node/Bun/Deno)
 - **Shelly:** script mJS em `shelly/` (versionado, com versão no payload)
 - **Clima:** Open-Meteo
+- **Solar:** PVGIS (JRC), pelo Worker
 - **PDF:** gerado no browser
 - **Testes:** Vitest (unitários, incluindo servidor com SQLite em memória), Playwright (e2e mínimo)
 - **Gestor de pacotes:** pnpm
@@ -164,7 +165,7 @@ Antes de dar uma tarefa por concluída: `pnpm typecheck && pnpm lint && pnpm tes
 ## Convenções
 
 - **Código, nomes e comentários em inglês. Texto visível ao utilizador em português europeu** (pós-AO90, tratamento por "tu"), centralizado em `src/i18n/pt-PT.ts`.
-- Sem `any`. Tudo o que vem de fora (Shelly, CSV, IA, ERSE, Open-Meteo) é validado com zod.
+- Sem `any`. Tudo o que vem de fora (Shelly, CSV, IA, ERSE, Open-Meteo, PVGIS) é validado com zod.
 - Lógica de domínio em `src/domain/` sem dependências de React, testável, com casos calculados à mão.
 - Migrações D1: ficheiro novo + teste; nunca alterar uma migração já aplicada. Alterações ao esquema Dexie: nova versão + migração.
 - Cabeçalho SPDX em cada ficheiro de código: `// SPDX-License-Identifier: AGPL-3.0-or-later`.

@@ -40,6 +40,7 @@ import { useSession } from './session';
 import { MeterSelect } from './MeterSelect';
 import { SocialTariff } from './SocialTariff';
 import { CarCharging } from './CarCharging';
+import { SolarPanels } from './SolarPanels';
 import { optionLabel } from './offer-label';
 
 const texts = t.tariffs;
@@ -589,6 +590,10 @@ export function Tariffs() {
 
           {usage && Array.isArray(offers) && (
             <CarCharging usage={usage} tariff={tariff} offers={offers} />
+          )}
+
+          {usage && quarters && Array.isArray(offers) && (
+            <SolarPanels quarters={quarters} tariff={tariff} offers={offers} />
           )}
 
           <SocialTariff

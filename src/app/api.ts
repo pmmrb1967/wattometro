@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { isDemo } from '../demo/mode';
 import { demoResponse } from '../demo/server';
+import { parsePvgis, type SolarYear } from '../domain/solar';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
 import { tariffInputSchema, type Tariff, type TariffInput } from '../domain/tariff';
@@ -584,6 +585,35 @@ export async function saveNilmDays(
   const response = await send('PUT', '/v1/nilm/days', { meter, days });
   if (response?.ok) return { ok: true };
   return failure(response, []);
+}
+
+/**
+ * PVGIS's production for 1 kWp at the household's locality (GET /v1/solar,
+ * docs/pvgis.md); 'noLocation' until a locality is chosen. The demonstration
+ * reads a kept answer for Lisbon (35°, south), whatever the panels.
+ */
+export async function fetchSolarYear(panels: {
+  angle: number;
+  aspect: number;
+  loss: number;
+}): Promise<{ ok: true; year: SolarYear } | { ok: false; reason: 'noLocation' } | Failure> {
+  const query = new URLSearchParams({
+    angle: String(panels.angle),
+    aspect: String(panels.aspect),
+    loss: String(panels.loss),
+  });
+  let response: Response | null;
+  try {
+    response = await (isDemo() ? fetch('/data/pvgis-demo.json') : fetch(`/v1/solar?${query}`));
+  } catch {
+    response = null;
+  }
+  if (response?.ok) {
+    const year = parsePvgis(await response.json().catch(() => null));
+    return year ? { ok: true, year } : { ok: false, reason: 'unavailable' };
+  }
+  if (response?.status === 409) return { ok: false, reason: 'noLocation' };
+  return failure(response, [400]);
 }
 
 export async function fetchAppliances(): Promise<{ ok: true; appliances: Appliance[] } | Failure> {

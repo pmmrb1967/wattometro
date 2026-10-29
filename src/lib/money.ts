@@ -175,3 +175,8 @@ export function divideRounded(numerator: bigint, denominator: bigint): bigint {
 export function nanoToCents(nano: bigint): Cents {
   return Number(divideRounded(nano, 10_000_000n));
 }
+
+/** What energy is worth at a price per kWh: Wh × µ€/kWh → cents, rounded. */
+export function energyValueCents(wh: number, microPerKwh: MicroEuros): Cents {
+  return Math.round((wh * microPerKwh) / 10_000_000);
+}
