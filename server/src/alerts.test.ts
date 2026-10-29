@@ -11,16 +11,19 @@ import {
   decidePower,
   decideStale,
   decideTariffReview,
+  decideUnusualDay,
+  houseDays,
   reminderDue,
   type AlertMessage,
 } from './alerts';
-import { startOfLisbonDay } from '../../src/lib/time';
+import { lisbonDayLength, nextDate, startOfLisbonDay } from '../../src/lib/time';
+import { UNKNOWN_INSTALLATION } from '../../src/domain/installation';
 import { createApp } from './app';
 import { toBase64Url } from './base64url';
 import type { Sql } from './db';
 import { hashPassword } from './password';
 import { createDevice } from './repo/devices';
-import { createHousehold, setHouseholdBudget } from './repo/households';
+import { createHousehold, setHouseholdBudget, setHouseholdInstallation } from './repo/households';
 import { minuteStatements } from './repo/readings';
 import { saveOmieDay } from './repo/omie';
 import { QUIET_STATE, saveSubscription, type AlertChoice } from './repo/push';
@@ -46,6 +49,7 @@ const NO_ALERTS: AlertChoice = {
   eredesImport: false,
   tariffReview: false,
   budget: false,
+  unusualDay: false,
 };
 
 async function vapid() {
@@ -156,6 +160,63 @@ describe('the reminders', () => {
     // A new month, a new reminder.
     const november = startOfLisbonDay('2026-11-10');
     expect(decideBudget(over.state, budget, 9 * 12_000, november).message).not.toBeNull();
+  });
+});
+
+describe('an unusual day', () => {
+  /** Every day from `from` to `to` (inclusive), ~10 kWh, a little apart from each other. */
+  const usual = (from: string, to: string) => {
+    const days: { date: string; wh: number }[] = [];
+    for (let date = from, i = 0; date <= to; date = nextDate(date), i++) {
+      days.push({ date, wh: 10_000 + (i % 3) * 200 });
+    }
+    return days;
+  };
+  // Thursday 22/10 at 11:00: yesterday was a working day.
+  const now = startOfLisbonDay('2026-10-22') + 11 * 3600;
+
+  it('tells of yesterday far above the usual, once', () => {
+    const days = [...usual('2026-07-29', '2026-10-20'), { date: '2026-10-21', wh: 20_000 }];
+    const first = decideUnusualDay(QUIET_STATE, days, false, now);
+    expect(first.message?.title).toBe('Ontem, fora do habitual');
+    // The median of the 12 working days before is 10,2 kWh: 20 is 96 % more.
+    expect(first.message?.body).toMatch(/^Ontem: 96 % mais do que o habitual \(20,0\s?kWh/);
+    expect(first.message?.url).toBe('/consumo#fora-do-habitual');
+    expect(decideUnusualDay(first.state, days, false, now + 3600).message).toBeNull();
+  });
+
+  it('says nothing for a usual day, a day not yet in, or a house that follows the weather', () => {
+    const days = usual('2026-07-29', '2026-10-21');
+    expect(decideUnusualDay(QUIET_STATE, days, false, now).message).toBeNull();
+    const high = [...usual('2026-07-29', '2026-10-20'), { date: '2026-10-21', wh: 20_000 }];
+    expect(decideUnusualDay(QUIET_STATE, high.slice(0, -1), false, now).message).toBeNull();
+    expect(decideUnusualDay(QUIET_STATE, high, true, now).message).toBeNull();
+  });
+
+  it('takes the main Shelly when the day is whole, else E-Redes', () => {
+    const shelly = 'd:0';
+    expect(
+      houseDays([
+        // E-Redes only.
+        { meter: 'eredes', day: '2026-10-20', energyWh: 9_000, minutes: null, quarters: 96 },
+        // Both whole: the Shelly.
+        { meter: 'eredes', day: '2026-10-21', energyWh: 9_100, minutes: null, quarters: 96 },
+        { meter: shelly, day: '2026-10-21', energyWh: 9_300, minutes: 1440, quarters: null },
+        // The Shelly missed 2 hours: E-Redes.
+        { meter: 'eredes', day: '2026-10-22', energyWh: 9_200, minutes: null, quarters: 96 },
+        { meter: shelly, day: '2026-10-22', energyWh: 8_000, minutes: 1320, quarters: null },
+        // A circuit (less energy) is never the house.
+        { meter: 'd:1', day: '2026-10-23', energyWh: 2_000, minutes: 1440, quarters: null },
+        // The day of 25 h: 1500 minutes, 96 quarter hours are whole.
+        { meter: shelly, day: '2026-10-25', energyWh: 9_400, minutes: 1500, quarters: null },
+        { meter: 'eredes', day: '2026-10-26', energyWh: 50, minutes: null, quarters: 2 },
+      ]),
+    ).toEqual([
+      { date: '2026-10-20', wh: 9_000 },
+      { date: '2026-10-21', wh: 9_300 },
+      { date: '2026-10-22', wh: 9_200 },
+      { date: '2026-10-25', wh: 9_400 },
+    ]);
   });
 });
 
@@ -317,6 +378,34 @@ describe('a Cron run', () => {
         checked_until: startOfLisbonDay('2026-10-26'),
       },
     );
+  });
+
+  it('tells of an unusual yesterday, only when the house does not follow the weather', async () => {
+    await subscribe({ unusualDay: true });
+    // Every day from 01/08 to Sunday 25/10 (the day of 25 h), whole; 25/10 at 20 kWh.
+    const insert = db.prepare(
+      `INSERT INTO daily (household_id, meter, day, source, minutes, energy_wh)
+       VALUES (?, ?, ?, 'shelly', ?, ?)`,
+    );
+    for (let date = '2026-08-01', i = 0; date <= '2026-10-25'; date = nextDate(date), i++) {
+      const wh = date === '2026-10-25' ? 20_000 : 10_000 + (i % 3) * 200;
+      insert.run(household, `${deviceId}:0`, date, lisbonDayLength(date) / 60, wh);
+    }
+    const config = { vapid: await vapid(), rowsReadLimit: 5_000_000, fetcher };
+    // Nothing said about the installation: the weather may matter, no alert.
+    await checkAlerts(sql, household, NOW, config);
+    expect(sent).toHaveLength(0);
+    // Gas heating, no air conditioning: the next morning's look tells of it, once.
+    await setHouseholdInstallation(
+      sql,
+      household,
+      { ...UNKNOWN_INSTALLATION, heating: ['gas-boiler'], airConditioning: false },
+      NOW,
+    );
+    db.prepare(`DELETE FROM alert_state WHERE kind = 'unusualDay'`).run();
+    await checkAlerts(sql, household, NOW, config);
+    await checkAlerts(sql, household, NOW + 300, config);
+    expect(sent).toHaveLength(1);
   });
 
   it('forgets a device the push service says is gone', async () => {

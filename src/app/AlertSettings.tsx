@@ -30,6 +30,7 @@ const ALL_ALERTS: PushAlerts = {
   eredesImport: false,
   tariffReview: false,
   budget: false,
+  unusualDay: false,
 };
 const KINDS = [
   'stale',
@@ -39,6 +40,7 @@ const KINDS = [
   'eredesImport',
   'tariffReview',
   'budget',
+  'unusualDay',
 ] as const;
 
 type View =

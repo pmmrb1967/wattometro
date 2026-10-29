@@ -12,31 +12,42 @@
  * - reminders, looked at once a Lisbon day from REMINDER_HOUR: eredesImport (the
  *   last E-Redes day over a month old; at most once a month), tariffReview (in
  *   January and July), budget (from day BUDGET_FROM_DAY, the month's pace past
- *   the budget's energy; once a month).
+ *   the budget's energy; once a month), unusualDay (yesterday far from the
+ *   usual, by the app's own test on the daily totals: src/ml/anomalies.ts).
  *
  * The decisions are pure (decideStale, decidePower, decideDatabase,
- * decideCheapHours, decideEredesImport, decideTariffReview, decideBudget); a
+ * decideCheapHours, decideEredesImport, decideTariffReview, decideBudget,
+ * decideUnusualDay); a
  * condition that lasts is announced once, as alert_state remembers.
  */
 import trip from '../../src/data/power-trip.json';
 import { t } from '../../src/i18n/pt-PT';
 import { priceWindows } from '../../src/domain/omie';
 import type { Budget } from '../../src/domain/budget';
+import { followsTemperature } from '../../src/domain/installation';
+import { judgeDay, LOOKBACK_DAYS, type DayTotal } from '../../src/ml/anomalies';
 import { formatCents, formatPricePerKwh, omieToMicro } from '../../src/lib/money';
 import {
   formatLocalDate,
   formatLisbonTime,
   lisbonDate,
+  lisbonDayLength,
   lisbonParts,
   nextDate,
   startOfLisbonDay,
 } from '../../src/lib/time';
-import { formatKva } from '../../src/lib/units';
+import { formatKva, formatKwh } from '../../src/lib/units';
 import type { Sql } from './db';
 import { MAX_CHANNEL } from './ingest';
 import { PUBLISHED_HOUR } from './omie';
-import { energyMeters, lastEredesDay } from './repo/eredes';
-import { getHouseholdBudget } from './repo/households';
+import {
+  EREDES_METER,
+  energyMeters,
+  householdDaily,
+  lastEredesDay,
+  type DailyRow,
+} from './repo/eredes';
+import { getHouseholdBudget, getHouseholdInstallation } from './repo/households';
 import { omieDaysFrom, type StoredOmieDay } from './repo/omie';
 import { listDevices } from './repo/devices';
 import {
@@ -297,6 +308,83 @@ export function decideBudget(
   };
 }
 
+/** A day missing more than this (in seconds) is not whole: as the app's forecast (1 h). */
+const MAX_MISSING_SECONDS = 3600;
+
+/**
+ * The house, one total per whole Lisbon day, oldest first: the Shelly with the
+ * most energy (the main board) when it has the day whole, else E-Redes. Like
+ * the app's house series (src/domain/consumption.ts, houseQuarters), from the
+ * daily totals.
+ */
+export function houseDays(rows: readonly DailyRow[]): DayTotal[] {
+  const byMeter = new Map<string, number>();
+  for (const row of rows) {
+    if (row.meter !== EREDES_METER) {
+      byMeter.set(row.meter, (byMeter.get(row.meter) ?? 0) + row.energyWh);
+    }
+  }
+  const shelly = [...byMeter].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const whole = (row: DailyRow) => {
+    const seconds = lisbonDayLength(row.day);
+    if (row.meter === EREDES_METER) {
+      // 96 is whole on the day of 25 h (the export never has the repeated hour).
+      const expected = Math.min(seconds / 900, 96);
+      return row.quarters === null || row.quarters * 900 >= expected * 900 - MAX_MISSING_SECONDS;
+    }
+    return row.minutes !== null && row.minutes * 60 >= seconds - MAX_MISSING_SECONDS;
+  };
+  const days = new Map<string, { wh: number; fromShelly: boolean }>();
+  for (const row of rows) {
+    if (!whole(row)) continue;
+    const fromShelly = row.meter === shelly;
+    if (!fromShelly && row.meter !== EREDES_METER) continue;
+    const known = days.get(row.day);
+    if (!known || (fromShelly && !known.fromShelly)) {
+      days.set(row.day, { wh: row.energyWh, fromShelly });
+    }
+  }
+  return [...days].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, { wh }]) => ({ date, wh }));
+}
+
+/**
+ * Yesterday far from the usual for its kind of day (the app's own test,
+ * judgeDay), once for that day: `since` remembers it. Only for a house whose
+ * electricity does not follow the weather: the app then compares with days of
+ * a similar temperature, which the Worker does not fetch.
+ */
+export function decideUnusualDay(
+  state: AlertState,
+  days: readonly DayTotal[],
+  followsWeather: boolean,
+  now: number,
+): Decision {
+  const checked = checkedToday(state, now);
+  const yesterday = lisbonDate(startOfLisbonDay(lisbonDate(now)) - 1);
+  const index = days.length - 1;
+  if (followsWeather || days[index]?.date !== yesterday) return { state: checked, message: null };
+  const judged = judgeDay(days, index);
+  const day = startOfLisbonDay(yesterday);
+  if (!judged || state.since === day) return { state: checked, message: null };
+  const actual = days[index]?.wh ?? 0;
+  const pct = Math.round((Math.abs(actual - judged.expected) * 100) / judged.expected);
+  return {
+    state: { ...checked, since: day, sentAt: now },
+    message: {
+      title: t.anomalies.yesterdayTitle,
+      body: `${t.anomalies.sentence(
+        t.anomalies.yesterday,
+        judged.z > 0 ? 1 : -1,
+        pct,
+        formatKwh(actual),
+        formatKwh(Math.round(judged.expected)),
+      )} ${t.alerts.unusualMore}`,
+      tag: 'unusual-day',
+      url: '/consumo#fora-do-habitual',
+    },
+  };
+}
+
 export interface AlertConfig {
   vapid: VapidKeys;
   rowsReadLimit: number;
@@ -393,6 +481,20 @@ export async function checkAlerts(
       monthEnergyWh = Math.max(0, ...meters.map((item) => item.energyWh));
     }
     decisions.push(['budget', decideBudget(states.budget, budget, monthEnergyWh, now)]);
+  }
+
+  if (wants('unusualDay') && reminderDue(states.unusualDay, now)) {
+    const installation = await getHouseholdInstallation(sql, householdId);
+    const follows = followsTemperature(installation);
+    let days: DayTotal[] = [];
+    if (!follows) {
+      const today = lisbonDate(now);
+      const from = lisbonDate(startOfLisbonDay(today) - (LOOKBACK_DAYS + 1) * DAY);
+      days = houseDays(await householdDaily(sql, householdId, from, today));
+      // Today, still going, is never whole; drop it in case the minutes say otherwise.
+      days = days.filter((day) => day.date < today);
+    }
+    decisions.push(['unusualDay', decideUnusualDay(states.unusualDay, days, follows, now)]);
   }
 
   for (const [kind, decision] of decisions) {

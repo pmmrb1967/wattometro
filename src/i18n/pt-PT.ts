@@ -343,6 +343,7 @@ export const t = {
     budgetTitle: 'Orçamento do mês',
     budgetBody: (budget: string) =>
       `Ao ritmo deste mês, a fatura deve passar o teu orçamento de ${budget}. Vê a previsão em Consumo.`,
+    unusualMore: 'Vê em Consumo a que horas foi.',
     testTitle: 'Aviso de teste',
     testBody: 'Os avisos do Wattómetro chegam a este aparelho.',
   },
@@ -438,6 +439,7 @@ export const t = {
         eredesImport: 'É altura de importar os consumos da E-Redes',
         tariffReview: 'É altura de rever o tarifário',
         budget: 'O mês vai passar o orçamento',
+        unusualDay: 'Ontem foi fora do habitual',
       },
       kindNotes: {
         stale: 'Ao fim de 15 minutos sem medições, e outra vez quando voltar.',
@@ -452,6 +454,8 @@ export const t = {
         tariffReview: 'Em janeiro e em julho, para comparares o teu contrato com as ofertas.',
         budget:
           'Quando, a partir do dia 7, o ritmo do mês passa o orçamento. Define-o em Consumo › Previsão. Uma vez por mês.',
+        unusualDay:
+          'De manhã, quando ontem a casa gastou muito mais (ou muito menos) do que é costume nesse tipo de dia. Só nas casas em que a temperatura não mexe na eletricidade (em Definições › Casa: aquecimento que não é elétrico e sem ar condicionado).',
       },
       saved: 'Escolha guardada.',
       test: 'Enviar aviso de teste',

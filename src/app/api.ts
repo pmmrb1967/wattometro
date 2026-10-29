@@ -774,6 +774,8 @@ const PushAlerts = z.object({
   eredesImport: z.boolean(),
   tariffReview: z.boolean(),
   budget: z.boolean(),
+  // Absent from a server older than migration 0023.
+  unusualDay: z.boolean().default(false),
 });
 export type PushAlerts = z.infer<typeof PushAlerts>;
 

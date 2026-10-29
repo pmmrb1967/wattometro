@@ -178,6 +178,67 @@ function excessCost(
   );
 }
 
+/** A day's total energy; `wh` is all `judgeDay` reads. */
+export interface DayTotal {
+  date: LocalDate;
+  wh: Wh;
+}
+
+export interface DayJudgement<T extends DayTotal> {
+  kind: DayKind;
+  /** The median of the reference days. */
+  expected: number;
+  /** Robust z-score: at least Z_THRESHOLD away from 0. */
+  z: number;
+  references: T[];
+  temperatureMatched: boolean;
+}
+
+/**
+ * Is `days[index]` unusual? Against the REFERENCE_DAYS most recent days of the
+ * same kind within LOOKBACK_DAYS (`days`: complete days only, oldest first),
+ * of a similar temperature when `temperatureOf` is given. Null when it is
+ * usual or cannot be judged. Shared with the server's push alert
+ * (server/src/alerts.ts), which has the daily totals only.
+ */
+export function judgeDay<T extends DayTotal>(
+  days: readonly T[],
+  index: number,
+  temperatureOf: TemperatureOf | null = null,
+): DayJudgement<T> | null {
+  const day = days[index];
+  if (!day) return null;
+  const kind = dayKind(day.date);
+  const earliest = startOfLisbonDay(day.date) - LOOKBACK_DAYS * 86_400;
+  const sameKind: T[] = [];
+  for (let i = index - 1; i >= 0; i--) {
+    const other = days[i] as T;
+    if (startOfLisbonDay(other.date) < earliest) break;
+    if (dayKind(other.date) === kind) sameKind.push(other);
+  }
+  const temperature: TenthsCelsius | null = temperatureOf ? temperatureOf(day.date) : null;
+  let references = sameKind;
+  let temperatureMatched = false;
+  if (temperature !== null && temperatureOf) {
+    const similar = sameKind.filter((other) => {
+      const t = temperatureOf(other.date);
+      return t !== null && Math.abs(t - temperature) <= TEMPERATURE_BAND;
+    });
+    // Too few days like it: not judged, rather than compared with other weather.
+    if (similar.length < MIN_REFERENCE_DAYS) return null;
+    references = similar;
+    temperatureMatched = true;
+  }
+  references = references.slice(0, REFERENCE_DAYS);
+  if (references.length < MIN_REFERENCE_DAYS) return null;
+
+  const totals = references.map((other) => other.wh);
+  const expected = median(totals);
+  const z = (day.wh - expected) / spreadOf(totals, expected);
+  if (Math.abs(z) < Z_THRESHOLD) return null;
+  return { kind, expected, z, references, temperatureMatched };
+}
+
 /** How far back the app lists them ("Consumo", and the AI's get_anomalies). */
 export const RECENT_ANOMALY_DAYS = 90;
 
@@ -212,34 +273,9 @@ export function findAnomalies(
   const found: Anomaly[] = [];
   days.forEach((day, index) => {
     if (day.date < from) return;
-    const kind = dayKind(day.date);
-    const earliest = startOfLisbonDay(day.date) - LOOKBACK_DAYS * 86_400;
-    const sameKind: DayHours[] = [];
-    for (let i = index - 1; i >= 0; i--) {
-      const other = days[i] as DayHours;
-      if (startOfLisbonDay(other.date) < earliest) break;
-      if (dayKind(other.date) === kind) sameKind.push(other);
-    }
-    const temperature: TenthsCelsius | null = temperatureOf ? temperatureOf(day.date) : null;
-    let references = sameKind;
-    let temperatureMatched = false;
-    if (temperature !== null && temperatureOf) {
-      const similar = sameKind.filter((other) => {
-        const t = temperatureOf(other.date);
-        return t !== null && Math.abs(t - temperature) <= TEMPERATURE_BAND;
-      });
-      // Too few days like it: not judged, rather than compared with other weather.
-      if (similar.length < MIN_REFERENCE_DAYS) return;
-      references = similar;
-      temperatureMatched = true;
-    }
-    references = references.slice(0, REFERENCE_DAYS);
-    if (references.length < MIN_REFERENCE_DAYS) return;
-
-    const totals = references.map((other) => other.wh);
-    const expected = median(totals);
-    const z = (day.wh - expected) / spreadOf(totals, expected);
-    if (Math.abs(z) < Z_THRESHOLD) return;
+    const judged = judgeDay(days, index, temperatureOf);
+    if (!judged) return;
+    const { kind, expected, z, references, temperatureMatched } = judged;
 
     const direction: 1 | -1 = z > 0 ? 1 : -1;
     const byHour = Array.from({ length: 24 }, (_, hour) =>

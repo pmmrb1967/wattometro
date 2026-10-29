@@ -236,3 +236,42 @@ export async function dailyEnergy(
   );
   return rows.map((row) => [row.day, row.energy_wh, row.minutes]);
 }
+
+export interface DailyRow {
+  meter: string;
+  day: string;
+  energyWh: number;
+  /** A Shelly's minutes with data; null for E-Redes. */
+  minutes: number | null;
+  /** E-Redes quarter hours imported; null for a Shelly (and old imports). */
+  quarters: number | null;
+}
+
+/** Every meter's daily totals on the Lisbon days [fromDay, toDay]: one row per meter and day. */
+export async function householdDaily(
+  sql: Sql,
+  householdId: string,
+  fromDay: string,
+  toDay: string,
+): Promise<DailyRow[]> {
+  const rows = await sql.all<{
+    meter: string;
+    day: string;
+    energy_wh: number;
+    minutes: number | null;
+    quarters: number | null;
+  }>(
+    `SELECT meter, day, energy_wh, minutes, quarters FROM daily
+     WHERE household_id = ? AND day >= ? AND day <= ? ORDER BY day`,
+    householdId,
+    fromDay,
+    toDay,
+  );
+  return rows.map((row) => ({
+    meter: row.meter,
+    day: row.day,
+    energyWh: row.energy_wh,
+    minutes: row.minutes,
+    quarters: row.quarters,
+  }));
+}

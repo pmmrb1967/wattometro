@@ -146,6 +146,36 @@ describe('migration 0021', () => {
   });
 });
 
+describe('migration 0023', () => {
+  it('keeps subscriptions and states, the new alert off, and takes its kind', () => {
+    const db = new DatabaseSync(':memory:');
+    const folder = join(__dirname, '..', 'migrations');
+    const files = readdirSync(folder)
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    const run = (name: string) => db.exec(readFileSync(join(folder, name), 'utf8'));
+    for (const name of files.filter((name) => name < '0023')) run(name);
+    db.exec(`INSERT INTO households (id, name, created_at) VALUES ('h', 'Casa', 0);
+      INSERT INTO users (id, household_id, email, password_hash, created_at)
+        VALUES ('u', 'h', 'a@b.pt', 'x', 0);
+      INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth,
+          alert_budget, created_at)
+        VALUES ('https://push.example/1', 'h', 'u', 'k', 'a', 1, 0);
+      INSERT INTO alert_state (household_id, kind, since) VALUES ('h', 'budget', 7);`);
+    run(files.find((name) => name.startsWith('0023')) as string);
+    expect(db.prepare('SELECT kind, since FROM alert_state').all()).toEqual([
+      { kind: 'budget', since: 7 },
+    ]);
+    expect(
+      db.prepare('SELECT alert_budget, alert_unusual_day FROM push_subscriptions').get(),
+    ).toEqual({ alert_budget: 1, alert_unusual_day: 0 });
+    db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'unusualDay')`);
+    expect(() =>
+      db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'nonsense')`),
+    ).toThrow();
+  });
+});
+
 describe('migration 0020', () => {
   it('keeps subscriptions and states, the reminders off, and takes their kinds', () => {
     const db = new DatabaseSync(':memory:');

@@ -235,11 +235,12 @@ const PushAlerts = z.object({
   stale: z.boolean(),
   power: z.boolean(),
   database: z.boolean(),
-  // Absent from an app cached before migrations 0019 and 0020: off.
+  // Absent from an app cached before migrations 0019, 0020 and 0023: off.
   cheapHours: z.boolean().default(false),
   eredesImport: z.boolean().default(false),
   tariffReview: z.boolean().default(false),
   budget: z.boolean().default(false),
+  unusualDay: z.boolean().default(false),
 });
 const BudgetBody = z.object({ budget: budgetSchema.nullable() });
 const VisitBody = z.object({ page: z.enum(VISIT_PAGES) });

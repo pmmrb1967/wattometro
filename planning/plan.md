@@ -156,7 +156,7 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [ ] Script do Shelly: alerta local quando a potência se aproxima da contratada (limiar em `KVS`) — adiado: por agora o utilizador preferiu só o registo na app
 - [ ] Corte local de carga adiável (saída do Shelly ou outro Shelly de relé na rede) — desligado por defeito, com confirmação nas definições
 - [x] Web Push a partir do Worker (chave VAPID privada como secret) para: potência perto do corte, Shelly sem enviar há 15 minutos, base de dados perto do limite diário (`server/src/alerts.ts`, `docs/alerts.md`)
-- [ ] Web Push para anomalias (quando a Fase 6 as tiver)
+- [x] Web Push para anomalias: "Ontem, fora do habitual", uma vez por dia a partir das 10:00, com o mesmo teste da app (`judgeDay`) sobre os totais diários; só nas casas em que a temperatura não conta (migração 0023, `docs/alerts.md`)
 - [x] Supressão de alertas repetidos (`alert_state`: uma vez por condição; potência no máximo uma por hora)
 
 **Aceitação:** teste com carga real dispara alerta (e corte, se ativo) mesmo sem internet.
@@ -327,6 +327,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 
 ## Decisões
 
+- 2026-10-29 — Aviso push de dia fora do habitual: o Cron aplica o teste da app (`judgeDay`, extraído de `findAnomalies` e partilhado) aos totais diários de `daily`, não aos quartos de hora (escolha do utilizador: ~85 linhas em vez de ~8 000 por dia, CPU folgada). Sem temperatura no Worker: só nas casas que disseram que ela não conta.
 - 2026-10-29 — Casa só com E-Redes: a Qualidade esconde os resumos quando a casa não tem nenhum Shelly ("0 cortes" lia-se como "não houve cortes", quando nada foi medido). As falhas da E-Redes vêm do `daily` (quartos de hora e estimados por dia), sem ler os 15 min.
 - 2026-10-21 — Nome do projeto: **wattometro** (marca Wattómetro).
 - 2026-10-21 — Stack igual ao Faturómetro: PWA Vite + React + TypeScript; Worker TypeScript + D1 (`--jurisdiction eu`); pnpm; Vitest. Router Hono no servidor.

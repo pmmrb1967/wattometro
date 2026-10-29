@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-/** push_subscriptions and alert_state (migrations 0015, 0019, 0020). */
+/** push_subscriptions and alert_state (migrations 0015, 0019, 0020, 0023). */
 import type { Sql } from '../db';
 
 export type AlertKind =
-  'stale' | 'power' | 'database' | 'cheapHours' | 'eredesImport' | 'tariffReview' | 'budget';
+  | 'stale'
+  | 'power'
+  | 'database'
+  | 'cheapHours'
+  | 'eredesImport'
+  | 'tariffReview'
+  | 'budget'
+  | 'unusualDay';
 export const ALERT_KINDS: readonly AlertKind[] = [
   'stale',
   'power',
@@ -12,6 +19,7 @@ export const ALERT_KINDS: readonly AlertKind[] = [
   'eredesImport',
   'tariffReview',
   'budget',
+  'unusualDay',
 ];
 
 export type AlertChoice = Record<AlertKind, boolean>;
@@ -34,6 +42,7 @@ interface SubscriptionRow {
   alert_eredes_import: number;
   alert_tariff_review: number;
   alert_budget: number;
+  alert_unusual_day: number;
 }
 
 const fromRow = (row: SubscriptionRow): Subscription => ({
@@ -48,12 +57,13 @@ const fromRow = (row: SubscriptionRow): Subscription => ({
     eredesImport: row.alert_eredes_import === 1,
     tariffReview: row.alert_tariff_review === 1,
     budget: row.alert_budget === 1,
+    unusualDay: row.alert_unusual_day === 1,
   },
 });
 
 const COLUMNS =
   'endpoint, p256dh, auth, alert_stale, alert_power, alert_database, alert_cheap_hours, ' +
-  'alert_eredes_import, alert_tariff_review, alert_budget';
+  'alert_eredes_import, alert_tariff_review, alert_budget, alert_unusual_day';
 
 /** Saves this browser's subscription for the user; the same endpoint again replaces it. */
 export async function saveSubscription(
@@ -66,14 +76,15 @@ export async function saveSubscription(
   await sql.run(
     `INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth,
        alert_stale, alert_power, alert_database, alert_cheap_hours, alert_eredes_import,
-       alert_tariff_review, alert_budget, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       alert_tariff_review, alert_budget, alert_unusual_day, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (endpoint) DO UPDATE SET household_id = excluded.household_id,
        user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
        alert_stale = excluded.alert_stale, alert_power = excluded.alert_power,
        alert_database = excluded.alert_database, alert_cheap_hours = excluded.alert_cheap_hours,
        alert_eredes_import = excluded.alert_eredes_import,
-       alert_tariff_review = excluded.alert_tariff_review, alert_budget = excluded.alert_budget`,
+       alert_tariff_review = excluded.alert_tariff_review, alert_budget = excluded.alert_budget,
+       alert_unusual_day = excluded.alert_unusual_day`,
     subscription.endpoint,
     user.householdId,
     user.id,
@@ -86,6 +97,7 @@ export async function saveSubscription(
     alerts.eredesImport ? 1 : 0,
     alerts.tariffReview ? 1 : 0,
     alerts.budget ? 1 : 0,
+    alerts.unusualDay ? 1 : 0,
     now,
   );
 }
@@ -168,6 +180,7 @@ export async function alertStates(
     eredesImport: QUIET_STATE,
     tariffReview: QUIET_STATE,
     budget: QUIET_STATE,
+    unusualDay: QUIET_STATE,
   };
   for (const row of rows) {
     states[row.kind] = {
