@@ -1851,6 +1851,8 @@ export const t = {
     backupLink: 'Guardar cópia',
     exit: 'Sair do modo sem conta',
     lookGroup: 'Aspeto',
+    shellyUnavailable:
+      'Sem conta não é possível configurar um Shelly: o Shelly envia as medições para o servidor da app, e no modo sem conta os dados ficam só neste browser.',
     shelly:
       'Com um Shelly no quadro elétrico, a app mostra também a potência a cada segundo, os aparelhos, a tensão e avisos no telemóvel. Isso precisa de uma instalação própria, com o servidor da app na tua conta Cloudflare:',
     shellyLink: 'como instalar',

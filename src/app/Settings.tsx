@@ -151,9 +151,11 @@ function LocalSettings() {
         <LocalDataSection />
         <EredesImportSection />
         <section className="card">
+          <h2>{t.settings.devices.title}</h2>
+          <p>{t.local.shellyUnavailable}</p>
           <p className="hint">
             {t.local.shelly}{' '}
-            <a href={OWN_INSTALL_URL} rel="noreferrer">
+            <a href={OWN_INSTALL_URL} target="_blank" rel="noreferrer">
               {t.local.shellyLink}
             </a>
           </p>
