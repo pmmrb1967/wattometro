@@ -16,6 +16,7 @@ import { formatLisbonTime, lisbonDate, lisbonDayLength, startOfLisbonDay } from 
 import { formatKwh, formatPower, formatVolts } from '../lib/units';
 import { fetchNow, type Meter, type Now } from './api';
 import { AnomalyCard } from './Anomalies';
+import { EredesHomeCard } from './EredesHomeCard';
 import { BillForecastCard } from './BillForecast';
 import { ActionValue, HomeActions } from './HomeActions';
 import { useHouseholdEnergy } from './household-energy';
@@ -326,10 +327,7 @@ export function Home() {
           {now !== null && now !== 'unavailable' && (
             <>
               {now.meters.length === 0 ? (
-                <section className="card">
-                  <p>{t.now.noDevices}</p>
-                  <Link to="/definicoes#dados">{t.now.addDevice}</Link>
-                </section>
+                <EredesHomeCard energy={energy} />
               ) : (
                 now.meters.map((meter) => (
                   <MeterCard

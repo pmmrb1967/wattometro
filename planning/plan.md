@@ -300,7 +300,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 - [x] Dossiê de reclamação: em Qualidade › Reclamar, os passos (RQS art. 60.º, 61.º, 66.º, 123.º a 125.º) e uma carta com os factos medidos (semanas fora da norma, extremos, cortes acima do padrão), editável, copiável e impressa numa página à parte do PDF (`src/domain/complaint.ts`, `docs/voltage.md`)
 - [x] Compensações por interrupções (RQS): número e duração contra os limites da zona; estimativa em euros pelo art. 102.º com os valores do Anexo I e o limite de 200 % da tarifa de uso das redes (`src/domain/compensation.ts`, `docs/voltage.md`)
 - [x] Mudar de potência: poupança por ano de cada escalão simulado ao lado do risco de corte, e os passos da ERSE quando o recomendado é outro (`docs/contracted-power.md`)
-- [ ] E-Redes com menos trabalho: ~~lembrete mensal~~ (feito: aviso quando o último dia importado tem mais de 31 dias), falhas nos dados, guia passo a passo; modo "só E-Redes" sem Shelly
+- [x] E-Redes com menos trabalho: lembrete mensal (aviso quando o último dia importado tem mais de 31 dias); falhas nos dados guardados em Definições (dias sem dados, dias incompletos, quartos de hora estimados); os passos dizem que datas pedir (12 meses na primeira vez, depois do primeiro dia em falta até ontem); modo "só E-Redes": o Início mostra o último dia importado (energia e custo) e o que um Shelly acrescenta, a Potência explica o que falta sem parecer um erro e a Qualidade não mostra zeros quando não há Shelly
 - [ ] Solar: dimensionar com o perfil real (PVGIS) e medir a produção no 2.º canal do Shelly (UPAC)
 - [ ] Relés Shelly: termoacumulador e outras cargas nas horas baratas (o browser decide, o Shelly só cumpre horários)
 - [ ] Carro elétrico: custo de carregar e a melhor hora e tarifário
@@ -327,6 +327,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 
 ## Decisões
 
+- 2026-10-29 — Casa só com E-Redes: a Qualidade esconde os resumos quando a casa não tem nenhum Shelly ("0 cortes" lia-se como "não houve cortes", quando nada foi medido). As falhas da E-Redes vêm do `daily` (quartos de hora e estimados por dia), sem ler os 15 min.
 - 2026-10-21 — Nome do projeto: **wattometro** (marca Wattómetro).
 - 2026-10-21 — Stack igual ao Faturómetro: PWA Vite + React + TypeScript; Worker TypeScript + D1 (`--jurisdiction eu`); pnpm; Vitest. Router Hono no servidor.
 - 2026-10-21 — Só Shelly como hardware; Efergy fora do âmbito; sem PC/hub em casa.

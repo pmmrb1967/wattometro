@@ -5,6 +5,7 @@
  * to attach to a complaint: dates, values and the sources of the limits.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import {
   mondayOf,
   outagesFromBoots,
@@ -40,6 +41,7 @@ import { formatCents } from '../lib/money';
 import { formatVolts, type Wh } from '../lib/units';
 import {
   fetchBoots,
+  fetchDevices,
   fetchEnergyMeters,
   fetchQuality,
   fetchTariffs,
@@ -617,7 +619,19 @@ export function Quality() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [contract, setContract] = useState<Contract>({ powerVa: null, yearEnergyWh: null });
   const [now] = useState(nowSeconds);
+  // Without a Shelly nothing here is measured: no zeros that read as "no outages".
+  const [shellies, setShellies] = useState<number | null>(null);
   const year = lisbonParts(now).year;
+
+  useEffect(() => {
+    let active = true;
+    void fetchDevices().then((outcome) => {
+      if (active && outcome.ok) setShellies(outcome.devices.length);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   // Whole weeks: from the Monday (weeks − 1) weeks before this one.
   const from = startOfLisbonDay(mondayOf(lisbonDate(now - (weeks - 1) * 7 * DAY)));
 
@@ -728,34 +742,43 @@ export function Quality() {
       </div>
       <StatusLine status={status} />
 
-      <QualityVerdict data={data} outages={outages} zone={zone} year={year} weeks={weeks} />
-      <OutagesSection
-        outages={outages}
-        zone={zone}
-        year={year}
-        contract={contract}
-        onExclude={(outage, excluded) => void exclude(outage, excluded)}
-      />
-      <VoltageSection data={data} weeks={weeks} onWeeks={setWeeks} outages={outages ?? []} />
-      <ZoneSection zone={zone} onChange={setZone} />
+      {shellies === 0 ? (
+        <section className="card">
+          <p>{texts.noShelly}</p>
+          <Link to="/definicoes#dados">{t.home.eredes.addShelly}</Link>
+        </section>
+      ) : (
+        <>
+          <QualityVerdict data={data} outages={outages} zone={zone} year={year} weeks={weeks} />
+          <OutagesSection
+            outages={outages}
+            zone={zone}
+            year={year}
+            contract={contract}
+            onExclude={(outage, excluded) => void exclude(outage, excluded)}
+          />
+          <VoltageSection data={data} weeks={weeks} onWeeks={setWeeks} outages={outages ?? []} />
+          <ZoneSection zone={zone} onChange={setZone} />
 
-      <ComplaintSection grounds={grounds} house={me.householdName} zone={zone} />
+          <ComplaintSection grounds={grounds} house={me.householdName} zone={zone} />
 
-      <section className="card">
-        <h2>{texts.sourcesTitle}</h2>
-        <ul className="hint caveats">
-          {texts.sources.map((source) => (
-            <li key={source}>{source}</li>
-          ))}
-        </ul>
-      </section>
+          <section className="card">
+            <h2>{texts.sourcesTitle}</h2>
+            <ul className="hint caveats">
+              {texts.sources.map((source) => (
+                <li key={source}>{source}</li>
+              ))}
+            </ul>
+          </section>
 
-      <section className="card no-print">
-        <p className="hint">{texts.printHint}</p>
-        <button type="button" className="primary" onClick={() => window.print()}>
-          {texts.print}
-        </button>
-      </section>
+          <section className="card no-print">
+            <p className="hint">{texts.printHint}</p>
+            <button type="button" className="primary" onClick={() => window.print()}>
+              {texts.print}
+            </button>
+          </section>
+        </>
+      )}
     </>
   );
 }

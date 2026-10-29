@@ -572,7 +572,12 @@ export function Power() {
       {data && data !== 'unavailable' && !meter && (
         <section className="card">
           {data.eredes.quarters > 0 && data.eredes.maxEnergyWh !== null ? (
-            <p className="error">{texts.eredesOnly(formatPower(data.eredes.maxEnergyWh * 4))}</p>
+            <>
+              <p>{texts.eredesOnly(formatPower(data.eredes.maxEnergyWh * 4))}</p>
+              <p className="hint">
+                {texts.eredesShelly} <Link to="/definicoes#dados">{t.home.eredes.addShelly}</Link>
+              </p>
+            </>
           ) : (
             <p>{texts.noShelly}</p>
           )}

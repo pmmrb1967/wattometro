@@ -141,8 +141,6 @@ export const t = {
     noAccount: 'As contas são criadas pelo responsável da instalação.',
   },
   now: {
-    noDevices: 'Ainda não tens nenhum Shelly ligado.',
-    addDevice: 'Adicionar em Definições → Dispositivos',
     channel: (channel: number) => `canal ${channel + 1}`,
     power: 'Potência',
     minuteAt: (time: string) => `média do minuto das ${time}`,
@@ -181,6 +179,21 @@ export const t = {
   },
   home: {
     vatNote: 'Valores em euros com IVA, com o teu tarifário.',
+    /** Home without a Shelly: the last day imported from E-Redes, or how to start. */
+    eredes: {
+      title: 'Consumos da E-Redes',
+      lastDay: 'Último dia importado',
+      on: (date: string) => `em ${date}`,
+      cost: (amount: string) => `${amount} com o teu tarifário`,
+      partial: (quarters: number) => `Dia incompleto no ficheiro: ${quarters} quartos de hora.`,
+      importNewer: 'Importar consumos mais recentes',
+      shellyAdds:
+        'Com um Shelly no quadro elétrico vês também o consumo do momento, a potência certa a contratar, os aparelhos e a tensão.',
+      addShelly: 'Adicionar um Shelly',
+      empty: 'Ainda não há consumos desta casa. Começa por uma das duas:',
+      importFile: 'Importar o ficheiro da E-Redes (até 12 meses de histórico)',
+      orShelly: 'Ligar um Shelly no quadro elétrico (o consumo minuto a minuto)',
+    },
     status: 'Em construção',
     intro:
       'O Wattómetro vai ler o consumo do teu quadro elétrico (Shelly) e os dados da E-Redes para te dizer, em euros, onde podes poupar.',
@@ -788,6 +801,8 @@ export const t = {
     noShelly: 'Ainda não há dados do Shelly neste período.',
     eredesOnly: (kw: string) =>
       `Só há dados da E-Redes: médias de 15 minutos, que escondem os picos curtos que fazem o contador cortar. A maior média foi ${kw}. Não é possível recomendar uma potência só com estes dados.`,
+    eredesShelly:
+      'Um Shelly no quadro elétrico mede a potência segundo a segundo: com umas semanas de dados, esta página diz-te a potência mais baixa que não corta a luz.',
     caveats: [
       'Curva de corte da especificação do contador inteligente da E-Redes (DEF-C44-506/N, anexo B1), com os valores por omissão: só corta acima de 1,2 × a potência contratada, e mais depressa quanto maior o excesso. A E-Redes pode configurar outros valores; a margem cobre essa diferença.',
       'Monofásico. Em instalações trifásicas o contador usa 1,3 × e controla também cada fase: ainda não é simulado.',
@@ -810,6 +825,8 @@ export const t = {
     title: 'Qualidade da energia',
     intro:
       'Falhas de energia e tensão medidas pelo teu Shelly, comparadas com os limites do Regulamento da Qualidade de Serviço da ERSE e da norma NP EN 50160.',
+    noShelly:
+      'As falhas de energia e a tensão medem-se com um Shelly no quadro elétrico: o ficheiro da E-Redes só traz a energia de cada quarto de hora.',
     reportTitle: 'Registo de qualidade da energia elétrica',
     reportHousehold: (name: string) => `Instalação: ${name}`,
     reportPeriod: (from: string, to: string) => `Tensão: de ${from} a ${to}`,

@@ -2908,3 +2908,14 @@ h1,
   margin: 8px 0 0;
   padding-left: 1.2em;
 }
+
+/* Home without a Shelly: the last day from E-Redes, or the two ways to start. */
+.eredes-day {
+  margin: 4px 0 8px;
+}
+.eredes-start {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+}
