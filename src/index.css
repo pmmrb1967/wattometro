@@ -724,6 +724,31 @@ h2 {
   font-weight: 600;
 }
 
+.power-day-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+  overflow: visible;
+}
+
+.power-day-chart .day-note,
+.power-day-chart .day-hour {
+  font-size: 11px;
+}
+
+.day-grid {
+  stroke: var(--border);
+  stroke-dasharray: 2 3;
+}
+
+.power-day-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
 .landing-day-caption {
   margin: 12px 0 0;
   color: var(--muted);

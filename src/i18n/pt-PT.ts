@@ -745,6 +745,21 @@ export const t = {
     },
   },
   power: {
+    day: {
+      title: 'Potência ao longo do dia',
+      label:
+        'Gráfico da potência mais alta de cada minuto do dia, com a potência contratada, o consumo base da noite, o pico do dia e as horas de vazio.',
+      dayLabel: 'Dia',
+      today: 'Hoje (até agora)',
+      contracted: (power: string) => `Potência contratada ${power}`,
+      base: (power: string) => `Consumo base ${power}`,
+      peak: (power: string, time: string) => `Pico ${power} às ${time}`,
+      offPeak: 'Vazio',
+      caption:
+        'A potência mais alta de cada minuto, medida a cada segundo (potência aparente, a que o contador compara com a contratada). A escala aperta os valores altos para o consumo base ainda se ver.',
+      none: 'Não há valores ao segundo deste dia.',
+      error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
+    },
     title: 'Potência contratada',
     intro:
       'A potência contratada mais baixa que não teria cortado a luz nos últimos 90 dias. A app simula o contador da E-Redes segundo a segundo, com os dados do teu Shelly.',

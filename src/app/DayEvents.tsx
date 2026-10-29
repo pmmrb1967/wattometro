@@ -157,8 +157,8 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
     }
     return list;
   }, [today, energy.shellyFrom]);
-  // Yesterday by default: a whole day.
-  const [day, setDay] = useState<LocalDate>(() => days[1] ?? days[0] ?? today);
+  // Today by default: what just happened is what one comes to look at.
+  const [day, setDay] = useState<LocalDate>(() => days[0] ?? today);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const known = useAppliances(me.householdId);
   // The group being named: its first cycle's start.

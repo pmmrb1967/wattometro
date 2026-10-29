@@ -26,6 +26,7 @@ import type { Offer } from '../domain/erse';
 import { tariffOn, type Tariff } from '../domain/tariff';
 import { HowItWorks } from '../components/HowItWorks';
 import { AddShellyLink } from './AddShellyLink';
+import { PowerDayChart } from './PowerDayChart';
 import { t } from '../i18n/pt-PT';
 import { formatCents, microToPtInput, parsePtPrice, type MicroEuros } from '../lib/money';
 import { formatLisbonDateTime, lisbonToday } from '../lib/time';
@@ -601,6 +602,7 @@ export function Power() {
             </section>
           )}
           <RecommendationSection meter={meter} from={from} to={now} tariff={tariff} />
+          <PowerDayChart meter={meter.meter} tariff={tariff} />
           {tariff ? (
             <NearTripSection meter={meter} from={from} to={now} contractVa={tariff.powerVa} />
           ) : (
