@@ -25,7 +25,8 @@ function arc(from: number, to: number, radius: number): string {
 /**
  * The power of the last minute on a dial up to 1,5 × the contracted power:
  * within it, over it but tolerated (up to k ×), and where the meter cuts
- * after a while. A tick marks today's one-second peak.
+ * after a while. A tick marks today's one-second peak, its value beside it
+ * inside the arc, under it (outside is the contracted power's).
  */
 export function PowerGauge({
   powerW,
@@ -46,6 +47,8 @@ export function PowerGauge({
   const [needleX, needleY] = polar(at(powerW), 62);
   const [peakX1, peakY1] = polar(at(peakW ?? 0), 66);
   const [peakX2, peakY2] = polar(at(peakW ?? 0), 90);
+  const [peakTextX, peakTextY] = polar(at(peakW ?? 0), 56);
+  const peakAnchor = at(peakW ?? 0) < 0.4 ? 'start' : at(peakW ?? 0) > 0.6 ? 'end' : 'middle';
   const [labelX, labelY] = polar(at(contractedVa), 98);
   return (
     <svg
@@ -67,6 +70,18 @@ export function PowerGauge({
       )}
       <line className="gauge-needle" x1={100} y1={100} x2={needleX} y2={needleY} />
       <circle className="gauge-hub" cx={100} cy={100} r={5} />
+      {/* After the needle: its halo keeps it readable when the needle passes under. */}
+      {peakW !== null && (
+        <text
+          className="gauge-text gauge-mark-text"
+          x={peakTextX}
+          y={peakTextY}
+          textAnchor={peakAnchor}
+          dominantBaseline="middle"
+        >
+          {texts.peakMark(formatPower(peakW))}
+        </text>
+      )}
       <text
         className="gauge-text"
         x={labelX}
@@ -136,7 +151,7 @@ export function VoltageRuler({
 
 /**
  * Today's energy so far: its quarters as a small curve over the 24 hours, and,
- * with a usual day, a bar against it (the mark is the usual).
+ * with a usual day, a bar against it (the mark is the usual, its value under it).
  */
 export function TodayEnergy({
   energyWh,
@@ -155,33 +170,47 @@ export function TodayEnergy({
   const slots = dayLength / 900;
   const width = 200 / slots;
   const scale = typicalWh === null ? 0 : Math.max(energyWh, typicalWh) * 1.15;
+  const usualPct = typicalWh === null || scale === 0 ? 0 : (typicalWh / scale) * 100;
   return (
     <>
       {typicalWh !== null && scale > 0 && (
-        <svg
-          className="today-bar"
-          viewBox="0 0 200 14"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <rect className="today-track" x={0} y={2} width={200} height={10} rx={5} />
-          <rect
-            // Above only past the "as usual" margin of the text (t.now.vsUsual).
-            className={energyWh * 100 >= typicalWh * 105 ? 'today-fill above' : 'today-fill'}
-            x={0}
-            y={2}
-            width={(energyWh / scale) * 200}
-            height={10}
-            rx={5}
-          />
-          <line
-            className="today-usual"
-            x1={(typicalWh / scale) * 200}
-            y1={0}
-            x2={(typicalWh / scale) * 200}
-            y2={14}
-          />
-        </svg>
+        <div className="today-bar-wrap">
+          <svg
+            className="today-bar"
+            viewBox="0 0 200 14"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <rect className="today-track" x={0} y={2} width={200} height={10} rx={5} />
+            <rect
+              // Above only past the "as usual" margin of the text (t.now.vsUsual).
+              className={energyWh * 100 >= typicalWh * 105 ? 'today-fill above' : 'today-fill'}
+              x={0}
+              y={2}
+              width={(energyWh / scale) * 200}
+              height={10}
+              rx={5}
+            />
+            <line
+              className="today-usual"
+              x1={(typicalWh / scale) * 200}
+              y1={0}
+              x2={(typicalWh / scale) * 200}
+              y2={14}
+            />
+          </svg>
+          {/* HTML, not in the stretched SVG: the figure keeps its shape. Centred on
+              the mark, kept inside the bar near its right end. */}
+          <span
+            className="today-usual-text"
+            style={{
+              left: `${usualPct}%`,
+              transform: usualPct > 80 ? 'translateX(-100%)' : 'translateX(-50%)',
+            }}
+          >
+            {texts.usualMark(formatKwh(typicalWh, 1))}
+          </span>
+        </div>
       )}
       {quarters.length > 0 && (
         <svg

@@ -176,6 +176,8 @@ export const t = {
     voltageLabel: (voltage: string, low: string, high: string) =>
       `Tensão ${voltage}; a norma pede entre ${low} e ${high}.`,
     curveLabel: (energy: string) => `Consumo de hoje por quarto de hora, ${energy} até agora.`,
+    peakMark: (power: string) => `pico ${power}`,
+    usualMark: (energy: string) => `habitual ${energy}`,
   },
   home: {
     vatNote: 'Valores em euros com IVA, com o teu tarifário.',
