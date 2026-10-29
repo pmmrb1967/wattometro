@@ -17,13 +17,14 @@ import {
   importEredesBatch,
   type EredesSummary,
 } from './api';
+import { askFor } from './eredes-period';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.eredes;
 
 function Period({ from, to }: { from: number; to: number }) {
-  return <>{texts.period(formatLisbonDateTime(from), formatLisbonDateTime(to))}</>;
+  return <>{texts.between(formatLisbonDateTime(from), formatLisbonDateTime(to))}</>;
 }
 
 /** Lists shown in full up to this many; longer ones end with "e mais N". */
@@ -176,9 +177,12 @@ export function EredesImportSection() {
       <h2>{texts.title}</h2>
       <p className="hint">{texts.intro}</p>
       <ol className="hint steps">
-        {texts.steps.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
+        {/* The dates once the summary is in (not "a year" while it loads). */}
+        {[texts.steps[0], summary && askFor(summary.to), ...texts.steps.slice(1)]
+          .filter((step) => step !== null)
+          .map((step) => (
+            <li key={step}>{step}</li>
+          ))}
       </ol>
 
       {summary && summary.from !== null && summary.to !== null && (

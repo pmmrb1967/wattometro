@@ -1488,12 +1488,19 @@ export const t = {
     intro:
       'Importa o histórico a 15 minutos do teu contador inteligente: serve para o simulador de tarifários e para os meses antes do Shelly. O ficheiro é lido no teu browser; só os consumos vão para o servidor (o CPE e o número do contador não).',
     steps: [
-      'No Balcão Digital da E-Redes: "Consultar histórico", consumos a 15 minutos, estado real e estimado, o período mais longo possível.',
+      'No Balcão Digital da E-Redes: "Consultar histórico", consumos a 15 minutos, estado real e estimado.',
       'Exporta: o ficheiro .xlsx fica pronto até 24 horas depois (o portal avisa).',
-      'Escolhe-o aqui, sem o abrir nem gravar no Excel antes.',
+      'Escolhe-o aqui, sem o abrir nem gravar no Excel antes. Podes importar o mesmo período mais do que uma vez: nada se duplica.',
     ],
+    /** The second step: which dates to ask for. */
+    period: {
+      first: 'Período: os últimos 12 meses, o máximo que a E-Redes dá.',
+      next: (from: string) =>
+        `Período: de ${from} até ontem (o dia a seguir ao último que já importaste).`,
+      upToDate: 'Já tens os consumos até ontem: por agora não há nada de novo para pedir.',
+    },
     stored: 'Já importado:',
-    period: (from: string, to: string) => `de ${from} a ${to}`,
+    between: (from: string, to: string) => `de ${from} a ${to}`,
     storedDetail: (kwh: string, quarters: number, estimated: number) =>
       `${kwh} em ${quarters.toLocaleString('pt-PT')} quartos de hora${estimated > 0 ? `, ${estimated.toLocaleString('pt-PT')} estimados pela E-Redes` : ''}.`,
     choose: 'Ficheiro exportado da E-Redes (.xlsx)',
