@@ -134,6 +134,21 @@ describe('classify', () => {
     expect(groupAppliance(group!, new Map())).toBeNull();
   });
 
+  it('leaves a group unnamed when fewer than half of its cycles fit', () => {
+    const cycles = cyclesOf([
+      ...flat(30, 160),
+      ...[0, 1, 2, 3].flatMap(() => [...flat(300, 260), ...flat(300, 160)]),
+    ]);
+    const [group] = groupCycles(cycles);
+    expect(group!.cycles).toHaveLength(4);
+    const fridge = appliance('f', 'Frigorífico', 100);
+    const fitting = (count: number) =>
+      new Map(group!.cycles.slice(0, count).map((cycle) => [cycle.start, fridge]));
+    expect(groupAppliance(group!, fitting(1))).toBeNull();
+    // Half is enough.
+    expect(groupAppliance(group!, fitting(2))).toBe(fridge);
+  });
+
   it('gives a tie to the appliance named last (a correction)', () => {
     const cycles = cyclesOf([...flat(30, 160), ...flat(600, 2120), ...flat(60, 160)]);
     const washer = { ...appliance('w', 'Máquina de lavar', 1960), createdAt: 100 };

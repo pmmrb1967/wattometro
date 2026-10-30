@@ -188,7 +188,11 @@ export function classify(
   return named;
 }
 
-/** The appliance most of a group's cycles are, or null. */
+/**
+ * The appliance most of a group's cycles are, or null when it is not at least
+ * half of them: one cycle that happens to fit does not name a group whose other
+ * cycles are something else (it still counts in that appliance's day).
+ */
 export function groupAppliance(
   group: CycleGroup,
   named: ReadonlyMap<number, Appliance>,
@@ -203,7 +207,8 @@ export function groupAppliance(
   }
   let best: { appliance: Appliance; count: number } | null = null;
   for (const entry of counts.values()) if (!best || entry.count > best.count) best = entry;
-  return best?.appliance ?? null;
+  if (!best || best.count * 2 < group.cycles.length) return null;
+  return best.appliance;
 }
 
 /** Energy the per-second values show over the day, Wh (missing seconds count as nothing). */
