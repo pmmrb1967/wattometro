@@ -1083,6 +1083,9 @@ export const t = {
       'Grupos de menos de 60 W ("pouco fiável") estão perto do mínimo que a app consegue ver: o consumo da casa varia mais do que isso de segundo a segundo, e alguns ligares ficam emparelhados com o desligar errado. A energia deles é um máximo, não uma medida.',
     name: 'Guardar',
     cancel: 'Cancelar',
+    forget: 'Esquecer este aparelho',
+    forgetHint:
+      'Se o aparelho foi mal calibrado, esquece-o: os ciclos dele, em todos os dias, voltam a aparecer sem nome.',
     named: 'Aparelhos reconhecidos neste dia',
     namedRow: (count: number, energy: string, cost: string | null) =>
       `${count === 1 ? '1 vez' : `${count} vezes`}, ${energy}${cost === null ? '' : `, ${cost}`}`,

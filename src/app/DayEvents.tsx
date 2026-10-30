@@ -4,8 +4,8 @@
  * the power steps (src/nilm/events.ts) and the on/off cycles they pair into
  * (src/nilm/cycles.ts), grouped by power, and the appliances they are
  * (src/nilm/appliances.ts), the dearest first, each with what it cost that
- * day: a group without a name has "Dar nome", a named one "Mudar o nome". Only
- * with a Shelly, for the last days.
+ * day: a group without a name has "Dar nome", a named one "Mudar o nome" (and
+ * "Esquecer este aparelho"). Only with a Shelly, for the last days.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -29,7 +29,7 @@ import { decodeSecondsRecords } from '../nilm/series';
 import type { CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
 import { groupLoadKind } from '../nilm/load-kind';
-import { addAppliance, useAppliances } from './appliances-store';
+import { addAppliance, forgetAppliance, useAppliances } from './appliances-store';
 import type { HouseholdEnergy } from './household-energy';
 import { loadDaySeconds } from './seconds-cache';
 import { failureText, useSession } from './session';
@@ -98,6 +98,17 @@ function NameGroup({
     setError(text);
   }
 
+  async function forget() {
+    if (!current) return;
+    setBusy(true);
+    const outcome = await forgetAppliance(current.id);
+    setBusy(false);
+    if (outcome.ok) return onDone();
+    const text = failureText(outcome, t.knownAppliances.failed);
+    if (text === null) return signOut();
+    setError(text);
+  }
+
   if (warning) {
     return (
       <div className="name-group">
@@ -140,6 +151,21 @@ function NameGroup({
           {texts.cancel}
         </button>
       </div>
+      {current && (
+        <div className="forget-appliance">
+          <p className="hint">{texts.forgetHint}</p>
+          <button
+            type="button"
+            className="secondary danger"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm(t.knownAppliances.confirmForget(current.label))) void forget();
+            }}
+          >
+            {texts.forget}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

@@ -2611,6 +2611,20 @@ a.button-link {
   font-weight: 600;
 }
 
+/* "Mudar o nome": forgetting a badly calibrated appliance, apart from the naming. */
+.forget-appliance {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.forget-appliance .hint {
+  margin: 0;
+}
+
 /* "Tarifários": an offer's prices, and the toggles of a long list. */
 .offer-prices {
   margin-top: 4px;
