@@ -2,7 +2,7 @@
 /**
  * Naming appliances (Phase 8.3). An appliance is a name and a descriptor: the
  * power of its cycles at 230 V, the measured power of each state, and whether
- * it pulses. The user names a group of cycles once ("O que é?"), or a
+ * it pulses. The user names a group of cycles once ("Dar nome"), or a
  * calibration gives it; from then on every cycle that fits a descriptor, on any
  * day, is that appliance (classify). Kept on the server (GET /v1/appliances),
  * so every device the user signs in on knows them.

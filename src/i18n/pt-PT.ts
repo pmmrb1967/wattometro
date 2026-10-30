@@ -1181,7 +1181,7 @@ export const t = {
     toTariffs: 'Ver em Tarifários',
     how: 'Custo da energia com o teu tarifário, à hora de cada uso, com IEC e IVA (a potência contratada paga-se na mesma). O mês é uma projeção destes dias: um dia com mais lavagens, ou menos, muda-a.',
     onlyNamed:
-      'Só conta os aparelhos com nome, e só os dias com valores ao segundo quase completos. Para dar nome a um aparelho, usa "O que é?" em "Ao segundo".',
+      'Só conta os aparelhos com nome, e só os dias com valores ao segundo quase completos. Para dar nome a um aparelho, usa "Dar nome" em "Ao segundo".',
   },
   reprocess: {
     title: 'Reprocessar',
@@ -1196,7 +1196,7 @@ export const t = {
   knownAppliances: {
     title: 'Aparelhos que a app reconhece',
     intro:
-      'Cada um é reconhecido pela potência, pela forma e pela duração dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "O que é?" no cartão "Ao segundo" ou a partir de uma calibração. Um programa mais curto ou mais longo (máquina de lavar a 30 ou a 60 °C) que não seja reconhecido: dá-lhe o mesmo nome e a duração aceite alarga-se.',
+      'Cada um é reconhecido pela potência, pela forma e pela duração dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "Dar nome" no cartão "Ao segundo" ou a partir de uma calibração. Para mudar um nome, escreve-o na caixa e carrega em "Guardar nome". Um programa mais curto ou mais longo (máquina de lavar a 30 ou a 60 °C) que não seja reconhecido: dá-lhe o mesmo nome e a duração aceite alarga-se.',
     withDurations: (power: string, shortest: string, longest: string) =>
       `${power}, ciclos de ${shortest} a ${longest}`,
     empty:

@@ -2,7 +2,7 @@
 /**
  * "Calibrar aparelhos" → the appliances the app recognises (Phase 8.3): each
  * with the descriptor it is recognised by, a name that can change and a way to
- * forget it. Named from "Ao segundo" ("O que é?") or from a calibration.
+ * forget it. Named from "Ao segundo" ("Dar nome") or from a calibration.
  */
 import { useState } from 'react';
 import { t } from '../i18n/pt-PT';
@@ -64,16 +64,14 @@ function Row({ appliance }: { appliance: Appliance }) {
         <span className="hint">{describeAppliance(appliance)}</span>
         {error && <span className="error">{error}</span>}
       </div>
-      {changed && (
-        <button
-          type="button"
-          className="primary"
-          disabled={busy}
-          onClick={() => void act(() => renameKnownAppliance(appliance.id, label.trim()))}
-        >
-          {texts.rename}
-        </button>
-      )}
+      <button
+        type="button"
+        className="primary"
+        disabled={busy || !changed}
+        onClick={() => void act(() => renameKnownAppliance(appliance.id, label.trim()))}
+      >
+        {texts.rename}
+      </button>
       <button
         type="button"
         className="secondary danger"
