@@ -756,7 +756,10 @@ export const t = {
       peak: (power: string, time: string) => `Pico ${power} às ${time}`,
       offPeak: 'Vazio',
       caption:
-        'A potência mais alta de cada minuto, medida a cada segundo (potência aparente, a que o contador compara com a contratada). A escala aperta os valores altos para o consumo base ainda se ver.',
+        'Cada ponto é a potência mais alta nesse bocado do dia, medida a cada segundo (potência aparente, a que o contador compara com a contratada). A escala aperta os valores altos para o consumo base ainda se ver.',
+      zoomHint: 'Arrasta sobre o gráfico para ver um intervalo de perto, até ao segundo.',
+      range: (from: string, to: string) => `Das ${from} às ${to}`,
+      wholeDay: 'Ver o dia todo',
       none: 'Não há valores ao segundo deste dia.',
       error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
     },

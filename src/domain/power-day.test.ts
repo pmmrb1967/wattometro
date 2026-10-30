@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { startOfLisbonDay } from '../lib/time';
-import { powerDay } from './power-day';
+import { NO_VALUE, powerDay, slicesMax } from './power-day';
 
 const minute = (ts: number, power: number, nonActive: number | null = 0) => ({
   ts,
@@ -13,17 +13,18 @@ const minute = (ts: number, power: number, nonActive: number | null = 0) => ({
 });
 
 describe('powerDay', () => {
-  it('keeps the highest apparent power of each minute and the peak second', () => {
+  it('keeps the apparent power of each second and the peak second', () => {
     const start = startOfLisbonDay('2026-01-15');
     const busy = minute(start + 600, 1000, 0);
     busy.readings.power[30] = 3000;
     busy.readings.nonActive[30] = 4000;
     const day = powerDay([minute(start, 200, null), busy], '2026-01-15');
-    expect(day.length).toBe(1440);
-    expect(day.maxVa[0]).toBe(200);
+    expect(day.length).toBe(86_400);
+    expect(day.va[0]).toBe(200);
     // √(3000² + 4000²) = 5000.
-    expect(day.maxVa[10]).toBe(5000);
-    expect(day.maxVa[11]).toBeNull();
+    expect(day.va[630]).toBe(5000);
+    expect(day.va[631]).toBe(1000);
+    expect(day.va[660]).toBe(NO_VALUE);
     expect(day.peak).toEqual({ ts: start + 630, va: 5000 });
   });
 
@@ -38,7 +39,16 @@ describe('powerDay', () => {
   });
 
   it('has 23 and 25 hours on the days the clocks change', () => {
-    expect(powerDay([], '2026-03-29').length).toBe(1380);
-    expect(powerDay([], '2026-10-25').length).toBe(1500);
+    expect(powerDay([], '2026-03-29').length).toBe(82_800);
+    expect(powerDay([], '2026-10-25').length).toBe(90_000);
+  });
+});
+
+describe('slicesMax', () => {
+  it('keeps the highest value of each slice, null where there is none', () => {
+    const va = Int32Array.from([5, 9, NO_VALUE, NO_VALUE, 3, 1, 7, 2]);
+    expect(slicesMax(va, 0, 8, 4)).toEqual([9, null, 3, 7]);
+    // More slices than seconds: each second on its own.
+    expect(slicesMax(va, 4, 6, 4)).toEqual([3, 3, 1, 1]);
   });
 });

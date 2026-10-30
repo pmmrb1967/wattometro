@@ -737,6 +737,27 @@ h2 {
   font-size: 11px;
 }
 
+.power-day-chart {
+  touch-action: pan-y;
+  user-select: none;
+  cursor: crosshair;
+}
+
+.power-day-view {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  margin-top: 8px;
+}
+
+.power-day-pick {
+  fill: var(--accent);
+  opacity: 0.15;
+}
+
 .day-grid {
   stroke: var(--border);
   stroke-dasharray: 2 3;
