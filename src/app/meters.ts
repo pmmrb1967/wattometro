@@ -24,6 +24,20 @@ export function shellyName(meter: string, devices: readonly Pick<Device, 'id' | 
   return channel && channel !== '0' ? `${name} · ${t.now.channel(Number(channel))}` : name;
 }
 
+/**
+ * The house's Shelly beside E-Redes ("Consumo"): just "Shelly" when it is the
+ * only one, measuring the whole house; otherwise its name tells which.
+ */
+export function shellySeriesName(
+  meter: string | null,
+  devices: readonly Pick<Device, 'id' | 'name'>[],
+): string {
+  if (meter === null || (devices.length <= 1 && meter.endsWith(':0'))) {
+    return t.consumption.charts.shellySeries;
+  }
+  return t.tariffs.shellyMeter(shellyName(meter, devices));
+}
+
 /** The meter with the most data; E-Redes on a tie (the billing reference). */
 export function busiestMeter(meters: readonly EnergyMeter[]): string | null {
   const best = [...meters].sort(

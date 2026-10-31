@@ -17,7 +17,7 @@ import { BillForecastDetail } from './BillForecast';
 import { ConsumptionCharts } from './ConsumptionCharts';
 import { ConsumptionTabs } from './ConsumptionTabs';
 import { lastYear, useHouseholdEnergy } from './household-energy';
-import { HOUSE_METER, shellyName } from './meters';
+import { HOUSE_METER, shellySeriesName } from './meters';
 import { MeterSelect } from './MeterSelect';
 import { Reconciliation } from './Reconciliation';
 
@@ -167,18 +167,14 @@ export function Consumption() {
             today={energy.today}
             shellyFrom={energy.shellyFrom}
             compare={energy.compare}
-            shellyName={
-              energy.houseShelly ? shellyName(energy.houseShelly, energy.devices) : 'Shelly'
-            }
+            shellyName={shellySeriesName(energy.houseShelly, energy.devices)}
             periods={periods}
           />
           <AnomalyList energy={energy} />
           {energy.compare && (
             <Reconciliation
               compare={energy.compare}
-              shellyName={
-                energy.houseShelly ? shellyName(energy.houseShelly, energy.devices) : 'Shelly'
-              }
+              shellyName={shellySeriesName(energy.houseShelly, energy.devices)}
             />
           )}
         </>

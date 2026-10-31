@@ -1343,6 +1343,7 @@ export const t = {
       shellyFrom: (date: string) =>
         `A previsão, o consumo base e os tarifários usam a E-Redes até ao último dia do ficheiro que importaste e o Shelly a partir de ${date}. Quando importares um ficheiro mais recente, esses dias passam a ser os da E-Redes.`,
       eredesSeries: 'E-Redes',
+      shellySeries: 'Shelly',
       seriesTotals: (parts: string) => `Total: ${parts}`,
       seriesTitle: (when: string, parts: string) => `${when}: ${parts}`,
       difference: (direction: 1 | 0 | -1, pct: string, count: number, unit: 'quarter' | 'day') =>
@@ -1359,7 +1360,7 @@ export const t = {
         `${day}, ${hour}–${hour + 1} h: ${kwh}`,
     },
     reconcile: {
-      title: (shelly: string) => `${shelly} (Shelly) e E-Redes`,
+      title: (shelly: string) => `${shelly} e E-Redes`,
       intro:
         'Os dois medem a mesma casa. A E-Redes é a referência da fatura; aqui vês quanto o Shelly se afasta dela nos dias que ambos mediram por inteiro.',
       result: (direction: 1 | 0 | -1, pct: string) =>
