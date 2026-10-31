@@ -275,3 +275,66 @@ export async function peakMinutes(
   });
   return { records, count: kept.length, truncated: rows.length > limit };
 }
+
+export interface DayPeak {
+  /** 'device_id:channel'. */
+  meter: string;
+  /** Lisbon day. */
+  day: string;
+  /** Highest one-second power of the day: apparent (VA) where known, else active (W). */
+  peak: number;
+  /** Some minute of the day had no apparent peak (active power used instead). */
+  estimated: boolean;
+}
+
+/**
+ * The highest one-second power of each meter and Lisbon day, over the split
+ * range: the Cron's days, and quarter hours for the rest (by their Lisbon day),
+ * so a year costs a row per day instead of every minute.
+ */
+export async function dayPeaks(
+  sql: Sql,
+  householdId: string,
+  range: RangeSplit,
+): Promise<DayPeak[]> {
+  const minutes = `SELECT device_id || ':' || channel AS meter, ts - ts % 900 AS ts,
+       MAX(COALESCE(apparent_max_va, power_max_w)) AS peak, MAX(apparent_max_va IS NULL) AS estimated
+     FROM readings_1m WHERE household_id = ? AND ts >= ? AND ts < ?
+     GROUP BY device_id, channel, ts - ts % 900`;
+  const quarters = `SELECT meter, ts, ${QUARTER_PEAK} AS peak,
+       minutes > COALESCE(apparent_minutes, 0) AS estimated
+     FROM readings_15m WHERE household_id = ? AND ts >= ? AND ts < ? AND source = 'shelly'`;
+  const parts = await sql.all<{ meter: string; ts: number; peak: number; estimated: number }>(
+    `${minutes} UNION ALL ${minutes} UNION ALL ${quarters} UNION ALL ${quarters}`,
+    householdId,
+    ...range.head,
+    householdId,
+    ...range.tail,
+    householdId,
+    ...range.edges[0],
+    householdId,
+    ...range.edges[1],
+  );
+  const days = await sql.all<{ meter: string; day: string; peak: number; estimated: number }>(
+    `SELECT meter, day, ${QUARTER_PEAK} AS peak,
+       minutes > COALESCE(apparent_minutes, 0) AS estimated
+     FROM daily WHERE household_id = ? AND source = 'shelly' AND day >= ? AND day < ?`,
+    householdId,
+    ...range.days,
+  );
+  const byDay = new Map<string, DayPeak>();
+  for (const row of [...parts.map((part) => ({ ...part, day: lisbonDate(part.ts) })), ...days]) {
+    if (row.peak < 0) continue;
+    const key = `${row.meter}|${row.day}`;
+    const known = byDay.get(key);
+    byDay.set(key, {
+      meter: row.meter,
+      day: row.day,
+      peak: Math.max(known?.peak ?? 0, row.peak),
+      estimated: (known?.estimated ?? false) || row.estimated === 1,
+    });
+  }
+  return [...byDay.values()].sort(
+    (a, b) => a.meter.localeCompare(b.meter) || a.day.localeCompare(b.day),
+  );
+}

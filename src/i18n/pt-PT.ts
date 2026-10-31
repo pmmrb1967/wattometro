@@ -765,7 +765,7 @@ export const t = {
     },
     title: 'Potência contratada',
     intro:
-      'A potência contratada mais baixa que não teria cortado a luz nos últimos 90 dias. A app simula o contador da E-Redes segundo a segundo, com os dados do teu Shelly.',
+      'A potência contratada mais baixa que não teria cortado a luz no último ano. A app simula o contador da E-Redes com os dados do teu Shelly: segundo a segundo nos últimos 90 dias e, antes disso, com o pico de cada minuto.',
     meter: 'Contador',
     margin: 'Margem de segurança (%)',
     marginHint:
@@ -781,13 +781,14 @@ export const t = {
     recommended: 'Escalão recomendado',
     verdictLower: (current: string, recommended: string) =>
       `Podes baixar de ${current} para ${recommended}`,
-    verdictLowerWhy: 'Nos últimos 90 dias, o contador nunca teria cortado.',
+    verdictLowerWhy: 'No último ano medido pelo Shelly, o contador nunca teria cortado.',
     verdictSame: (current: string) => `Os teus ${current} estão certos`,
-    verdictSameWhy: 'É o escalão mais baixo que não teria cortado nos últimos 90 dias.',
+    verdictSameWhy:
+      'É o escalão mais baixo que não teria cortado no último ano medido pelo Shelly.',
     verdictHigher: (current: string, recommended: string) =>
       `Considera subir de ${current} para ${recommended}`,
     verdictHigherWhy: (current: string) =>
-      `Com ${current}, o contador teria cortado (ou já cortou) nos últimos 90 dias.`,
+      `Com ${current}, o contador teria cortado (ou já cortou) no último ano medido pelo Shelly.`,
     adjustMargin: (pct: number) => `Ajustar a margem de segurança (${pct} %)`,
     otherPrice: 'Usar outro preço',
     tooHigh: 'Os picos ultrapassam o escalão mais alto em baixa tensão normal (41,4 kVA).',
@@ -840,7 +841,21 @@ export const t = {
       `cortaria ${count} ${count === 1 ? 'vez' : 'vezes'} (a 1.ª em ${when}, a ${kva})`,
     unknown: 'demasiados minutos acima do limite para verificar',
     estimated: (count: number) =>
-      `${count} ${count === 1 ? 'minuto sem' : 'minutos sem'} valores ao segundo: contado com o pico do minuto durante o minuto inteiro.`,
+      `${count} ${count === 1 ? 'minuto sem' : 'minutos sem'} valores ao segundo (os de há mais de 90 dias já não os têm): contado com o pico do minuto durante o minuto inteiro, por prudência.`,
+    season: (month: string, kw: string, pct: number, measured: string) =>
+      `Atenção: em ${month}, antes do Shelly, a maior média de um quarto de hora (E-Redes) foi ${kw}, mais ${pct} % do que nos meses que o Shelly mediu (${measured}). Os picos desse mês foram provavelmente maiores do que os simulados: confirma em "O último ano" antes de baixar.`,
+    year: {
+      title: 'O último ano',
+      intro:
+        'O pico mais alto de cada mês. Com o Shelly, é o maior segundo, em kVA (o que o contador compara). Sem ele, só há a maior média de um quarto de hora da E-Redes: o pico verdadeiro foi maior, por isso serve para comparar meses, não para escolher a potência.',
+      columns: { month: 'Mês', shelly: 'Pico do Shelly (1 s)', eredes: 'Maior média de 15 min' },
+      none: '—',
+      estimatedMark: '*',
+      estimated:
+        '* alguns minutos chegaram sem valores ao segundo: o pico desses minutos é a potência ativa (W); a aparente é igual ou maior.',
+      limit: (kva: string, threshold: string) =>
+        `Com os teus ${kva}, o contador só começa a contar acima de ${threshold}.`,
+    },
     nearTrip: {
       title: 'Perto do corte',
       intro: (threshold: string, contract: string) =>
@@ -873,7 +888,7 @@ export const t = {
     caveats: [
       'Curva de corte da especificação do contador inteligente da E-Redes (DEF-C44-506/N, anexo B1), com os valores por omissão: só corta acima de 1,2 × a potência contratada, e mais depressa quanto maior o excesso. A E-Redes pode configurar outros valores; a margem cobre essa diferença.',
       'Monofásico. Em instalações trifásicas o contador usa 1,3 × e controla também cada fase: ainda não é simulado.',
-      'Só vê o que aconteceu nestes 90 dias: um inverno frio ou um aparelho novo podem pedir mais potência.',
+      'Só vê o que o Shelly mediu no último ano: um aparelho novo pode pedir mais potência. Nos meses sem Shelly, a média de 15 minutos da E-Redes só serve de aviso.',
     ],
   },
   quality: {

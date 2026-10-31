@@ -437,11 +437,20 @@ const Power = z.object({
       top: z.array(QuarterPeak),
     }),
   ),
+  /** Highest one-second power of each meter and day (server/src/repo/power.ts). */
+  days: z.array(
+    z.object({
+      meter: z.string(),
+      day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      peak: int,
+      estimated: z.boolean(),
+    }),
+  ),
   eredes: z.object({ quarters: int, maxEnergyWh: int.nullable() }),
 });
 export type Power = z.infer<typeof Power>;
 
-/** Peaks per meter in [from, to) (at most 93 days). */
+/** Peaks per meter in [from, to) (at most 366 days). */
 export async function fetchPower(
   from: number,
   to: number,

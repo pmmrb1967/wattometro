@@ -204,6 +204,7 @@ export function createLocalServer(store: LocalStore, clock = () => Date.now() / 
         return json({
           devices: [],
           meters: [],
+          days: [],
           eredes: {
             quarters: quarters.length,
             maxEnergyWh: quarters.reduce<number | null>(

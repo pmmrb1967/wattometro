@@ -33,6 +33,7 @@ Exemplos (monofásico, por omissão), para 6,9 kVA: até 8280 VA (× 1,2) nunca 
 - O critério é em **potência aparente** (VA). O Shelly envia ao segundo a potência ativa `p` e a não ativa `q` (`docs/readings-1s.md`), logo `S = √(p² + q²)` a cada segundo (90 dias de retenção). Para períodos mais antigos só há `power_max_w` por minuto (potência **ativa**, que é ≤ S): a app avisa que a estimativa é menos segura.
 - Com dados só da E-Redes (médias de 15 min) os picos não se veem: a app avisa e não recomenda descer de escalão com base nisso.
 - O IVA reduzido na energia depende do escalão (até 6,9 kVA): `docs/electricity-vat.md`.
+- **Período (2026-10-31): o último ano.** A recomendação simula 365 dias: ao segundo nos últimos 90 (retenção de `readings_1s`) e, antes, com o pico de cada minuto (`readings_1m`, 24 meses), contado o minuto inteiro, por prudência. "Perto do corte" fica nos 90 dias ao segundo. O cartão "O último ano" mostra o pico de cada mês (Shelly, de `daily`) e a maior média de 15 min da E-Redes; um mês sem Shelly cuja média de 15 min passa em 10 % ou mais a dos meses medidos dá um aviso (`src/domain/power-year.ts`). A E-Redes nunca serve para recomendar descer.
 
 ## Mudar de potência
 

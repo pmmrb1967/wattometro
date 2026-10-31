@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * "Potência": the lowest contracted power that would not have tripped in the
- * last 90 days (the per-second retention), the saving on the fixed term, the
+ * last year (per second for 90 days, the retention; minute peaks before), the
+ * month by month peaks with E-Redes as a warning, the saving on the fixed term, the
  * times the meter started counting towards a cut at the current contract, and
  * the moments closest to the limit. Calculation: src/domain/contracted-power.ts.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   annualFixedCents,
@@ -23,7 +24,14 @@ import {
   type Recommendation,
   type TierEvaluation,
 } from '../domain/contracted-power';
+import { addMonths } from '../domain/consumption';
 import type { Offer } from '../domain/erse';
+import {
+  monthPeaks,
+  seasonWarning,
+  type MonthPeaks,
+  type SeasonWarning,
+} from '../domain/power-year';
 import { tariffOn, type Tariff } from '../domain/tariff';
 import { HowItWorks } from '../components/HowItWorks';
 import { AddShellyLink } from './AddShellyLink';
@@ -40,10 +48,20 @@ import {
   fetchTariffs,
   type Power as PowerData,
 } from './api';
+import { useHouseholdEnergy } from './household-energy';
 import { useSession } from './session';
 
 const texts = t.power;
-const PERIOD_DAYS = 90;
+/** The recommendation and the month by month peaks. */
+const PERIOD_DAYS = 365;
+/** "Perto do corte": only where there are per-second values. */
+const NEAR_TRIP_DAYS = 90;
+const MONTH_NAME = new Intl.DateTimeFormat('pt-PT', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+const monthName = (month: string) => MONTH_NAME.format(new Date(`${month}-15T12:00:00Z`));
 const DAY = 86_400;
 const VAT_POWER_LIMIT_VA = 6900;
 /** Episodes shown: those that reached at least this share of the time to trip. */
@@ -279,7 +297,9 @@ function RecommendationSection({
   from,
   to,
   tariff,
+  season,
 }: {
+  season: SeasonWarning | null;
   meter: MeterData;
   from: number;
   to: number;
@@ -364,6 +384,16 @@ function RecommendationSection({
             />
           )}
 
+          {season && recommendedVa !== null && (!tariff || recommendedVa <= tariff.powerVa) && (
+            <p className="error">
+              {texts.season(
+                monthName(season.month),
+                formatPower(season.eredesW),
+                Math.round(((season.eredesW - season.measuredW) * 100) / season.measuredW),
+                formatPower(season.measuredW),
+              )}
+            </p>
+          )}
           {recommendation.evaluations.length > 0 && (
             <>
               <h3>{texts.tiersTitle}</h3>
@@ -546,6 +576,58 @@ function NearTripSection({
   );
 }
 
+/** "O último ano": the highest peak of each month, from the Shelly or (lower bound) E-Redes. */
+function YearSection({ rows, tariff }: { rows: readonly MonthPeaks[]; tariff: Tariff | null }) {
+  const year = texts.year;
+  const shown = rows.filter((row) => row.shelly !== null || row.eredesW !== null);
+  if (shown.length === 0) return null;
+  const withShelly = shown.some((row) => row.shelly !== null);
+  const withEredes = shown.some((row) => row.eredesW !== null);
+  return (
+    <section className="card">
+      <h2>{year.title}</h2>
+      <p className="hint">{year.intro}</p>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{year.columns.month}</th>
+              {withShelly && <th>{year.columns.shelly}</th>}
+              {withEredes && <th>{year.columns.eredes}</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {[...shown].reverse().map((row) => (
+              <tr key={row.month}>
+                <td>{monthName(row.month)}</td>
+                {withShelly && (
+                  <td>
+                    {row.shelly === null
+                      ? year.none
+                      : `${formatKva(row.shelly.peak)}${row.shelly.estimated ? year.estimatedMark : ''}`}
+                  </td>
+                )}
+                {withEredes && (
+                  <td>{row.eredesW === null ? year.none : formatPower(row.eredesW)}</td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {shown.some((row) => row.shelly?.estimated) && <p className="hint">{year.estimated}</p>}
+      {tariff && (
+        <p className="hint">
+          {year.limit(
+            formatKva(tariff.powerVa),
+            formatKva(tripThreshold(tariff.powerVa, 0, SINGLE_PHASE)),
+          )}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function TopSection({ meter, tariff }: { meter: MeterData; tariff: Tariff | null }) {
   const columns = texts.topColumns;
   return (
@@ -586,6 +668,7 @@ export function Power() {
   const { signOut } = useSession();
   const [now] = useState(() => Math.floor(Date.now() / 1000));
   const from = now - PERIOD_DAYS * DAY;
+  const nearFrom = now - NEAR_TRIP_DAYS * DAY;
   const [data, setData] = useState<PowerData | null | 'unavailable'>(null);
   const [tariff, setTariff] = useState<Tariff | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -611,6 +694,24 @@ export function Power() {
   const busiest = [...meters].sort((a, b) => b.minutes - a.minutes)[0];
   const meter = meters.find((item) => item.meter === chosen) ?? busiest;
 
+  // E-Redes and the Shelly's quarters, from the cache the "Consumo" pages share.
+  const energy = useHouseholdEnergy();
+  const eredes = energy.compare?.eredes ?? (energy.meter === 'eredes' ? energy.quarters : null);
+  const shellyQuarters = energy.compare?.shelly ?? null;
+  const days = data && data !== 'unavailable' ? data.days : null;
+  const rows = useMemo(() => {
+    if (!days) return null;
+    const current = lisbonToday().slice(0, 7);
+    const months = Array.from({ length: 12 }, (_, index) => addMonths(current, index - 11));
+    return monthPeaks(
+      months,
+      days.filter((day) => !meter || day.meter === meter.meter),
+      eredes ?? [],
+      shellyQuarters ?? [],
+    );
+  }, [days, meter, eredes, shellyQuarters]);
+  const season = rows && meter ? seasonWarning(rows) : null;
+
   return (
     <>
       <h1>{texts.title}</h1>
@@ -632,6 +733,9 @@ export function Power() {
           )}
         </section>
       )}
+      {data && data !== 'unavailable' && !meter && rows && (
+        <YearSection rows={rows} tariff={tariff} />
+      )}
       {data && data !== 'unavailable' && meter && (
         <>
           {meters.length > 1 && (
@@ -648,10 +752,17 @@ export function Power() {
               </label>
             </section>
           )}
-          <RecommendationSection meter={meter} from={from} to={now} tariff={tariff} />
+          <RecommendationSection
+            meter={meter}
+            from={from}
+            to={now}
+            tariff={tariff}
+            season={season}
+          />
+          {rows && <YearSection rows={rows} tariff={tariff} />}
           <PowerDayChart meter={meter.meter} tariff={tariff} />
           {tariff ? (
-            <NearTripSection meter={meter} from={from} to={now} contractVa={tariff.powerVa} />
+            <NearTripSection meter={meter} from={nearFrom} to={now} contractVa={tariff.powerVa} />
           ) : (
             <section className="card">
               <h2>{texts.nearTrip.title}</h2>

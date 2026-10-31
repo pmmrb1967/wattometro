@@ -114,6 +114,7 @@ describe('GET /v1/power', () => {
           ],
         },
       ],
+      days: [{ meter: `${deviceId}:0`, day: '2026-07-15', peak: 6500, estimated: true }],
       eredes: { quarters: 0, maxEnergyWh: null },
     });
   });
@@ -161,6 +162,7 @@ describe('the rolled-up stretch', () => {
     });
     const fromMinutes = await read();
     expect(fromMinutes.power.meters[0].minutes).toBe(7);
+    expect(fromMinutes.power.days).toHaveLength(5);
     expect(fromMinutes.peaks.byteLength).toBe(4 * PEAK_RECORD_BYTES);
     await runMaintenance(sql, NOW);
     expect(await read()).toEqual(fromMinutes);

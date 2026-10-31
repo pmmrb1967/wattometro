@@ -88,6 +88,7 @@ describe('local server', () => {
     expect(await body(await api.respond('GET', `/v1/power?${range}`))).toEqual({
       devices: [],
       meters: [],
+      days: [],
       eredes: { quarters: 3, maxEnergyWh: 300 },
     });
   });

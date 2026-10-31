@@ -353,10 +353,13 @@ function power(data: DemoData, from: number, to: number) {
   let apparentMaxVa: number | null = null;
   let activeMaxW: number | null = null;
   const quarters = new Map<number, number>();
+  const days = new Map<string, number>();
   for (let index = first; index < last; index++) {
     if (!data.present[index]) continue;
     const ts = data.start + index * MINUTE;
     const va = data.apparentMaxVa[index] as number;
+    const day = lisbonDate(ts);
+    days.set(day, Math.max(days.get(day) ?? 0, va));
     minutes += 1;
     apparentMaxVa = Math.max(apparentMaxVa ?? 0, va);
     activeMaxW = Math.max(activeMaxW ?? 0, data.powerMaxW[index] as number);
@@ -383,6 +386,7 @@ function power(data: DemoData, from: number, to: number) {
               top,
             },
           ],
+    days: [...days].map(([day, peak]) => ({ meter: METER, day, peak, estimated: false })),
     eredes: { quarters: 0, maxEnergyWh: null },
   };
 }
@@ -517,6 +521,8 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
   const from = numberParam(url, 'from');
   const to = numberParam(url, 'to');
   const range = from !== null && to !== null && from < to && to - from <= DEMO_DAYS * DAY;
+  // "Potência" looks back a year, as the server allows; the data stops at DEMO_DAYS.
+  const yearRange = from !== null && to !== null && from < to && to - from <= 366 * DAY;
 
   switch (route) {
     case 'GET /v1/auth/me':
@@ -643,7 +649,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         outages: boots(demo).filter((boot) => boot.bootAt >= from && boot.bootAt < to),
       });
     case 'GET /v1/power':
-      return range ? json(power(data, from, to)) : invalid();
+      return yearRange ? json(power(data, from, to)) : invalid();
     case 'GET /v1/seconds':
       if (!range || to - from > 25 * 3600 || url.searchParams.get('meter') !== METER) {
         return invalid();
@@ -715,7 +721,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     }
     case 'GET /v1/power/peaks': {
       const threshold = numberParam(url, 'threshold');
-      if (!range || threshold === null || url.searchParams.get('meter') !== METER) {
+      if (!yearRange || threshold === null || url.searchParams.get('meter') !== METER) {
         return invalid();
       }
       return peaks(data, from, to, threshold);

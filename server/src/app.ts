@@ -52,10 +52,11 @@
  *   GET  /v1/outages?from&to   → {outages: [{deviceId, bootAt, startAt, excluded}]} (≤ 400 days)
  *   PUT  /v1/outages/:deviceId/:bootAt {excluded} → 204
  *   GET  /v1/power?from&to     → {devices: [{id, name}], meters: [MeterPower & {top: QuarterPeak[]}],
- *                              eredes: {quarters, maxEnergyWh}} (repo/power.ts; ≤ 93 days)
+ *                              days: DayPeak[], eredes: {quarters, maxEnergyWh}} (repo/power.ts;
+ *                              ≤ 366 days)
  *   GET  /v1/power/peaks?meter&from&to&threshold → application/octet-stream, the minutes of
  *                              meter 'device:channel' above threshold (VA, else W) as records
- *                              (repo/power.ts); X-Truncated: 1 when there were more
+ *                              (repo/power.ts; ≤ 366 days); X-Truncated: 1 when there were more
  *   GET  /v1/seconds?meter&from&to → application/octet-stream, the per-second values of meter
  *                              'device:channel' in [from, to) (≤ 25 h) as records (repo/seconds.ts)
  *   POST /v1/signatures        {meter, label, from, to} → 201 {signature}: the per-second values
@@ -181,7 +182,14 @@ import {
   setHouseholdInstallation,
   setHouseholdLocation,
 } from './repo/households';
-import { eredesQuarters, peakMinutes, powerByMeter, splitRange, topQuarters } from './repo/power';
+import {
+  dayPeaks,
+  eredesQuarters,
+  peakMinutes,
+  powerByMeter,
+  splitRange,
+  topQuarters,
+} from './repo/power';
 import {
   deleteEredes,
   dailyEnergy,
@@ -298,6 +306,8 @@ const DeviceBody = z.object({ name: z.string().trim().min(1).max(MAX_DEVICE_NAME
 
 const DAY_SECONDS = 86_400;
 export const MAX_QUALITY_DAYS = 93;
+/** "Potência" looks back a year: per-second values for 90 days, minute peaks before. */
+export const MAX_POWER_DAYS = 366;
 export const MAX_OUTAGE_DAYS = 400;
 export const MAX_MINUTES_OUTSIDE = 5000;
 const epoch = z.coerce.number().int().min(0);
@@ -311,7 +321,7 @@ const QualityQuery = rangeQuery(MAX_QUALITY_DAYS).and(
 );
 export const TOP_QUARTERS = 10;
 export const MAX_PEAK_MINUTES = 1440;
-const PeaksQuery = rangeQuery(MAX_QUALITY_DAYS).and(
+const PeaksQuery = rangeQuery(MAX_POWER_DAYS).and(
   z.object({
     meter: z.string().regex(/^[^:]{1,64}:[0-3]$/),
     threshold: z.coerce.number().int().min(0).max(1_000_000),
@@ -931,7 +941,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   });
 
   app.get('/v1/power', requireUser, async (c) => {
-    const parsed = rangeQuery(MAX_QUALITY_DAYS).safeParse(c.req.query());
+    const parsed = rangeQuery(MAX_POWER_DAYS).safeParse(c.req.query());
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     const { from, to } = parsed.data;
     const { householdId } = c.get('user');
@@ -959,6 +969,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
         name: d.name,
       })),
       meters,
+      days: await dayPeaks(config.sql, householdId, range),
       // Only used without a Shelly ("Potência" from the E-Redes file): not read otherwise.
       eredes:
         meters.length > 0
