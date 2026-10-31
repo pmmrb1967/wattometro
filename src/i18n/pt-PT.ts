@@ -1399,6 +1399,8 @@ export const t = {
       `Face a ${month}: ${pct} por dia (${before} → ${now}).`,
     noComparison: (month: string) => `Sem dados de ${month} para comparar.`,
     chartLabel: (month: string) => `Consumo por dia em ${month}`,
+    sources: (eredesTo: string, shellyFrom: string) =>
+      `Até ${eredesTo}, os dias vêm da E-Redes; a partir de ${shellyFrom}, do Shelly.`,
     costTitle: 'Custo estimado',
     costEnergy: (euros: string) => `Energia: ${euros}`,
     costPower: (euros: string) => `Potência contratada: ${euros}`,

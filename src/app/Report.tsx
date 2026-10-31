@@ -7,7 +7,7 @@
 import { monthFacts } from '../ai/tools/energy-tools';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { BarChart } from '../components/Charts';
+import { BarChart, SeriesChart } from '../components/Charts';
 import {
   addMonths,
   dayTotal,
@@ -27,9 +27,9 @@ import { formatCents } from '../lib/money';
 import { formatLisbonDateTime, lisbonToday, type LocalDate } from '../lib/time';
 import { formatKva, formatKwh, formatPower } from '../lib/units';
 import { energyAxis } from './chart-axis';
-import { dayBars, usedPeriods } from './chart-bars';
+import { dayBars, noon, SHORT_DAY, usedPeriods } from './chart-bars';
 import { useHouseholdEnergy } from './household-energy';
-import { meterLabel } from './meters';
+import { HOUSE_METER, meterLabel, shellySeriesName } from './meters';
 import { MeterSelect } from './MeterSelect';
 import { ExplainButton } from './Explain';
 import { ConsumptionTabs } from './ConsumptionTabs';
@@ -104,9 +104,9 @@ export function Report() {
   const { error, tariffs, meters, devices, meter, quarters } = energy;
   const months = useMemo(() => (quarters ? reportMonths(quarters) : []), [quarters]);
   const [chosen, setChosen] = useState<string | null>(null);
-  // By default the last whole month (the current one is still going).
+  // By default the current month, still going (the days so far).
   const current = lisbonToday().slice(0, 7);
-  const month = chosen ?? months.find((item) => item < current) ?? months[0] ?? null;
+  const month = chosen ?? months.find((item) => item <= current) ?? months[0] ?? null;
   const lastDay = month ? (monthDates(month).at(-1) as LocalDate) : null;
   const tariff = tariffs && lastDay ? tariffOn(tariffs, lastDay) : null;
   const report = useMemo(
@@ -127,8 +127,25 @@ export function Report() {
     );
     const totals = new Map<LocalDate, DayTotal>();
     for (const [date, dayQuarters] of days) totals.set(date, dayTotal(date, dayQuarters));
-    return dayBars(monthDates(month), totals, 'month');
+    const dates = monthDates(month);
+    return { ...dayBars(dates, totals, 'month'), dates, totals };
   }, [quarters, month, tariff]);
+  // The house: each day is E-Redes or, after its last day, the Shelly (houseQuarters), in their colours.
+  const sources = useMemo(() => {
+    if (!chart || meter !== HOUSE_METER || !energy.compare) return null;
+    const from = energy.shellyFrom;
+    const values = chart.dates.map((day) => chart.totals.get(day)?.totalWh ?? null);
+    const isShelly = (day: LocalDate) => from !== null && day >= from;
+    const eredes = values.map((wh, index) =>
+      isShelly(chart.dates[index] as LocalDate) ? null : wh,
+    );
+    const shelly = values.map((wh, index) =>
+      isShelly(chart.dates[index] as LocalDate) ? wh : null,
+    );
+    const lastEredes = chart.dates.filter((_, index) => eredes[index] !== null).at(-1);
+    const firstShelly = chart.dates.find((_, index) => shelly[index] !== null);
+    return { eredes, shelly, lastEredes, firstShelly };
+  }, [chart, meter, energy.compare, energy.shellyFrom]);
 
   const [generated] = useState(() => formatLisbonDateTime(Math.floor(Date.now() / 1000)));
   const tabs = <ConsumptionTabs appliances={Boolean(energy.houseShelly)} />;
@@ -165,6 +182,10 @@ export function Report() {
   const { usage, cost } = report;
   const used = usedPeriods(report.byPeriod);
   const source = meterLabel(meter ?? '', devices, me.householdName);
+  const sourceNames = {
+    eredes: t.consumption.charts.eredesSeries,
+    shelly: shellySeriesName(energy.houseShelly, devices),
+  };
   return (
     <>
       <div className="print-only report-head">
@@ -273,7 +294,55 @@ export function Report() {
             pct={report.vsLastYear}
           />
         </ul>
-        {chart && (
+        {chart && sources && (
+          <>
+            <SeriesChart
+              kind="source"
+              slots={chart.dates.map((day, index) => {
+                const key = sources.shelly[index] !== null ? 'shelly' : 'eredes';
+                const wh = sources[key][index];
+                return {
+                  key: day,
+                  title: t.consumption.charts.seriesTitle(
+                    SHORT_DAY.format(noon(day)),
+                    wh === null || wh === undefined
+                      ? t.consumption.charts.noData
+                      : `${sourceNames[key]} ${formatKwh(wh, 2)}`,
+                  ),
+                };
+              })}
+              series={(['eredes', 'shelly'] as const).map((key) => ({
+                name: sourceNames[key],
+                className: `series-${key}`,
+                values: sources[key],
+              }))}
+              ticks={chart.ticks}
+              axis={energyAxis}
+              caption={t.consumption.charts.axisPerDay}
+              label={texts.chartLabel(monthName(month))}
+            />
+            <ul className="chart-legend">
+              {/* A source without days this month stays out of the legend. */}
+              {(['eredes', 'shelly'] as const)
+                .filter((key) => sources[key].some((wh) => wh !== null))
+                .map((key) => (
+                  <li key={key}>
+                    <span className={`legend-swatch series-${key}`} aria-hidden="true" />
+                    {sourceNames[key]}
+                  </li>
+                ))}
+            </ul>
+            {sources.lastEredes && sources.firstShelly && (
+              <p className="hint">
+                {texts.sources(
+                  SHORT_DAY.format(noon(sources.lastEredes)),
+                  SHORT_DAY.format(noon(sources.firstShelly)),
+                )}
+              </p>
+            )}
+          </>
+        )}
+        {chart && !sources && (
           <BarChart
             bars={chart.bars}
             ticks={chart.ticks}
@@ -286,7 +355,10 @@ export function Report() {
           <ul className="chart-legend">
             {used.map((period) => (
               <li key={period}>
-                <span className={`legend-swatch period-${period}`} aria-hidden="true" />
+                {/* By source, the bars are not by period: no swatch to match. */}
+                {!sources && (
+                  <span className={`legend-swatch period-${period}`} aria-hidden="true" />
+                )}
                 {`${periodNames[period]}: ${kwh(report.byPeriod[period] ?? 0)} (${Math.round(((report.byPeriod[period] ?? 0) * 100) / (usage.totalWh || 1))} %)`}
               </li>
             ))}

@@ -242,7 +242,8 @@ export interface Series {
 
 /**
  * Two or more series over the same slots: lines (many slots, e.g. the quarters
- * of a day; broken where a value is missing) or bars side by side (a week, a month).
+ * of a day; broken where a value is missing) or bars side by side (a week, a month),
+ * or one bar per slot in the colour of the series it comes from.
  */
 export function SeriesChart({
   slots,
@@ -256,7 +257,8 @@ export function SeriesChart({
   /** Tooltip of each slot (all series' values). */
   slots: readonly { key: string; title: string }[];
   series: readonly Series[];
-  kind: 'lines' | 'bars';
+  /** 'source': bars where each slot has one series only (a day from E-Redes or the Shelly), full width. */
+  kind: 'lines' | 'bars' | 'source';
   ticks: readonly { index: number; label: string }[];
   axis: (max: number) => Axis;
   caption: (unit: string) => string;
@@ -269,7 +271,8 @@ export function SeriesChart({
   const step = PLOT_WIDTH / Math.max(slots.length, 1);
   const y = (value: number) => TOP + PLOT - (value * PLOT) / top;
   const gap = 0.25;
-  const barWidth = (step * (1 - gap)) / Math.max(series.length, 1);
+  const side = kind === 'bars' ? series.length : 1;
+  const barWidth = (step * (1 - gap)) / Math.max(side, 1);
   const [measure, textStyle] = useFixedText(WIDTH);
   return (
     <svg
@@ -302,7 +305,9 @@ export function SeriesChart({
               value === null ? null : (
                 <rect
                   key={index}
-                  x={LEFT + index * step + (step * gap) / 2 + seriesIndex * barWidth}
+                  x={
+                    LEFT + index * step + (step * gap) / 2 + (side > 1 ? seriesIndex * barWidth : 0)
+                  }
                   y={y(value)}
                   width={barWidth}
                   height={TOP + PLOT - y(value)}
