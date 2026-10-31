@@ -819,6 +819,20 @@ export const t = {
       ],
       source: 'Fonte: ERSE, simulador de potência contratada (perguntas frequentes).',
     },
+    tripRule: {
+      title: 'Quando o contador corta',
+      intro: (k: string, q: string) =>
+        `O contador inteligente da E-Redes compara a potência aparente (kVA) com a contratada. Até ${k} × a contratada nunca corta, dure o tempo que durar. Acima disso, conta o tempo e corta tanto mais depressa quanto maior o excesso: ao fim de ${q} ÷ (potência pedida ÷ contratada − ${k}) segundos.`,
+      forContract: (kva: string) => `Com os teus ${kva} contratados:`,
+      example: (kva: string) => `Por exemplo, com ${kva} contratados:`,
+      columns: { power: 'Potência pedida', time: 'Corta ao fim de' },
+      never: 'nunca corta',
+      times: (power: string, ratio: string) => `${power} (${ratio} ×)`,
+      threePhase:
+        'Em instalações trifásicas o limite é 1,3 × e o contador controla também cada fase.',
+      source:
+        'Fonte: E-Redes, especificação funcional do contador inteligente (DEF-C44-506/N, edição 3, 2020, anexo B1), com os valores de fábrica. Não é um prazo fixado na lei: é como o contador funciona. A E-Redes pode configurar outros valores em cada contador; a margem de segurança cobre essa diferença. Contadores antigos, não inteligentes, têm um disjuntor com outra curva.',
+    },
     clear: 'nunca chega ao limite de corte',
     safe: (pct: number, when: string) =>
       `passa o limite mas não corta (no máximo ${pct} % do tempo de corte, em ${when})`,
@@ -1481,6 +1495,8 @@ export const t = {
     noServices: 'Sem serviços obrigatórios',
     count: (count: number) =>
       `${count.toLocaleString('pt-PT')} ofertas comparáveis, da mais barata para a mais cara:`,
+    offersSource: (date: string) =>
+      `Fonte: ERSE, simulador de preços, versão de ${date} (a mais recente que a app tem). A app procura uma versão nova todas as semanas.`,
     showMore: (count: number) => `Ver mais ${count} ${count === 1 ? 'oferta' : 'ofertas'}`,
     showLess: (count: number) => `Mostrar só as ${count} primeiras`,
     prices: {

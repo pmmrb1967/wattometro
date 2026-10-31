@@ -1,0 +1,41 @@
+# Once a week, fetches the ERSE offers (pnpm erse:sync, docs/erse-data.md).
+# With a newer file, commits it to main and starts CI, which deploys it: a push
+# made with the workflow's own token does not start other workflows by itself.
+name: ERSE offers
+
+on:
+  schedule:
+    # Mondays, 06:17 UTC.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm erse:sync
+      - name: Commit and deploy a newer file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- public/data/erse-offers.json; then
+            echo "Already up to date."
+            exit 0
+          fi
+          source=$(node -p "require('./public/data/erse-offers.json').source")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/erse-offers.json
+          git commit -m "chore(data): ERSE offers from ${source}"
+          git push
+          gh workflow run ci.yml --ref main

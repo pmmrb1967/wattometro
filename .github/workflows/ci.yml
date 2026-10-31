@@ -1,10 +1,12 @@
 # Checks on every push and pull request (synthetic fixtures only). On a push
-# to main, deploys to Cloudflare once every check has passed.
+# to main, deploys to Cloudflare once every check has passed; also when
+# started by hand or by the weekly ERSE offers update (erse-sync.yml).
 name: CI
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
@@ -25,7 +27,7 @@ jobs:
     # Only for main, after the checks; needs the CLOUDFLARE_API_TOKEN secret
     # (account token: Workers Scripts Edit, D1 Edit, Workers Routes Edit).
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency: deploy
     env:

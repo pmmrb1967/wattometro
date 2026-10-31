@@ -15,6 +15,8 @@ Copiado do Faturómetro (`docs/erse-data.md`), consultado em 2026-10-13. O Watt�
 
 O ficheiro tem a data e hora no nome e a página indica "Atualizado em". Não foi encontrada uma periodicidade oficial. `pnpm erse:sync` guarda a data do ficheiro (do nome) em `public/data/erse-offers.json`; a app deve mostrá-la. Não faz nada se o ficheiro já for o mais recente.
 
+Na app: o workflow `.github/workflows/erse-sync.yml` corre `pnpm erse:sync` todas as segundas-feiras (06:17 UTC; também à mão, em Actions › ERSE offers › Run workflow). Com um ficheiro novo, faz o commit em `main` e arranca o CI, que publica a app. A página Tarifários mostra a data do ficheiro em uso.
+
 ## Condições de reutilização
 
 As perguntas e respostas do simulador (`https://simuladorprecos.erse.pt/content/files/SimuladorERSE.pdf`) dizem:

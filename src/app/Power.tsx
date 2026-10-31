@@ -17,6 +17,7 @@ import {
   samplesOf,
   recommendTier,
   SINGLE_PHASE,
+  tripSeconds,
   tripThreshold,
   type NearTripEpisode,
   type Recommendation,
@@ -49,6 +50,52 @@ const VAT_POWER_LIMIT_VA = 6900;
 const SHOWN_PROGRESS_PCT = 50;
 
 type MeterData = PowerData['meters'][number];
+
+/** Multiples of the contracted power shown in "Quando o contador corta". */
+const RULE_RATIOS = [1.2, 1.5, 2, 3];
+const RATIO = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 });
+/** Without a tariff, the most common contract as the example. */
+const EXAMPLE_VA = 6900;
+
+/** The trip rule itself, with the household's contract (or an example). */
+function TripRuleSection({ contractVa }: { contractVa: number | null }) {
+  const rule = texts.tripRule;
+  const va = contractVa ?? EXAMPLE_VA;
+  return (
+    <section className="card">
+      <h2>{rule.title}</h2>
+      <p>{rule.intro(RATIO.format(SINGLE_PHASE.k), String(SINGLE_PHASE.q))}</p>
+      <p>{contractVa === null ? rule.example(formatKva(va)) : rule.forContract(formatKva(va))}</p>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>{rule.columns.power}</th>
+            <th>{rule.columns.time}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {RULE_RATIOS.map((ratio) => {
+            const demand = Math.round(va * ratio);
+            const seconds = tripSeconds(demand, va, SINGLE_PHASE);
+            return (
+              <tr key={ratio}>
+                <td>
+                  {ratio === SINGLE_PHASE.k ? '≤ ' : ''}
+                  {rule.times(formatKva(demand), RATIO.format(ratio))}
+                </td>
+                <td>
+                  {seconds === null ? rule.never : texts.nearTrip.duration(Math.round(seconds))}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="hint">{rule.threePhase}</p>
+      <p className="hint">{rule.source}</p>
+    </section>
+  );
+}
 
 /** The highest quarter hours shown: the first few say it (the rest are alike). */
 const TOP_SHOWN = 5;
@@ -616,6 +663,8 @@ export function Power() {
           <TopSection meter={meter} tariff={tariff} />
         </>
       )}
+
+      <TripRuleSection contractVa={tariff ? tariff.powerVa : null} />
 
       <div className="page-how">
         <HowItWorks>

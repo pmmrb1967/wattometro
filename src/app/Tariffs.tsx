@@ -30,7 +30,7 @@ import type { OmieFile } from '../domain/omie';
 import { HowItWorks } from '../components/HowItWorks';
 import { t } from '../i18n/pt-PT';
 import { formatCents, formatPricePerDay, formatPricePerKwh, omieToMicro } from '../lib/money';
-import { lisbonToday } from '../lib/time';
+import { formatLocalDate, lisbonToday, type LocalDate } from '../lib/time';
 import { formatKva, formatKwh } from '../lib/units';
 import { fetchOffers, fetchOmie } from './api';
 import { MarketHours } from './MarketHours';
@@ -345,6 +345,7 @@ export function Tariffs() {
   const { window, tariff, meters, devices, meter } = energy;
   const error = energy.error ?? (energy.tariffsFailed ? t.errors.unavailable : null);
   const [offers, setOffers] = useState<Offer[] | null | 'none'>(null);
+  const [offersDate, setOffersDate] = useState<LocalDate | null>(null);
   const [omie, setOmie] = useState<OmieFile | null>(null);
   const [filters, setFilters] = useState({ option: 'all', noLoyalty: false, noServices: false });
   const [shown, setShown] = useState(FIRST_SHOWN);
@@ -352,7 +353,9 @@ export function Tariffs() {
   useEffect(() => {
     let active = true;
     void fetchOffers().then((file) => {
-      if (active) setOffers(file ? file.offers : 'none');
+      if (!active) return;
+      setOffers(file ? file.offers : 'none');
+      setOffersDate(file ? (file.dataDate as LocalDate) : null);
     });
     // Without the OMIE prices, indexed offers keep the ERSE estimate.
     void fetchOmie().then((file) => {
@@ -535,6 +538,9 @@ export function Tariffs() {
               </label>
             </div>
             <p className="hint">{texts.count(results.length)}</p>
+            {offersDate && (
+              <p className="hint">{texts.offersSource(formatLocalDate(offersDate))}</p>
+            )}
             <ol className="offers">
               {results.slice(0, shown).map(({ result, alsoGas }) => (
                 <OfferCard
