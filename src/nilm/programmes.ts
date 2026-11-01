@@ -27,10 +27,13 @@
  * takes in the smaller cycles that fall wholly inside it (the pump, the
  * drum). Its energy is what the house drew above its level around the
  * programme (the lower of before and after), second by second. Something
- * else switched on meanwhile (the fridge) counts in it, and its cycles are
- * taken in: a limit of telling appliances apart by the whole house's power.
+ * else switched on meanwhile counts in it, and its cycles are taken in: a
+ * limit of telling appliances apart by the whole house's power. The fridge
+ * (fridge.ts) is the exception: when that level is one with it off, what it
+ * drew during the programme is taken out, at its usual share of the time.
  */
 import { matchToleranceW, type Cycle } from './cycles';
+import { fridgeOffAt, type Fridge } from './fridge';
 import { MISSING, type SecondsSeries } from './series';
 
 export const HEAT_MIN_W = 1500;
@@ -136,17 +139,26 @@ function levelAfter(series: SecondsSeries, at: number): number | null {
   return values.length === 0 ? null : middle(values);
 }
 
-function programme(run: readonly Cycle[], end: number, series: SecondsSeries): Cycle {
+function programme(
+  run: readonly Cycle[],
+  end: number,
+  series: SecondsSeries,
+  fridge: Fridge | null,
+): Cycle {
   const heats = [...run].sort((a, b) => a.start - b.start);
   const first = heats[0] as Cycle;
   const last = heats.findLast((cycle) => cycle.end === runEnd(heats)) as Cycle;
   const before = first.on.beforeW;
   const after = levelAfter(series, end);
   const base = after === null ? before : Math.min(before, after);
-  const joules = powers(series, first.start, end).reduce(
-    (sum, watts) => sum + Math.max(watts - base, 0),
-    0,
-  );
+  // Counted from a level with the fridge off, whatever it drew meanwhile is in the sum.
+  const fridgeJoules =
+    fridge?.onPct != null && fridgeOffAt(fridge, base)
+      ? (fridge.powerW * (end - first.start) * fridge.onPct) / 100
+      : 0;
+  const joules =
+    powers(series, first.start, end).reduce((sum, watts) => sum + Math.max(watts - base, 0), 0) -
+    fridgeJoules;
   const heatsWh = heats.reduce((sum, cycle) => sum + cycle.energyWh, 0);
   return {
     ...first,
@@ -165,7 +177,11 @@ function programme(run: readonly Cycle[], end: number, series: SecondsSeries): C
 }
 
 /** The cycles with each programme made one; in start order. Needs the series for the tails. */
-export function mergeProgrammes(cycles: readonly Cycle[], series: SecondsSeries): Cycle[] {
+export function mergeProgrammes(
+  cycles: readonly Cycle[],
+  series: SecondsSeries,
+  fridge: Fridge | null = null,
+): Cycle[] {
   const sorted = [...cycles].sort((a, b) => a.start - b.start);
   const runs: Cycle[][] = [];
   for (const cycle of sorted.filter(isHeat)) {
@@ -219,7 +235,7 @@ export function mergeProgrammes(cycles: readonly Cycle[], series: SecondsSeries)
         Math.abs(cycle.powerW230) < only.powerW230 / 2,
     );
     for (const cycle of [...run, ...inside]) taken.add(cycle);
-    programmes.push(programme(run, end, series));
+    programmes.push(programme(run, end, series, fridge));
   }
   return [...sorted.filter((cycle) => !taken.has(cycle)), ...programmes].sort(
     (a, b) => a.start - b.start,

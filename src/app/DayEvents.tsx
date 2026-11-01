@@ -22,9 +22,16 @@ import {
 } from '../lib/time';
 import { formatKwh, formatPower } from '../lib/units';
 import { confusable, describeGroup, groupAppliance } from '../nilm/appliances';
-import { tariffOn } from '../domain/tariff';
+import { tariffOn, type TariffInput } from '../domain/tariff';
 import { formatCents } from '../lib/money';
-import { analyseDay, groupCostCents, nameDay } from '../nilm/day';
+import {
+  analyseDay,
+  fridgeCostCents,
+  groupCostCents,
+  nameDay,
+  type DayAnalysis,
+} from '../nilm/day';
+import type { Fridge } from '../nilm/fridge';
 import { decodeSecondsRecords } from '../nilm/series';
 import type { CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
@@ -56,6 +63,32 @@ function groupPower(group: CycleGroup): string {
       : group.heats !== null
         ? texts.programme(formatPower(group.powerW), group.heats)
         : formatPower(group.powerW);
+}
+
+/** The fridge known by its pauses: too small for the groups below, and only ever an estimate. */
+function FridgeLine({
+  fridge,
+  analysis,
+  tariff,
+}: {
+  fridge: Fridge;
+  analysis: DayAnalysis;
+  tariff: TariffInput | null;
+}) {
+  const costCents = tariff ? fridgeCostCents(fridge, analysis, tariff) : null;
+  return (
+    <p className="hint">
+      {fridge.onPct === null || fridge.energyWh === null
+        ? texts.fridgeUnmeasured(fridge.pauses.length, formatPower(fridge.powerW))
+        : texts.fridge(
+            fridge.pauses.length,
+            formatPower(fridge.powerW),
+            fridge.onPct,
+            formatKwh(fridge.energyWh, 2),
+            costCents === null ? null : formatDayCost(costCents),
+          )}
+    </p>
+  );
 }
 
 /** Below this, groups sit near the detector's floor (MIN_STEP_W) and the house's own noise. */
@@ -253,6 +286,7 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       {!pending && result && result.minutes > 0 && (
         <>
           <p>{texts.summary(result.minutes, result.events.length, result.cycles.length)}</p>
+          {result.fridge && <FridgeLine fridge={result.fridge} analysis={result} tariff={tariff} />}
           {named && named.totals.length > 0 && (
             <div className="named-appliances">
               <h3>{texts.named}</h3>

@@ -1121,6 +1121,10 @@ export const t = {
     costNote:
       'Custo da energia com o teu tarifário, à hora de cada uso, com IEC e IVA: o que a fatura deste dia teria a menos sem o aparelho. A potência contratada paga-se na mesma.',
     noTariff: 'Para ver quanto custou cada aparelho, indica o teu tarifário.',
+    fridge: (pauses: number, power: string, percent: number, energy: string, cost: string | null) =>
+      `Parece o frigorífico: ${pauses} pausas regulares neste dia, ${power} acima do fundo, ligado cerca de ${percent} % do tempo. Gastou cerca de ${energy}${cost === null ? '' : ` (${cost})`}.`,
+    fridgeUnmeasured: (pauses: number, power: string) =>
+      `Parece o frigorífico: ${pauses} pausas regulares neste dia, ${power} acima do fundo. Ficaram muito afastadas para estimar o que gastou.`,
     explained: (percent: number, energy: string) =>
       `Os aparelhos com nome explicam ${percent} % da energia deste dia (${energy}). O resto é o consumo de fundo e o que ainda não tem nome.`,
     nameFailed: 'Não foi possível guardar o nome. Tenta outra vez.',

@@ -33,6 +33,7 @@ import {
 import { formatKwh, formatPower } from '../src/lib/units';
 import { pairCycles, type Cycle } from '../src/nilm/cycles';
 import { detectEvents, DETECTOR_VERSION } from '../src/nilm/events';
+import { findFridge } from '../src/nilm/fridge';
 import { findCycles } from '../src/nilm/pipeline';
 import { decodeSecondsRecords, SECONDS_RECORD_BYTES, toSeries } from '../src/nilm/series';
 import { groupCycles } from '../src/nilm/summary';
@@ -139,11 +140,17 @@ function evaluate(): void {
     const series = toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
     const events = detectEvents(series);
     const pairs = pairCycles(events);
-    const cycles = findCycles(events, series);
+    const fridge = findFridge(series);
+    const cycles = findCycles(events, series, fridge);
     found.push({ day, cycles });
     console.log(
       `${name}: ${minutes.length} minutes, ${events.length} steps, ${cycles.length} cycles`,
     );
+    if (fridge) {
+      console.log(
+        `  fridge: ${formatPower(fridge.powerW)}, on ${fridge.onPct ?? '?'} %, ${fridge.energyWh === null ? '?' : formatKwh(fridge.energyWh, 2)}, pauses at ${fridge.pauses.map((pause) => formatLisbonTime(pause.start)).join(' ')}`,
+      );
+    }
     for (const group of groupCycles(cycles)) {
       const when =
         group.count === 1 ? formatLisbonTime(group.cycles[0]!.start) : `${group.count} times`;

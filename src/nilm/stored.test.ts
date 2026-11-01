@@ -22,6 +22,23 @@ async function gzip(text: string) {
 }
 
 describe('stored NILM days', () => {
+  it('keeps the fridge of the day, for its history', async () => {
+    const analysis = await demoDay();
+    const fridge = {
+      powerW: 28,
+      onPct: 84,
+      energyWh: 560,
+      pauses: [{ start: 1000, end: 2200, lowW: 96 }],
+    };
+    expect((await decodeDay(await encodeDay({ ...analysis, fridge })))?.fridge).toEqual(fridge);
+    const unknown = { ...fridge, onPct: null, energyWh: null };
+    expect((await decodeDay(await encodeDay({ ...analysis, fridge: unknown })))?.fridge).toEqual(
+      unknown,
+    );
+    const none = await decodeDay(await encodeDay({ ...analysis, fridge: null }));
+    expect(none?.fridge).toBeNull();
+  });
+
   it('gives back the same cycles, quarters and groups', async () => {
     const analysis = await demoDay();
     expect(analysis.cycles.length).toBeGreaterThan(10);
@@ -33,6 +50,7 @@ describe('stored NILM days', () => {
       energyWh: analysis.energyWh,
       quarters: analysis.quarters,
       cycles: analysis.cycles,
+      fridge: analysis.fridge,
     });
     expect(analysisOf(back as NonNullable<typeof back>).groups).toEqual(analysis.groups);
     // A demonstration day of seconds (~520 KB) keeps in a few KB.
@@ -40,7 +58,14 @@ describe('stored NILM days', () => {
   });
 
   it('refuses another version and what cannot be read', async () => {
-    const empty = { day: '2026-10-27', minutes: 0, energyWh: 0, quarters: [], cycles: [] };
+    const empty = {
+      day: '2026-10-27',
+      minutes: 0,
+      energyWh: 0,
+      quarters: [],
+      cycles: [],
+      fridge: null,
+    };
     expect(await decodeDay(await gzip(JSON.stringify({ v: NILM_VERSION, ...empty })))).toEqual(
       empty,
     );

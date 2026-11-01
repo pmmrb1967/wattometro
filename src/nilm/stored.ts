@@ -23,10 +23,13 @@ import type { DayAnalysis } from './day';
 import type { PowerEvent } from './events';
 import { groupCycles } from './summary';
 
-export const NILM_VERSION = 1;
+export const NILM_VERSION = 2;
 
 /** What the server keeps of a day (and what the appliances need of it). */
-export type StoredDay = Pick<DayAnalysis, 'day' | 'minutes' | 'cycles' | 'energyWh' | 'quarters'>;
+export type StoredDay = Pick<
+  DayAnalysis,
+  'day' | 'minutes' | 'cycles' | 'fridge' | 'energyWh' | 'quarters'
+>;
 
 const num = z.number().finite();
 const EventTuple = z.tuple([
@@ -56,6 +59,13 @@ const CycleTuple = z.tuple([
   z.union([Pair, z.literal(0)]),
   z.union([Pair, z.literal(0)]),
 ]);
+/** powerW, onPct, energyWh, pauses as [start, end, lowW]. */
+const FridgeTuple = z.tuple([
+  num,
+  num.nullable(),
+  num.nullable(),
+  z.array(z.tuple([num, num, num])),
+]);
 const Encoded = z.object({
   v: z.number().int(),
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -63,6 +73,7 @@ const Encoded = z.object({
   energyWh: num,
   quarters: z.array(Pair),
   cycles: z.array(CycleTuple),
+  fridge: FridgeTuple.nullable(),
 });
 
 type EventTupleT = z.infer<typeof EventTuple>;
@@ -123,6 +134,12 @@ export async function encodeDay(day: StoredDay): Promise<string> {
       pairOf(cycle.pulses),
       pairOf(cycle.heats),
     ]),
+    fridge: day.fridge && [
+      day.fridge.powerW,
+      day.fridge.onPct,
+      day.fridge.energyWh,
+      day.fridge.pauses.map((pause) => [pause.start, pause.end, pause.lowW]),
+    ],
   });
   const gzipped = await pipe(new TextEncoder().encode(json), new CompressionStream('gzip'));
   return toBase64Url(gzipped);
@@ -134,11 +151,17 @@ export async function decodeDay(data: string): Promise<StoredDay | null> {
     const json = await pipe(fromBase64Url(data), new DecompressionStream('gzip'));
     const parsed = Encoded.safeParse(JSON.parse(new TextDecoder().decode(json)));
     if (!parsed.success || parsed.data.v !== NILM_VERSION) return null;
-    const { day, minutes, energyWh, quarters, cycles } = parsed.data;
+    const { day, minutes, energyWh, quarters, cycles, fridge } = parsed.data;
     return {
       day: day as LocalDate,
       minutes,
       energyWh: energyWh as Wh,
+      fridge: fridge && {
+        powerW: fridge[0],
+        onPct: fridge[1],
+        energyWh: fridge[2] as Wh | null,
+        pauses: fridge[3].map(([start, end, lowW]) => ({ start, end, lowW })),
+      },
       quarters: quarters.map(([ts, wh]) => ({ ts: ts as EpochSeconds, energyWh: wh })),
       cycles: cycles.map((tuple): Cycle => {
         const [on, off, start, end, durationS, powerW, powerW230, nonActiveVar, energy] = tuple;

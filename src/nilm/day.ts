@@ -20,9 +20,12 @@ import {
 } from './appliances';
 import type { Cycle } from './cycles';
 import { detectEvents, type PowerEvent } from './events';
+import { findFridge, type Fridge } from './fridge';
 import { findCycles } from './pipeline';
 import { toSeries, type MinuteSeconds } from './series';
 import { groupCycles, type CycleGroup } from './summary';
+
+const QUARTER_S = 900;
 
 export interface DayAnalysis {
   day: LocalDate;
@@ -31,6 +34,8 @@ export interface DayAnalysis {
   events: PowerEvent[];
   cycles: Cycle[];
   groups: CycleGroup[];
+  /** A fridge too small for the steps, known by its pauses (fridge.ts). */
+  fridge: Fridge | null;
   energyWh: Wh;
   quarters: { ts: EpochSeconds; energyWh: Wh }[];
 }
@@ -38,13 +43,15 @@ export interface DayAnalysis {
 export function analyseDay(minutes: readonly MinuteSeconds[], day: LocalDate): DayAnalysis {
   const series = toSeries(minutes, startOfLisbonDay(day), startOfLisbonDay(nextDate(day)));
   const events = detectEvents(series);
-  const cycles = findCycles(events, series);
+  const fridge = findFridge(series);
+  const cycles = findCycles(events, series, fridge);
   return {
     day,
     minutes: minutes.length,
     events,
     cycles,
     groups: groupCycles(cycles),
+    fridge,
     energyWh: seriesEnergyWh(series),
     quarters: seriesQuarters(series),
   };
@@ -77,6 +84,17 @@ export function groupCostCents(
 ): Cents {
   const spans = group.cycles.map(({ start, end }) => ({ start, end }));
   return applianceCostCents(spreadOverQuarters(group.energyWh, spans), analysis.quarters, tariff);
+}
+
+/** What the fridge cost on the day: on all day, so spread over its quarter hours. */
+export function fridgeCostCents(
+  fridge: Fridge,
+  analysis: Pick<DayAnalysis, 'quarters'>,
+  tariff: TariffInput,
+): Cents | null {
+  if (fridge.energyWh === null) return null;
+  const cycles = analysis.quarters.map(({ ts }) => ({ start: ts, end: ts + QUARTER_S }));
+  return groupCostCents({ energyWh: fridge.energyWh, cycles }, analysis, tariff);
 }
 
 /** The day's named appliances, with the tariff in force that day (or null). */

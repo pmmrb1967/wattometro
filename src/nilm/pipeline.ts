@@ -8,11 +8,16 @@
 import { pairCycles, type Cycle } from './cycles';
 import { boundCycleEnergy } from './energy';
 import type { PowerEvent } from './events';
+import type { Fridge } from './fridge';
 import { mergePulses } from './periodic';
 import { mergeProgrammes } from './programmes';
 import type { SecondsSeries } from './series';
 
-export function findCycles(events: readonly PowerEvent[], series: SecondsSeries): Cycle[] {
+export function findCycles(
+  events: readonly PowerEvent[],
+  series: SecondsSeries,
+  fridge: Fridge | null = null,
+): Cycle[] {
   const cycles = boundCycleEnergy(mergePulses(pairCycles(events), series), series);
-  return mergeProgrammes(cycles, series);
+  return mergeProgrammes(cycles, series, fridge);
 }

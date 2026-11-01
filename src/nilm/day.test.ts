@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TariffInput } from '../domain/tariff';
 import { startOfLisbonDay } from '../lib/time';
-import { groupCostCents } from './day';
+import { analyseDay, fridgeCostCents, groupCostCents } from './day';
 
 // Tri-hourly without fixed terms or taxes: only the energy and VAT count.
 const tri: TariffInput = {
@@ -27,6 +27,30 @@ const tri: TariffInput = {
 // 26/10/2026, winter time: Lisbon is UTC.
 const DAY = startOfLisbonDay('2026-10-26');
 const at = (hour: number, minute = 0) => DAY + hour * 3600 + minute * 60;
+
+describe('the fridge of a day', () => {
+  const analysis = {
+    quarters: [
+      { ts: at(3), energyWh: 5_000 },
+      { ts: at(19), energyWh: 5_000 },
+    ],
+  };
+  const fridge = { powerW: 30, onPct: 80, energyWh: 1_000, pauses: [] };
+
+  it('is not there in a day without seconds', () => {
+    expect(analyseDay([], '2026-10-27').fridge).toBeNull();
+  });
+
+  it('costs its energy spread over the quarter hours of the day', () => {
+    // As two uses of equal size, in empty and in peak (see groupCostCents below).
+    expect(fridgeCostCents(fridge, analysis, tri)).toBe(21);
+  });
+
+  it('has no cost without an estimate of its energy', () => {
+    const unknown = { ...fridge, onPct: null, energyWh: null };
+    expect(fridgeCostCents(unknown, analysis, tri)).toBeNull();
+  });
+});
 
 describe('groupCostCents', () => {
   it('prices a group of cycles at the hour of each, as a named appliance', () => {

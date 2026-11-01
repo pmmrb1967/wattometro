@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
+import type { Cycle } from './cycles';
 import { detectEvents } from './events';
+import type { Fridge } from './fridge';
 import { findCycles } from './pipeline';
 import type { SecondsSeries } from './series';
 import { groupCycles } from './summary';
@@ -37,9 +39,9 @@ const spin = () => [
   ...steadyDrum(60, 600),
   ...flat(150, BASE + 600),
 ];
-const cyclesOf = (power: number[]) => {
+const cyclesOf = (power: number[], fridge: Fridge | null = null) => {
   const day = series(power);
-  return findCycles(detectEvents(day), day);
+  return findCycles(detectEvents(day), day, fridge);
 };
 
 // The dishwasher of 26/10, simplified: pump at +50 W, four heatings of 2 kW
@@ -130,6 +132,38 @@ describe('mergeProgrammes', () => {
     const power = [...washer.slice(0, -900), ...flat(2400, BASE + 120), ...flat(600, BASE)];
     const [programme] = cyclesOf(power).filter((cycle) => cycle.heats);
     expect(programme!.durationS).toBe(3720);
+  });
+
+  describe('with the fridge known', () => {
+    const programmeOf = (fridge: Fridge | null) =>
+      cyclesOf(dishwasher, fridge).find((cycle) => cycle.heats) as Cycle;
+    const fridge = (lowW: number, powerW = 30): Fridge => ({
+      powerW,
+      onPct: 80,
+      energyWh: 500,
+      pauses: [{ start: START - 3600, end: START - 2400, lowW }],
+    });
+
+    it('takes out the fridge when it was off at the level the programme counts from', () => {
+      // 50 minutes × 30 W × 80 % = 20 Wh that were the fridge, not the machine.
+      const without = programmeOf(null);
+      expect(without.durationS).toBe(50 * 60);
+      expect(programmeOf(fridge(BASE)).energyWh).toBe(without.energyWh - 20);
+    });
+
+    it('leaves it alone when that level already had the fridge running', () => {
+      expect(programmeOf(fridge(BASE - 30)).energyWh).toBe(programmeOf(null).energyWh);
+    });
+
+    it('never counts less than the heatings', () => {
+      const heatings = 2000 * ((720 + 540 + 180 + 660) / 3600);
+      expect(programmeOf(fridge(BASE, 2000)).energyWh).toBeGreaterThanOrEqual(heatings);
+    });
+
+    it('leaves it alone when the share of time on is not known', () => {
+      const unknown = { ...fridge(BASE), onPct: null };
+      expect(programmeOf(unknown).energyWh).toBe(programmeOf(null).energyWh);
+    });
   });
 
   it('keeps the two machines in groups of their own', () => {
