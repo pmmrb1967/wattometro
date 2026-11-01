@@ -1904,11 +1904,19 @@ export const t = {
   local: {
     title: 'Usar sem conta',
     intro:
-      'Só com o ficheiro da E-Redes: a tua casa fica guardada neste browser e não é enviada para o servidor. Não precisas de conta nem de Shelly.',
+      'Só com o ficheiro da E-Redes: a tua casa fica guardada neste browser e não é enviada para o servidor. Não precisas de conta nem de Shelly. Se o browser apagar os dados, perdes-os: guarda uma cópia num ficheiro.',
     who: 'Neste browser',
     householdName: 'A minha casa',
-    banner: 'Sem conta: os dados ficam só neste browser. Guarda uma cópia de vez em quando.',
+    banner: {
+      empty: 'Sem conta: os dados ficam só neste browser.',
+      never: 'Sem conta: os dados ficam só neste browser e ainda não tens uma cópia.',
+      due: (date: string) => `Sem conta: a casa mudou desde a última cópia, de ${date}.`,
+      fresh: (date: string) => `Sem conta: os dados ficam só neste browser. Última cópia: ${date}.`,
+      unreadable:
+        'Não foi possível ler os dados guardados neste browser. Para não os estragar, a app não grava nada por cima.',
+    },
     backupLink: 'Guardar cópia',
+    unreadableLink: 'Ver o que fazer',
     exit: 'Sair do modo sem conta',
     lookGroup: 'Aspeto',
     shellyUnavailable:
@@ -1927,11 +1935,18 @@ export const t = {
       restore: 'Repor cópia',
       restoreConfirm: 'Repor a cópia substitui a casa guardada neste browser. Continuar?',
       restored: 'Cópia reposta.',
-      badFile: 'Este ficheiro não é uma cópia do Wattómetro.',
+      badFile: 'Este ficheiro não é uma cópia do Wattómetro que esta versão da app consiga ler.',
       notKept: 'O browser não deixou guardar os dados (espaço cheio ou janela privada).',
+      nothingToSave: 'Ainda não há dados para guardar.',
+      unreadable:
+        'Não foi possível ler os dados deste browser. Recarrega a página e, se a app tiver sido atualizada, fecha-a e volta a abri-la. Se o problema continuar, guarda os dados como estão e repõe uma cópia.',
+      saveAsTheyAre: 'Guardar os dados como estão',
+      notRead: 'O browser não deixou ler os dados. Recarrega a página e tenta outra vez.',
       remove: 'Apagar os dados deste browser',
-      removeConfirm: 'Apagar a casa guardada neste browser? Não dá para desfazer.',
+      removeConfirm:
+        'Apagar a casa guardada neste browser, com a chave de IA e o registo de gastos? Não dá para desfazer.',
       fileName: (date: string) => `wattometro-${date}.json`,
+      unreadableFileName: (date: string) => `wattometro-ilegivel-${date}.json`,
     },
   },
   demo: {

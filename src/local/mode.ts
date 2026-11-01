@@ -25,8 +25,6 @@ export function enterLocal(): void {
   } catch {
     // Not kept for the next visit; the local mode still runs now.
   }
-  // Asks the browser not to clear the data when space runs short; it may say no.
-  void navigator.storage?.persist?.().catch(() => false);
 }
 
 export function exitLocal(): void {

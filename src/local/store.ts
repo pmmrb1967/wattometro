@@ -4,7 +4,8 @@
  * IndexedDB, apart from the caches (signing out clears those, never this).
  * Only "Apagar os dados deste browser" removes it.
  */
-import { localDataSchema, type LocalData } from './data';
+import type { LocalData } from './data';
+import { readStored, type LocalRead } from './stored';
 
 const DB_NAME = 'wattometro-local';
 const STORE = 'household';
@@ -12,9 +13,8 @@ const KEY = 'data';
 
 /** What the local server reads and writes; IndexedDB in the app, memory in the tests. */
 export interface LocalStore {
-  /** Null when nothing is kept (or it cannot be read as this version). */
-  load(): Promise<LocalData | null>;
-  /** False when the browser refused it (full, private window). */
+  load(): Promise<LocalRead>;
+  /** True once it is on disk; false when the browser refused it (full, private window). */
   save(data: LocalData): Promise<boolean>;
   clear(): Promise<void>;
 }
@@ -40,9 +40,11 @@ async function withStore<T>(
   if (!db) return { ok: false };
   return new Promise((resolve) => {
     try {
-      const request = action(db.transaction(STORE, mode).objectStore(STORE));
-      request.onsuccess = () => resolve({ ok: true, value: request.result });
-      request.onerror = () => resolve({ ok: false });
+      const transaction = db.transaction(STORE, mode);
+      const request = action(transaction.objectStore(STORE));
+      // The transaction, not the request: a full disk can still fail it when committing.
+      transaction.oncomplete = () => resolve({ ok: true, value: request.result });
+      transaction.onabort = () => resolve({ ok: false });
     } catch {
       resolve({ ok: false });
     } finally {
@@ -54,9 +56,7 @@ async function withStore<T>(
 export const browserStore: LocalStore = {
   async load() {
     const read = await withStore('readonly', (store) => store.get(KEY) as IDBRequest<unknown>);
-    if (!read.ok || read.value === undefined) return null;
-    const parsed = localDataSchema.safeParse(read.value);
-    return parsed.success ? parsed.data : null;
+    return read.ok ? readStored(read.value) : { kind: 'unreadable' };
   },
   async save(data) {
     return (await withStore('readwrite', (store) => store.put(data, KEY))).ok;
@@ -69,7 +69,7 @@ export const browserStore: LocalStore = {
 export function memoryStore(initial: LocalData | null = null): LocalStore {
   let kept = initial;
   return {
-    load: () => Promise.resolve(kept),
+    load: () => Promise.resolve(kept ? { kind: 'ok', data: kept } : { kind: 'empty' }),
     save: (data) => {
       kept = structuredClone(data);
       return Promise.resolve(true);

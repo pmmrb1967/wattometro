@@ -75,6 +75,16 @@ export function forgetAiSettings(email: string): void {
   localStorage.removeItem(settingsKey(email));
 }
 
+/** The key and the spending kept in this browser for this account. */
+export function forgetAiData(email: string): void {
+  try {
+    localStorage.removeItem(settingsKey(email));
+    localStorage.removeItem(usageKey(email));
+  } catch {
+    // Nothing kept to remove.
+  }
+}
+
 export function hasAiKey(settings: AiSettings): boolean {
   return settings.apiKey.trim() !== '';
 }

@@ -14,6 +14,7 @@ import { tariffInputSchema } from '../domain/tariff';
 import { dailyEnergy, empty, energyRecords, invalid, json } from '../demo/responses';
 import { t } from '../i18n/pt-PT';
 import { lisbonDate, startOfLisbonDay } from '../lib/time';
+import { markChanged } from './backup';
 import {
   emptyLocalData,
   importSummary,
@@ -65,23 +66,64 @@ const numberParam = (url: URL, name: string) => {
 
 /** The browser refused to keep it (full, private window): as a server failing. */
 const notKept = () => json({ error: 'storage' }, 507);
+/** What is kept cannot be read: writing would destroy it (src/local/stored.ts). */
+const unreadable = () => json({ error: 'unreadable' }, 423);
 
-export function createLocalServer(store: LocalStore, clock = () => Date.now() / 1000) {
+/** Across the tabs of this browser, where it has Web Locks. */
+const WRITE_LOCK = 'wattometro-local';
+
+function acrossTabs<T>(task: () => Promise<T>): Promise<T> {
+  const locks = globalThis.navigator?.locks;
+  return locks ? (locks.request(WRITE_LOCK, task) as Promise<T>) : task();
+}
+
+export function createLocalServer(
+  store: LocalStore,
+  clock = () => Date.now() / 1000,
+  /** Called once a change is kept. */
+  onChange: () => void = () => undefined,
+) {
   let data: LocalData | null = null;
+  let locked = false;
+  let writes: Promise<unknown> = Promise.resolve();
 
   async function household(): Promise<LocalData> {
-    data ??= (await store.load()) ?? emptyLocalData();
+    if (data) return data;
+    const read = await store.load();
+    locked = read.kind === 'unreadable';
+    // Not remembered when unreadable: the next request tries again.
+    if (read.kind === 'unreadable') return emptyLocalData();
+    data = read.kind === 'ok' ? read.data : emptyLocalData();
     return data;
   }
 
   async function keep(next: LocalData): Promise<Response> {
+    if (locked) return unreadable();
     if (!(await store.save(next))) return notKept();
     data = next;
+    onChange();
     return empty();
+  }
+
+  /** One at a time, each from what is kept now: another tab may have written since. */
+  function write(task: () => Promise<Response>): Promise<Response> {
+    const run = writes.then(() =>
+      acrossTabs(() => {
+        data = null;
+        return task();
+      }),
+    );
+    writes = run.catch(() => undefined);
+    return run;
   }
 
   async function respond(method: string, path: string, body?: unknown): Promise<Response> {
     const url = new URL(path, 'https://local.invalid');
+    if (url.pathname === '/v1/visit' || url.pathname === '/v1/auth/logout') return empty();
+    return method === 'GET' ? answer(method, url, body) : write(() => answer(method, url, body));
+  }
+
+  async function answer(method: string, url: URL, body?: unknown): Promise<Response> {
     const route = `${method} ${url.pathname}`;
     const house = await household();
     const from = numberParam(url, 'from');
@@ -91,9 +133,6 @@ export function createLocalServer(store: LocalStore, clock = () => Date.now() / 
     switch (route) {
       case 'GET /v1/auth/me':
         return json(LOCAL_ME);
-      case 'POST /v1/auth/logout':
-      case 'POST /v1/visit':
-        return empty();
       case 'GET /v1/push/key':
       case 'GET /v1/push/subscription':
       case 'PUT /v1/push/subscription':
@@ -242,7 +281,9 @@ export function createLocalServer(store: LocalStore, clock = () => Date.now() / 
   };
 }
 
-const server = createLocalServer(browserStore);
+const server = createLocalServer(browserStore, undefined, () =>
+  markChanged(Math.floor(Date.now() / 1000)),
+);
 
 /** Answers one API request of the local mode. */
 export const localResponse = server.respond;

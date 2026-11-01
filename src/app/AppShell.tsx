@@ -11,6 +11,7 @@ import { enterLocal, exitLocal, isLocal } from '../local/mode';
 import { LOCAL_ME } from '../local/server';
 import { DEMO_ME } from '../demo/server';
 import { Landing, SIGN_IN_PATH } from './Landing';
+import { LocalBanner } from './LocalBanner';
 import { clearWeatherCache } from '../weather/weather';
 import { isVisitPage } from '../lib/pages';
 import { clearEnergyCache } from './energy-cache';
@@ -195,14 +196,7 @@ export function AppShell() {
         </p>
       )}
 
-      {context && isLocal() && (
-        <div className="demo-banner" role="status">
-          <span>{t.local.banner}</span>
-          <Link to="/definicoes#dados" className="demo-exit">
-            {t.local.backupLink}
-          </Link>
-        </div>
-      )}
+      {context && isLocal() && <LocalBanner />}
 
       {context && isDemo() && (
         <div className="demo-banner" role="status">

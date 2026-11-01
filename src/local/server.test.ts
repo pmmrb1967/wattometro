@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, expect, it } from 'vitest';
-import { emptyLocalData, importSummary, localDataSchema, withQuarters } from './data';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  emptyLocalData,
+  importSummary,
+  localDataSchema,
+  withQuarters,
+  type LocalData,
+} from './data';
 import { createLocalServer } from './server';
-import { memoryStore } from './store';
+import { memoryStore, type LocalStore } from './store';
 
 // 2026-01-15 00:00 in Lisbon (UTC in winter).
 const DAY = Date.UTC(2026, 0, 15) / 1000;
@@ -14,6 +20,22 @@ function server(store = memoryStore()) {
 
 async function body(response: Response) {
   return (await response.json()) as Record<string, unknown>;
+}
+
+async function kept(store: LocalStore): Promise<LocalData | null> {
+  const read = await store.load();
+  return read.kind === 'ok' ? read.data : null;
+}
+
+/** A store holding data it cannot read: whatever is written over them is a loss. */
+function unreadableStore() {
+  const save = vi.fn(() => Promise.resolve(true));
+  const store: LocalStore = {
+    ...memoryStore(),
+    load: () => Promise.resolve({ kind: 'unreadable', raw: { version: 99 } }),
+    save,
+  };
+  return { store, save };
 }
 
 describe('withQuarters', () => {
@@ -69,7 +91,7 @@ describe('local server', () => {
     ];
     const written = await api.respond('POST', '/v1/import/eredes', { quarters });
     expect(await body(written)).toEqual({ written: 3 });
-    expect((await store.load())?.quarters).toEqual(quarters);
+    expect((await kept(store))?.quarters).toEqual(quarters);
 
     const range = `from=${DAY}&to=${DAY + 2 * 86_400}`;
     expect(await body(await api.respond('GET', `/v1/energy?${range}`))).toEqual({
@@ -132,9 +154,7 @@ describe('local server', () => {
     expect((await api.respond('POST', '/v1/tariffs', { ...tariff, powerVa: 5750 })).status).toBe(
       201,
     );
-    expect((await store.load())?.tariffs).toMatchObject([
-      { id: 'local-2026-01-01', powerVa: 5750 },
-    ]);
+    expect((await kept(store))?.tariffs).toMatchObject([{ id: 'local-2026-01-01', powerVa: 5750 }]);
     await api.respond('DELETE', '/v1/tariffs/local-2026-01-01');
     expect(await body(await api.respond('GET', '/v1/tariffs'))).toEqual({ tariffs: [] });
   });
@@ -165,6 +185,90 @@ describe('local server', () => {
     const { api } = server(store);
     expect((await api.respond('PUT', '/v1/quality/zone', { zone: 'A' })).status).toBe(507);
     expect(await body(await api.respond('GET', '/v1/quality'))).toMatchObject({ zone: null });
+  });
+
+  it('never writes over data it cannot read', async () => {
+    const { store, save } = unreadableStore();
+    const { api } = server(store);
+    expect(await body(await api.respond('GET', '/v1/quality'))).toMatchObject({ zone: null });
+    expect((await api.respond('PUT', '/v1/quality/zone', { zone: 'A' })).status).toBe(423);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('reads again after a failed read, instead of keeping an empty house', async () => {
+    const location = { name: 'Porto', latitudeCdeg: 4115, longitudeCdeg: -861 };
+    const healthy = memoryStore({ ...emptyLocalData(), location });
+    const load = vi.fn(healthy.load).mockResolvedValueOnce({ kind: 'unreadable' });
+    const { api } = server({ ...healthy, load });
+    expect(await body(await api.respond('GET', '/v1/household/location'))).toEqual({
+      location: null,
+    });
+    expect(await body(await api.respond('GET', '/v1/household/location'))).toEqual({ location });
+  });
+
+  it('does not undo what another tab wrote', async () => {
+    const store = memoryStore();
+    const first = createLocalServer(store, () => NOW);
+    const second = createLocalServer(store, () => NOW);
+    await first.respond('GET', '/v1/quality'); // this tab now holds the empty house
+    await second.respond('PUT', '/v1/quality/zone', { zone: 'B' });
+    await first.respond('PUT', '/v1/household/budget', {
+      budget: { cents: 5000, whPerDay: 8000 },
+    });
+    expect(await kept(store)).toMatchObject({
+      zone: 'B',
+      budget: { cents: 5000, whPerDay: 8000 },
+    });
+  });
+
+  it('does not lose either of two writes made at once', async () => {
+    const store = memoryStore();
+    const { api } = server(store);
+    await Promise.all([
+      api.respond('PUT', '/v1/quality/zone', { zone: 'C' }),
+      api.respond('PUT', '/v1/household/budget', { budget: { cents: 5000, whPerDay: 8000 } }),
+    ]);
+    expect(await kept(store)).toMatchObject({
+      zone: 'C',
+      budget: { cents: 5000, whPerDay: 8000 },
+    });
+  });
+
+  it('keeps answering after a write that failed', async () => {
+    const store = memoryStore();
+    let refuse = true;
+    const { api } = server({
+      ...store,
+      save: (data) => {
+        if (refuse) throw new Error('refused');
+        return store.save(data);
+      },
+    });
+    await expect(api.respond('PUT', '/v1/quality/zone', { zone: 'A' })).rejects.toThrow();
+    refuse = false;
+    expect((await api.respond('PUT', '/v1/quality/zone', { zone: 'A' })).status).toBe(204);
+  });
+
+  it('says when the house changed, only once it is kept', async () => {
+    const onChange = vi.fn();
+    const refused = createLocalServer(
+      { ...memoryStore(), save: () => Promise.resolve(false) },
+      () => NOW,
+      onChange,
+    );
+    await refused.respond('PUT', '/v1/quality/zone', { zone: 'A' });
+    expect(onChange).not.toHaveBeenCalled();
+    const api = createLocalServer(memoryStore(), () => NOW, onChange);
+    await api.respond('PUT', '/v1/quality/zone', { zone: 'A' });
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it('does not read the store for the visit of each page', async () => {
+    const store = memoryStore();
+    const load = vi.fn(store.load);
+    const { api } = server({ ...store, load });
+    await api.respond('POST', '/v1/visit', { path: '/' });
+    expect(load).not.toHaveBeenCalled();
   });
 });
 
