@@ -36,6 +36,7 @@ import { KnownAppliances } from './KnownAppliances';
 import { SECONDS_DAYS } from './nilm-days';
 import { Reprocess } from './Reprocess';
 import {
+  endFromTime,
   loadPending,
   MAX_RUN_S,
   nextTry,
@@ -162,6 +163,7 @@ export function Calibrate() {
   const [found, setFound] = useState<Map<string, Found>>(new Map());
   const [today] = useState(lisbonToday);
   const [manual, setManual] = useState({ day: addDays(today, -1), from: '', to: '' });
+  const [forgottenEnd, setForgottenEnd] = useState('');
   const pendingRef = useRef(pending);
   const lastTry = useRef<number | null>(null);
   const sending = useRef(false);
@@ -270,6 +272,20 @@ export function Calibrate() {
       setMessage({ text: texts.tooLong, error: true });
       return;
     }
+    setPending({ ...pending, to });
+  }
+
+  /** The user forgot "Desliguei agora": the end is given afterwards. */
+  function stopAt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!pending) return;
+    const to = endFromTime(pending.from, forgottenEnd, nowSeconds());
+    if (to === null) {
+      setMessage({ text: texts.invalidEnd, error: true });
+      return;
+    }
+    setMessage(null);
+    setForgottenEnd('');
     setPending({ ...pending, to });
   }
 
@@ -418,6 +434,26 @@ export function Calibrate() {
                   {texts.cancel}
                 </button>
               </div>
+              <details>
+                <summary>{texts.forgot}</summary>
+                <form className="form" onSubmit={stopAt}>
+                  <p className="hint">{texts.forgotHint}</p>
+                  <label>
+                    {texts.to}
+                    <input
+                      type="time"
+                      value={forgottenEnd}
+                      onChange={(event) => setForgottenEnd(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <div className="actions">
+                    <button type="submit" className="primary">
+                      {texts.save}
+                    </button>
+                  </div>
+                </form>
+              </details>
             </div>
           ) : (
             <div className="form">

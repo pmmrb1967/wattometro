@@ -1159,7 +1159,12 @@ export const t = {
     cancel: 'Cancelar',
     running: (label: string, since: string, elapsed: string) =>
       `A registar "${label}" desde as ${since} (${elapsed}).`,
-    tooLong: 'Mais de 4 horas: cancela e indica as horas à mão, só com a parte que interessa.',
+    tooLong:
+      'Passaram mais de 4 horas. Se já desligaste, indica em baixo a que horas foi; se não, cancela e indica à mão só a parte que interessa.',
+    forgot: 'Esqueceste-te de carregar? Indica a que horas desligaste',
+    forgotHint:
+      'Uma hora aproximada chega. Na dúvida, indica um pouco mais tarde: o desligar tem de ficar dentro do intervalo.',
+    invalidEnd: 'Indica uma hora que já passou, até 4 horas depois de ligares.',
     waiting: (label: string) =>
       `"${label}" marcado. À espera dos valores ao segundo: o Shelly envia cada minuto depois de ele acabar.`,
     late: 'Os valores ao segundo desse intervalo ainda não chegaram. O Shelly pode estar sem ligação.',

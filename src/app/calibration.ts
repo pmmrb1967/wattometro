@@ -4,10 +4,18 @@
  * browser so closing the app meanwhile does not lose it. Once marked, it is
  * sent when the Shelly has had time to send those minutes (each one goes up
  * after it ends): first FIRST_TRY_S after the end, then every RETRY_S, until
- * GIVE_UP_S.
+ * GIVE_UP_S. A user who forgot "Desliguei agora" gives the time afterwards
+ * (endFromTime): that end may already be past GIVE_UP_S, so the first try is
+ * always made.
  */
 import { z } from 'zod';
-import type { EpochSeconds } from '../lib/time';
+import {
+  formatLisbonTime,
+  lisbonDate,
+  lisbonLocalTime,
+  nextDate,
+  type EpochSeconds,
+} from '../lib/time';
 
 export const FIRST_TRY_S = 75;
 export const RETRY_S = 60;
@@ -50,9 +58,10 @@ export function nextTry(
   now: EpochSeconds,
 ): 'now' | 'wait' | 'late' | null {
   if (pending.to === null) return null;
-  if (now >= pending.to + GIVE_UP_S) return 'late';
   if (now < pending.to + FIRST_TRY_S) return 'wait';
-  return lastTry === null || now - lastTry >= RETRY_S ? 'now' : 'wait';
+  if (lastTry === null) return 'now';
+  if (now >= pending.to + GIVE_UP_S) return 'late';
+  return now - lastTry >= RETRY_S ? 'now' : 'wait';
 }
 
 /**
@@ -78,4 +87,25 @@ export function runFromTimes(
     (b[0] as number) * 60 + (b[1] as number) <= (a[0] as number) * 60 + (a[1] as number);
   const to = at(endsNextDay ? next(day) : day, b[0] as number, b[1] as number);
   return from === null || to === null ? null : { from, to };
+}
+
+/**
+ * The end of a run started at `from`, from a Lisbon wall-clock time ("HH:MM"):
+ * its first occurrence after the start. Null when that has not happened yet or
+ * makes the run too long.
+ */
+export function endFromTime(
+  from: EpochSeconds,
+  time: string,
+  now: EpochSeconds,
+): EpochSeconds | null {
+  const run = runFromTimes(
+    lisbonDate(from),
+    formatLisbonTime(from),
+    time,
+    lisbonLocalTime,
+    nextDate,
+  );
+  if (!run || run.to <= from || run.to > now || run.to - from > MAX_RUN_S) return null;
+  return run.to;
 }
