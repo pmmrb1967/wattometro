@@ -38,6 +38,29 @@ describe('findFridge', () => {
     expect(fridge?.onPct).toBe(78);
   });
 
+  it('measures the rise as the pause ends, not with what comes on minutes later', () => {
+    // On 31/10, a quiet pause measured +47 W over the 5 minutes after it, +29 W over the first 3.
+    const pause = [
+      ...flat(66, 125),
+      ...flat(4, 125),
+      ...flat(20, 95),
+      ...flat(2, 125),
+      ...flat(3, 150),
+      ...flat(40, 125),
+    ];
+    const fridge = findFridge(series([...pause, ...pause, ...pause, ...flat(70, 125)]));
+    expect(fridge?.pauses).toHaveLength(3);
+    expect(fridge?.powerW).toBe(30);
+  });
+
+  it('takes the fridge from the pauses of a quiet house, not from those with more on', () => {
+    const busy = [...flat(70, 342), ...flat(20, 300)];
+    const day = [...night(2), ...flat(30, 125), ...busy, ...busy, ...busy, ...flat(70, 342)];
+    const fridge = findFridge(series(day));
+    expect(fridge?.powerW).toBe(30);
+    expect(fridge?.pauses.map(({ start }) => minuteOf(start))).toEqual([70, 160]);
+  });
+
   it('gives what it uses in a day: its power for the share of the seconds it is on', () => {
     const fridge = findFridge(series([...night(5), ...flat(70, 125)]));
     // 520 min × 30 W × 78 % = 203 Wh.
@@ -81,9 +104,10 @@ describe('findFridge', () => {
   it('leaves out a dip of another power or length that same day', () => {
     const day = [
       ...night(3),
-      ...flat(70, 125),
-      ...flat(20, 70), // 55 W lower
-      ...flat(70, 125),
+      ...flat(30, 125),
+      ...flat(70, 175),
+      ...flat(20, 120), // 55 W lower
+      ...flat(70, 175),
       ...flat(29, 95), // 9 minutes longer
       ...flat(70, 125),
     ];

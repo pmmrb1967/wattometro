@@ -11,8 +11,14 @@
  * and that ends going up by MIN_RISE_W to MAX_RISE_W. The way down can be
  * larger (something else may switch off in the same minute); the way up is the
  * fridge alone, so its size is the fridge's power. Daytime has look-alikes,
- * and hides many real pauses: what stays is what agrees with the day's other
- * pauses in rise and length, and a house needs MIN_PAUSES of them.
+ * and hides many real pauses: the pauses of a quiet house set the power and
+ * the length, what stays is what agrees with them, and a house needs
+ * MIN_PAUSES of those. On 01/11, unplugging the fridge for 30 minutes and
+ * plugging it back gave +27 W, 7 minutes later (its circuit also feeds the
+ * microwave, the oven and the extractor, on standby). Its power is not one
+ * number: on some pauses (31/10 05:32, 01/11 01:30 and 15:31) the level comes
+ * back in two steps, about +25 W and 2 minutes later +20 W more, and it was
+ * that high before the pause too. RISE_MINUTES sits between the two.
  *
  * A fridge of 60 W or more has steps the detector sees: it gets its cycles and
  * the user's name (cycles.ts, appliances.ts), and is not looked for here.
@@ -34,6 +40,13 @@ export const MIN_RISE_W = 18;
 export const MAX_RISE_W = 60;
 /** Minutes of level looked at on each side of a pause. */
 const SIDE_MINUTES = 5;
+/**
+ * The rise is what the first minutes after a pause add: further on, something
+ * else may have come on (on 31/10, +47 W over 5 minutes, +29 W over these).
+ */
+const RISE_MINUTES = 3;
+/** A house with nothing more on than at its lowest pause (the real nights: 85–100 W). */
+const QUIET_W = 20;
 /** 10th to 75th percentile of a pause: the real ones spread 3–12 W. */
 const FLAT_W = 14;
 /** A pause's edges are this close to its level, and what is next to them this far. */
@@ -41,7 +54,7 @@ const EDGE_W = 11;
 /** Share of a pause's minutes that must exist. */
 const MIN_COVERED = 0.8;
 export const MIN_PAUSES = 2;
-/** How far from the day's middle a pause may be: rise, then length. */
+/** How far from the quiet pauses' middle a pause may be: rise, then length. */
 const RISE_TOLERANCE = 0.3;
 const LENGTH_TOLERANCE = 0.35;
 /** On for 3 h at most on the real nights, plus a pause: further apart, some were hidden. */
@@ -97,8 +110,14 @@ function pauseAt(levels: readonly (number | null)[], from: number, to: number): 
   if (before.length < SIDE_MINUTES / 2 || after.length < SIDE_MINUTES / 2) return null;
 
   const lowW = middle(inside);
-  const riseW = middle(after) - lowW;
-  if (riseW < MIN_RISE_W || riseW > MAX_RISE_W || middle(before) - lowW < MIN_RISE_W) return null;
+  const riseW = middle(present(levels.slice(to, to + RISE_MINUTES))) - lowW;
+  if (
+    Number.isNaN(riseW) ||
+    riseW < MIN_RISE_W ||
+    riseW > MAX_RISE_W ||
+    middle(before) - lowW < MIN_RISE_W
+  )
+    return null;
   // Starts and ends as a step: not the edge of a slow drift.
   const isLow = (level: number | null | undefined) => level != null && level <= lowW + EDGE_W;
   const isHigh = (level: number | null | undefined) => level != null && level >= lowW + EDGE_W;
@@ -152,11 +171,14 @@ export function findFridge(series: SecondsSeries): Fridge | null {
   const levels = minuteLevels(series);
   const all = candidates(levels);
   if (all.length < MIN_PAUSES) return null;
-  const riseW = middle(all.map((pause) => pause.riseW));
-  const minutes = middle(all.map((pause) => pause.to - pause.from));
+  // The busy hours have look-alikes: the quiet ones say what the fridge is like.
+  const floorW = Math.min(...all.map((pause) => pause.lowW));
+  const quiet = all.filter((pause) => pause.lowW <= floorW + QUIET_W);
+  const powerW = middle(quiet.map((pause) => pause.riseW));
+  const minutes = middle(quiet.map((pause) => pause.to - pause.from));
   const agreeing = all.filter(
     (pause) =>
-      Math.abs(pause.riseW - riseW) <= riseW * RISE_TOLERANCE &&
+      Math.abs(pause.riseW - powerW) <= powerW * RISE_TOLERANCE &&
       Math.abs(pause.to - pause.from - minutes) <= minutes * LENGTH_TOLERANCE,
   );
   if (agreeing.length < MIN_PAUSES) return null;
@@ -165,7 +187,6 @@ export function findFridge(series: SecondsSeries): Fridge | null {
     end: series.start + to * MINUTE_S,
     lowW,
   }));
-  const powerW = middle(agreeing.map((pause) => pause.riseW));
   const onPct = onShare(pauses);
   const measuredS = present(levels).length * MINUTE_S;
   return {
