@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonTime } from '../lib/time';
+import { forgetSyncedAiCopy } from './ai-sync';
 import { fetchHealth, fetchMe, logout, type Me, recordVisit } from './api';
 import { APP_COMMIT, LICENSE_URL, SOURCE_URL } from './build-info';
 import { feedbackLink } from './feedback';
@@ -107,7 +108,8 @@ export function AppShell() {
     if (signedIn && isVisitPage(pathname)) void recordVisit(pathname);
   }, [signedIn, pathname]);
 
-  // Stable, so pages can depend on it in effects.
+  // Stable within a session, so pages can depend on it in effects.
+  const email = me?.email;
   const signOut = useCallback(() => {
     // The consumption and the weather (it reveals the locality) kept in this browser go with the session.
     void clearEnergyCache();
@@ -125,8 +127,9 @@ export function AppShell() {
       setMe(null);
       return;
     }
+    if (email !== undefined) forgetSyncedAiCopy(email);
     void logout().then(() => setMe(null));
-  }, [setMe]);
+  }, [setMe, email]);
   // Signing in, or opening the demonstration, always starts on Início, not on
   // the page left at the last sign out (the address stays when signed out).
   const navigate = useNavigate();

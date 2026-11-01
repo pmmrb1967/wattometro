@@ -136,6 +136,16 @@ export async function removeAiSettings(
   return { ok: true };
 }
 
+/**
+ * At sign out, the key leaves this browser if the account has it: the next sign
+ * in brings it back. A key that is only here stays, or it would be lost.
+ */
+export function forgetSyncedAiCopy(email: string): void {
+  if (!isSynced(email)) return;
+  forgetAiSettings(email);
+  changed();
+}
+
 /** The settings in this browser, read again whenever they change. */
 export function useAiSettings(email: string): AiSettings {
   const [, refresh] = useReducer((count: number) => count + 1, 0);

@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_AI_SETTINGS, loadAiSettings, saveAiSettings } from '../ai/settings';
-import { pullAiSettings, removeAiSettings, storeAiSettings, type AiAccountApi } from './ai-sync';
+import {
+  forgetSyncedAiCopy,
+  pullAiSettings,
+  removeAiSettings,
+  storeAiSettings,
+  type AiAccountApi,
+} from './ai-sync';
 import type { AccountAiSettings } from './api';
 
 const EMAIL = 'ana@example.pt';
@@ -56,6 +62,21 @@ describe('AI settings in the account', () => {
     expect(server.state.settings).toEqual(KEY);
     await pullAiSettings(EMAIL, server.api);
     expect(server.state.saves).toBe(1);
+  });
+
+  it('signing out leaves no key in this browser, and the next sign in brings it back', async () => {
+    const server = account();
+    await storeAiSettings(EMAIL, KEY, server.api);
+    forgetSyncedAiCopy(EMAIL);
+    expect(loadAiSettings(EMAIL)).toEqual(EMPTY_AI_SETTINGS);
+    expect(await pullAiSettings(EMAIL, server.api)).toEqual({ settings: KEY, home: 'account' });
+    expect(loadAiSettings(EMAIL)).toEqual(KEY);
+  });
+
+  it('signing out keeps a key that is only in this browser: nothing else has it', async () => {
+    saveAiSettings(EMAIL, KEY);
+    forgetSyncedAiCopy(EMAIL);
+    expect(loadAiSettings(EMAIL)).toEqual(KEY);
   });
 
   it('a key deleted on another device goes from this one too, and is not sent back', async () => {

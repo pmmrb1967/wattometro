@@ -8,6 +8,7 @@ import {
   markBackup,
   markChanged,
   readBackupMarks,
+  watchOtherTabs,
 } from './backup';
 import { emptyLocalData } from './data';
 import type { LocalRead } from './stored';
@@ -83,6 +84,37 @@ describe('backup marks', () => {
     markBackup(100);
     markChanged(200);
     expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  it('hears what another tab did to the copy or the house, and nothing else', () => {
+    const heard = vi.fn();
+    const stop = watchOtherTabs(heard);
+    const stored = (key: string | null) =>
+      window.dispatchEvent(Object.assign(new Event('storage'), { key }));
+    stored('wattometro.nav.collapsed');
+    expect(heard).not.toHaveBeenCalled();
+    stored('wattometro.local.pulse');
+    stored(null); // the whole storage was cleared
+    expect(heard).toHaveBeenCalledTimes(2);
+    stop();
+    stored('wattometro.local.pulse');
+    expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  it('changes what other tabs hear on each write, even within the same second', () => {
+    vi.useFakeTimers({ now: 1_000 });
+    const pulse = () => localStorage.getItem('wattometro.local.pulse');
+    markChanged(1);
+    const first = pulse();
+    vi.advanceTimersByTime(1);
+    markChanged(1);
+    const second = pulse();
+    vi.advanceTimersByTime(1);
+    clearBackupMarks();
+    vi.useRealTimers();
+    expect(first).not.toBeNull();
+    expect(second).not.toBe(first);
+    expect(pulse()).not.toBe(second);
   });
 
   it('counts as no copy when the browser has no storage', () => {

@@ -1943,6 +1943,7 @@ export const t = {
       saveAsTheyAre: 'Guardar os dados como estão',
       notRead: 'O browser não deixou ler os dados. Recarrega a página e tenta outra vez.',
       remove: 'Apagar os dados deste browser',
+      notRemoved: 'O browser não deixou apagar os dados. Recarrega a página e tenta outra vez.',
       removeConfirm:
         'Apagar a casa guardada neste browser, com a chave de IA e o registo de gastos? Não dá para desfazer.',
       fileName: (date: string) => `wattometro-${date}.json`,

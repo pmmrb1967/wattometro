@@ -16,7 +16,8 @@ export interface LocalStore {
   load(): Promise<LocalRead>;
   /** True once it is on disk; false when the browser refused it (full, private window). */
   save(data: LocalData): Promise<boolean>;
-  clear(): Promise<void>;
+  /** False when the browser did not remove it. */
+  clear(): Promise<boolean>;
 }
 
 function openDb(): Promise<IDBDatabase | null> {
@@ -62,7 +63,7 @@ export const browserStore: LocalStore = {
     return (await withStore('readwrite', (store) => store.put(data, KEY))).ok;
   },
   async clear() {
-    await withStore('readwrite', (store) => store.delete(KEY));
+    return (await withStore('readwrite', (store) => store.delete(KEY))).ok;
   },
 };
 
@@ -76,7 +77,7 @@ export function memoryStore(initial: LocalData | null = null): LocalStore {
     },
     clear: () => {
       kept = null;
-      return Promise.resolve();
+      return Promise.resolve(true);
     },
   };
 }

@@ -13,8 +13,10 @@ import {
   LOCAL_CHANGED,
   localStatus,
   readBackupMarks,
+  watchOtherTabs,
   type LocalStatus,
 } from '../local/backup';
+import { reloadLocal } from '../local/server';
 import { browserStore } from '../local/store';
 
 const texts = t.local;
@@ -38,9 +40,15 @@ function useLocalStatus(): LocalStatus {
     const listener = () => void refresh();
     listener();
     window.addEventListener(LOCAL_CHANGED, listener);
+    // What this tab holds is out of date: the next request reads the house again.
+    const stopWatching = watchOtherTabs(() => {
+      reloadLocal();
+      listener();
+    });
     return () => {
       active = false;
       window.removeEventListener(LOCAL_CHANGED, listener);
+      stopWatching();
     };
   }, []);
   return status;

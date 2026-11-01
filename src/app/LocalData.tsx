@@ -83,7 +83,10 @@ export function LocalDataSection() {
 
   async function remove() {
     if (!window.confirm(texts.removeConfirm)) return;
-    await browserStore.clear();
+    if (!(await browserStore.clear())) {
+      setStatus({ kind: 'error', text: texts.notRemoved });
+      return;
+    }
     forgetAiData(LOCAL_ME.email);
     clearBackupMarks();
     reloadLocal();

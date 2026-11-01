@@ -8,6 +8,8 @@ import type { LocalRead } from './stored';
 
 const BACKUP_KEY = 'wattometro.local.backup-at';
 const CHANGED_KEY = 'wattometro.local.changed-at';
+/** Different on every write: `storage` events only fire when a value changes. */
+const PULSE_KEY = 'wattometro.local.pulse';
 
 /** Window event: the household or its copy changed. */
 export const LOCAL_CHANGED = 'wattometro:local-changed';
@@ -45,6 +47,7 @@ function readMark(key: string): number | null {
 function writeMark(key: string, at: number): void {
   try {
     localStorage.setItem(key, String(at));
+    localStorage.setItem(PULSE_KEY, String(Date.now()));
   } catch {
     // Not remembered: the reminder then errs on the side of asking for a copy.
   }
@@ -62,9 +65,19 @@ export function clearBackupMarks(): void {
   try {
     localStorage.removeItem(BACKUP_KEY);
     localStorage.removeItem(CHANGED_KEY);
+    localStorage.setItem(PULSE_KEY, String(Date.now()));
   } catch {
     // Nothing kept to remove.
   }
+}
+
+/** Calls `listener` when another tab copies or changes the house; returns how to stop. */
+export function watchOtherTabs(listener: () => void): () => void {
+  const onStorage = ({ key }: StorageEvent) => {
+    if (key === PULSE_KEY || key === null) listener();
+  };
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
 }
 
 /**
