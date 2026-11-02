@@ -23,7 +23,7 @@ import type { DayAnalysis } from './day';
 import type { PowerEvent } from './events';
 import { groupCycles } from './summary';
 
-export const NILM_VERSION = 3;
+export const NILM_VERSION = 4;
 
 /** What the server keeps of a day (and what the appliances need of it). */
 export type StoredDay = Pick<

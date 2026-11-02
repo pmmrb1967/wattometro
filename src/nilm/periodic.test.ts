@@ -144,6 +144,95 @@ describe('mergePulses', () => {
     ]);
   });
 
+  // A slow cooker: 185 W on a timer, 160 s on and 20 s off, on a house at 300 W.
+  const cooker = (count: number) => pulses(count, 160, 20, 185, 300);
+
+  it('keeps a timer as one use when pulses are lost', () => {
+    // Two pulses lost: 12 periods of 180 s, each 160 s on → 185 × 1920 / 3600 = 98,7 Wh;
+    // here they really did not run, and a use never counts more than the house drew:
+    // 185 × 1600 / 3600 = 82,2 Wh.
+    const cycles = cyclesOf([
+      ...flat(60, 300),
+      ...cooker(5),
+      ...flat(360, 300),
+      ...cooker(5),
+      ...flat(60, 300),
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toMatchObject({
+      start: START + 60,
+      durationS: 2140,
+      powerW: 185,
+      energyWh: 82,
+      pulses: { count: 12, onS: 1920 },
+    });
+  });
+
+  it('does not count twice a pause it could not see', () => {
+    // One pause hidden: an on paired with the off of the next pulse, 340 s later. Still 12
+    // periods: 185 × 1920 / 3600 = 98,7 Wh, not that much again for the long pair.
+    const cycles = cyclesOf([
+      ...flat(60, 300),
+      ...cooker(5),
+      ...flat(340, 485),
+      ...flat(20, 300),
+      ...cooker(5),
+      ...flat(60, 300),
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toMatchObject({ durationS: 2140, energyWh: 99 });
+  });
+
+  it('takes in the pulses that noise moved a little away from the power', () => {
+    const cycles = cyclesOf([
+      ...flat(60, 300),
+      ...cooker(5),
+      ...pulses(1, 160, 20, 150, 300),
+      ...flat(180, 300),
+      ...cooker(5),
+      ...flat(60, 300),
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toMatchObject({ durationS: 2140, pulses: { count: 12 } });
+  });
+
+  it('leaves a thermostat out of it: the same period, but pulses of any length', () => {
+    // Every 120 s, 2000 W, for 90, 30, 90, 30… with a pulse missing in the middle.
+    const heat = (count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        pulses(1, index % 2 ? 30 : 90, index % 2 ? 90 : 30, 2000, 300),
+      ).flat();
+    const cycles = cyclesOf([
+      ...flat(60, 300),
+      ...heat(6),
+      ...flat(360, 300),
+      ...heat(6),
+      ...flat(60, 300),
+    ]);
+    expect(cycles.map((cycle) => cycle.pulses?.count)).toEqual([6, 6]);
+  });
+
+  it('keeps apart two uses of the timer, and what runs off its beat', () => {
+    const apart = cyclesOf([
+      ...flat(60, 300),
+      ...cooker(5),
+      ...flat(1800, 300),
+      ...cooker(5),
+      ...flat(60, 300),
+    ]);
+    expect(apart.map((cycle) => cycle.pulses?.count)).toEqual([5, 5]);
+
+    // 150 W for 100 s, 60 s after the last pulse: not when a pulse was due.
+    const offBeat = cyclesOf([
+      ...flat(60, 300),
+      ...cooker(5),
+      ...flat(60, 300),
+      ...flat(100, 450),
+      ...flat(60, 300),
+    ]);
+    expect(offBeat.map((cycle) => cycle.powerW)).toEqual([185, 150]);
+  });
+
   it('changes nothing on the demonstration day (no pulsing appliance)', () => {
     const data = generateDemo(Date.parse('2026-10-22T23:00:00Z') / 1000);
     const from = startOfLisbonDay('2026-10-21');
