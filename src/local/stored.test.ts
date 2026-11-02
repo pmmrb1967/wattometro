@@ -52,7 +52,11 @@ describe('readStored', () => {
   it('reads version 1 as it was kept', () => {
     const read = readStored(STORED_V1);
     expect(read.kind).toBe('ok');
-    expect(read.kind === 'ok' && read.data).toEqual(STORED_V1);
+    expect(read.kind === 'ok' && read.data).toEqual({
+      ...STORED_V1,
+      version: LOCAL_VERSION,
+      alwaysOn: [],
+    });
   });
 
   it('tells nothing kept from something it cannot read', () => {
@@ -70,6 +74,7 @@ describe('readStored', () => {
     const older = { ...rest, version: 0, qualityZone: zone };
     const read = readStored(older, {
       0: ({ qualityZone, ...others }) => ({ ...others, zone: qualityZone }),
+      1: (old) => old,
     });
     expect(read).toEqual({ kind: 'ok', data: emptyLocalData() });
   });

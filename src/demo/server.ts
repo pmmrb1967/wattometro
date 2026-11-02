@@ -11,6 +11,7 @@
  * reads a little differently from the grid meter).
  */
 import { z } from 'zod';
+import { alwaysOnInputSchema, type AlwaysOnItem } from '../domain/always-on';
 import { addDays } from '../domain/consumption';
 import { budgetSchema, type Budget } from '../domain/budget';
 import { installationSchema, type Installation } from '../domain/installation';
@@ -46,6 +47,7 @@ interface DemoState {
   excluded: Set<number>;
   signatures: DemoSignature[];
   appliances: DemoAppliance[];
+  alwaysOn: AlwaysOnItem[];
   /** PUT /v1/nilm/days, by day (the browser's own encoding). */
   nilmDays: Map<string, { day: string; version: number; minutes: number; data: string }>;
 }
@@ -166,10 +168,27 @@ function current(): DemoState {
       excluded: new Set(),
       signatures: demoSignatures(),
       appliances: [],
+      alwaysOn: demoAlwaysOn(),
       nilmDays: new Map(),
     };
   }
   return state;
+}
+
+/** Invented, like the rest of the example house. */
+function demoAlwaysOn(): AlwaysOnItem[] {
+  const createdAt = Math.floor(Date.now() / 1000);
+  return [
+    { id: 'demo-on-1', label: 'Router', quantity: 1, powerW: 12, measured: true, createdAt },
+    {
+      id: 'demo-on-2',
+      label: 'Televisões em espera',
+      quantity: 2,
+      powerW: null,
+      measured: false,
+      createdAt,
+    },
+  ];
 }
 
 /** One calibration already made: the dishwasher of yesterday evening (src/demo/model.ts). */
@@ -719,12 +738,44 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       demo.appliances.push(appliance);
       return json({ appliance }, 201);
     }
+    case 'GET /v1/always-on':
+      return json({
+        items: [...demo.alwaysOn].sort((a, b) => a.label.localeCompare(b.label, 'pt')),
+      });
+    case 'POST /v1/always-on': {
+      const parsed = alwaysOnInputSchema.safeParse(body);
+      if (!parsed.success) return invalid();
+      const item = {
+        ...parsed.data,
+        id: `demo-on-${demo.alwaysOn.length + 1}-${Date.now()}`,
+        createdAt: Math.floor(Date.now() / 1000),
+      };
+      demo.alwaysOn.push(item);
+      return json({ item }, 201);
+    }
     case 'GET /v1/power/peaks': {
       const threshold = numberParam(url, 'threshold');
       if (!yearRange || threshold === null || url.searchParams.get('meter') !== METER) {
         return invalid();
       }
       return peaks(data, from, to, threshold);
+    }
+  }
+
+  const alwaysOn = /^\/v1\/always-on\/([^/]+)$/.exec(url.pathname);
+  if (alwaysOn) {
+    const id = decodeURIComponent(alwaysOn[1] as string);
+    if (method === 'DELETE') {
+      demo.alwaysOn = demo.alwaysOn.filter((item) => item.id !== id);
+      return empty();
+    }
+    if (method === 'PUT') {
+      const parsed = alwaysOnInputSchema.safeParse(body);
+      if (!parsed.success) return invalid();
+      const found = demo.alwaysOn.find((item) => item.id === id);
+      if (!found) return json({ error: 'not_found' }, 404);
+      Object.assign(found, parsed.data);
+      return empty();
     }
   }
 

@@ -9,6 +9,7 @@ import type { Periods } from '../domain/consumption';
 import { baseloadCost, monthlyBaseload, nightlyBaseload, recentBaseload } from '../domain/baseload';
 import type { Tariff } from '../domain/tariff';
 import { HowItWorks } from '../components/HowItWorks';
+import { AlwaysOn } from './AlwaysOn';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
 import { formatKwh, formatPower } from '../lib/units';
@@ -68,6 +69,7 @@ function Baseload({
           {texts.baseload.noTariff} <Link to="/definicoes#tarifario">{t.tariffs.toSettings}</Link>
         </p>
       )}
+      <AlwaysOn baseW={recent.watts} quarters={quarters} tariff={tariff} />
       {months.length > 1 && (
         <details className="adjust">
           <summary>{texts.baseload.monthsTitle}</summary>

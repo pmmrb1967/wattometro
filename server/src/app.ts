@@ -81,6 +81,10 @@
  *                              → 201 {appliance}; 409 too_many
  *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404
  *   DELETE /v1/appliances/:id  → 204
+ *   GET  /v1/always-on         → {items: [{id, label, quantity, powerW, measured, createdAt}]}
+ *   POST /v1/always-on         {label, quantity, powerW, measured} → 201 {item}; 409 too_many
+ *   PUT  /v1/always-on/:id     {label, quantity, powerW, measured} → 204; 404
+ *   DELETE /v1/always-on/:id   → 204
  *   GET  /v1/omie              → {days: [{date, start, step, prices}]}: the market prices of today
  *                              and tomorrow, once published (omie.ts; cents per MWh)
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
@@ -148,6 +152,7 @@ import {
   listAppliances,
   updateAppliance,
 } from './repo/appliances';
+import { createAlwaysOn, deleteAlwaysOn, listAlwaysOn, updateAlwaysOn } from './repo/always-on';
 import {
   deleteSubscription,
   findSubscription,
@@ -366,6 +371,14 @@ const ApplianceBody = z
 const ApplianceChange = z
   .object({ label: ApplianceLabel.optional(), durations: Durations.optional() })
   .refine(({ label, durations }) => label !== undefined || durations !== undefined);
+const AlwaysOnBody = z
+  .object({
+    label: ApplianceLabel,
+    quantity: z.number().int().min(1).max(99),
+    powerW: z.number().int().min(1).max(5000).nullable(),
+    measured: z.boolean(),
+  })
+  .refine(({ powerW, measured }) => powerW !== null || !measured);
 
 const nilmMeter = z.string().regex(/^[^:]{1,64}:[0-3]$/);
 const localDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -1106,6 +1119,36 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
 
   app.delete('/v1/appliances/:id', requireUser, async (c) => {
     await deleteAppliance(config.sql, c.get('user').householdId, c.req.param('id'));
+    return c.body(null, 204);
+  });
+
+  // What the household says stays on (the card "Consumo base").
+  app.get('/v1/always-on', requireUser, async (c) =>
+    c.json({ items: await listAlwaysOn(config.sql, c.get('user').householdId) }),
+  );
+
+  app.post('/v1/always-on', requireUser, async (c) => {
+    const parsed = await body(c, AlwaysOnBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const item = await createAlwaysOn(config.sql, c.get('user').householdId, parsed.data, now());
+    if (!item) return c.json({ error: 'too_many' }, 409);
+    return c.json({ item }, 201);
+  });
+
+  app.put('/v1/always-on/:id', requireUser, async (c) => {
+    const parsed = await body(c, AlwaysOnBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const updated = await updateAlwaysOn(
+      config.sql,
+      c.get('user').householdId,
+      c.req.param('id'),
+      parsed.data,
+    );
+    return updated ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+  });
+
+  app.delete('/v1/always-on/:id', requireUser, async (c) => {
+    await deleteAlwaysOn(config.sql, c.get('user').householdId, c.req.param('id'));
     return c.body(null, 204);
   });
 

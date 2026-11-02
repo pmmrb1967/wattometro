@@ -159,6 +159,27 @@ describe('local server', () => {
     expect(await body(await api.respond('GET', '/v1/tariffs'))).toEqual({ tariffs: [] });
   });
 
+  it('keeps what is always on, in this browser', async () => {
+    const api = createLocalServer(memoryStore());
+    const router = { label: 'Router', quantity: 1, powerW: 12, measured: false };
+    expect((await api.respond('POST', '/v1/always-on', { ...router, quantity: 0 })).status).toBe(
+      400,
+    );
+    const created = await api.respond('POST', '/v1/always-on', router);
+    expect(created.status).toBe(201);
+    const { item } = (await created.json()) as { item: { id: string } };
+
+    const path = `/v1/always-on/${item.id}`;
+    expect((await api.respond('PUT', path, { ...router, powerW: 9 })).status).toBe(204);
+    expect((await api.respond('PUT', '/v1/always-on/nope', router)).status).toBe(404);
+    expect(await body(await api.respond('GET', '/v1/always-on'))).toMatchObject({
+      items: [{ ...router, powerW: 9, id: item.id }],
+    });
+
+    await api.respond('DELETE', path);
+    expect(await body(await api.respond('GET', '/v1/always-on'))).toEqual({ items: [] });
+  });
+
   it('has no Shelly, no alerts and keeps the AI key in the browser', async () => {
     const { api } = server();
     expect(await body(await api.respond('GET', '/v1/devices'))).toEqual({ devices: [] });

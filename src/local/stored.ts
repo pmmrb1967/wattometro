@@ -17,7 +17,10 @@ type Fields = Record<string, unknown>;
 /** Takes a household of version N to N + 1, keyed by N. */
 export type LocalMigrations = Record<number, (old: Fields) => Fields>;
 
-const MIGRATIONS: LocalMigrations = {};
+const MIGRATIONS: LocalMigrations = {
+  // Version 2: the list of what stays on (src/domain/always-on.ts).
+  1: (old) => ({ ...old, alwaysOn: [] }),
+};
 
 const isRecord = (value: unknown): value is Fields =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

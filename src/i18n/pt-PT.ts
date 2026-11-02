@@ -1363,6 +1363,39 @@ export const t = {
       costNote:
         'O custo é o da energia, com IEC e IVA: o que a fatura desceria sem este consumo. A potência contratada paga-se na mesma.',
     },
+    alwaysOn: {
+      title: 'O que está sempre ligado',
+      intro:
+        'Escreve o que fica ligado ou em espera dia e noite. A potência é opcional: com ela, a app diz quanto custa e quanto da base fica por explicar. Num aparelho que também trabalha a sério, como um esquentador, indica só o que gasta em espera.',
+      name: 'Aparelho',
+      namePlaceholder: 'Router',
+      quantity: 'Quantos',
+      power: 'W de cada um (opcional)',
+      measuredQuestion: 'Medido com um medidor de tomada',
+      add: 'Adicionar',
+      save: 'Guardar',
+      cancel: 'Cancelar',
+      edit: 'Editar',
+      remove: 'Retirar',
+      confirmRemove: (label: string) => `Retirar "${label}" da lista?`,
+      failed: 'Não foi possível guardar. Tenta outra vez.',
+      noPower: 'Sem potência indicada',
+      many: (quantity: number, label: string) => `${quantity} × ${label}`,
+      times: (quantity: number, each: string, total: string) => `${quantity} × ${each} = ${total}`,
+      measured: 'medido',
+      estimated: 'estimado por ti',
+      described: (power: string, origin: string, kwh: string, euros: string | null) =>
+        `${power} (${origin}): ${kwh} por ano${euros === null ? '' : `, cerca de ${euros}`}`,
+      listed: (listed: string, base: string) => `Na lista: ${listed} de ${base} de base.`,
+      left: (power: string) => `Por explicar: ${power}.`,
+      over: (power: string) => `A lista soma ${power} mais do que a base.`,
+      withoutPower: (count: number) =>
+        count === 1
+          ? '1 aparelho sem potência indicada: o que gasta está dentro do valor por explicar.'
+          : `${count} aparelhos sem potência indicada: o que gastam está dentro do valor por explicar.`,
+      partly:
+        'A base é um dos valores mais baixos da noite. O que liga e desliga sozinho, como o frigorífico, só conta em parte, por isso a comparação é aproximada e a lista pode somar mais do que a base.',
+    },
     charts: {
       title: 'Ao longo do tempo',
       views: { day: 'Dia', week: 'Semana', month: 'Mês' },

@@ -4,7 +4,7 @@ Para quem só tem o ficheiro da E-Redes e não quer conta: na página de entrada
 
 ## Como funciona
 
-- **A casa fica neste browser.** Uma base IndexedDB própria (`wattometro-local`, `src/local/store.ts`) guarda um só registo: os quartos de hora da E-Redes, os tarifários, a zona de qualidade, a localidade, o orçamento e a instalação (`src/local/data.ts`). É separada das caches: "Sair" não a apaga.
+- **A casa fica neste browser.** Uma base IndexedDB própria (`wattometro-local`, `src/local/store.ts`) guarda um só registo: os quartos de hora da E-Redes, os tarifários, a zona de qualidade, a localidade, o orçamento, a instalação e a lista do que está sempre ligado (`src/local/data.ts`). É separada das caches: "Sair" não a apaga.
 - **Nada vai para o servidor.** `src/local/server.ts` responde no browser às mesmas rotas `/v1/...` que o Worker, com as mesmas formas de resposta, para uma casa sem Shelly (como a demonstração, `src/demo/server.ts`). As páginas e `src/app/api.ts` não mudam.
 - **Volta sozinho.** O modo fica marcado neste browser (`localStorage`); ao abrir a app outra vez, entra nele.
 - **Armazenamento persistente.** A app pede-o ao browser (`navigator.storage.persist()`) só quando já há dados e de novo em cada abertura, enquanto não for concedido: os browsers tendem a aceitar mais depressa uma app já usada ou instalada. O browser pode recusar.

@@ -5,6 +5,7 @@ import { isDemo } from '../demo/mode';
 import { demoResponse } from '../demo/server';
 import { isLocal } from '../local/mode';
 import { localResponse } from '../local/server';
+import { alwaysOnItemSchema, type AlwaysOnInput, type AlwaysOnItem } from '../domain/always-on';
 import { parsePvgis, type SolarYear } from '../domain/solar';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
@@ -673,6 +674,43 @@ export async function updateAppliance(
 
 export async function deleteAppliance(id: string): Promise<{ ok: true } | Failure> {
   const response = await send('DELETE', `/v1/appliances/${encodeURIComponent(id)}`);
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
+export async function fetchAlwaysOn(): Promise<{ ok: true; items: AlwaysOnItem[] } | Failure> {
+  const response = await send('GET', '/v1/always-on');
+  if (response?.ok) {
+    const { items } = z.object({ items: z.array(alwaysOnItemSchema) }).parse(await response.json());
+    return { ok: true, items };
+  }
+  return failure(response, []);
+}
+
+export async function createAlwaysOn(
+  input: AlwaysOnInput,
+): Promise<{ ok: true; item: AlwaysOnItem } | Failure> {
+  const response = await send('POST', '/v1/always-on', input);
+  if (response?.ok) {
+    return {
+      ok: true,
+      item: z.object({ item: alwaysOnItemSchema }).parse(await response.json()).item,
+    };
+  }
+  return failure(response, [400, 409]);
+}
+
+export async function updateAlwaysOn(
+  id: string,
+  input: AlwaysOnInput,
+): Promise<{ ok: true } | Failure> {
+  const response = await send('PUT', `/v1/always-on/${encodeURIComponent(id)}`, input);
+  if (response?.ok) return { ok: true };
+  return failure(response, [400, 404]);
+}
+
+export async function deleteAlwaysOn(id: string): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', `/v1/always-on/${encodeURIComponent(id)}`);
   if (response?.ok) return { ok: true };
   return failure(response, []);
 }

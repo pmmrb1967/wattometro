@@ -8,6 +8,7 @@
  * alerts, and the AI key stays in this browser (src/ai/settings.ts).
  */
 import { z } from 'zod';
+import { alwaysOnInputSchema, MAX_ALWAYS_ON } from '../domain/always-on';
 import { budgetSchema } from '../domain/budget';
 import { installationSchema } from '../domain/installation';
 import { tariffInputSchema } from '../domain/tariff';
@@ -237,6 +238,22 @@ export function createLocalServer(
         );
         return parsed.success ? keep({ ...house, installation: parsed.data }) : invalid();
       }
+      case 'GET /v1/always-on':
+        return json({
+          items: [...house.alwaysOn].sort((a, b) => a.label.localeCompare(b.label, 'pt')),
+        });
+      case 'POST /v1/always-on': {
+        const parsed = alwaysOnInputSchema.safeParse(body);
+        if (!parsed.success) return invalid();
+        if (house.alwaysOn.length >= MAX_ALWAYS_ON) return json({ error: 'too_many' }, 409);
+        const item = {
+          ...parsed.data,
+          id: crypto.randomUUID(),
+          createdAt: Math.floor(clock()),
+        };
+        const saved = await keep({ ...house, alwaysOn: [...house.alwaysOn, item] });
+        return saved.ok ? json({ item }, 201) : saved;
+      }
       case 'GET /v1/power': {
         if (!range) return invalid();
         const quarters = quartersIn(house.quarters, from, to);
@@ -268,6 +285,26 @@ export function createLocalServer(
     if (method === 'DELETE' && tariff) {
       const id = decodeURIComponent(tariff[1] as string);
       return keep({ ...house, tariffs: house.tariffs.filter((item) => item.id !== id) });
+    }
+    const alwaysOn = /^\/v1\/always-on\/([^/]+)$/.exec(url.pathname);
+    if (alwaysOn) {
+      const id = decodeURIComponent(alwaysOn[1] as string);
+      if (method === 'DELETE') {
+        return keep({ ...house, alwaysOn: house.alwaysOn.filter((item) => item.id !== id) });
+      }
+      if (method === 'PUT') {
+        const parsed = alwaysOnInputSchema.safeParse(body);
+        if (!parsed.success) return invalid();
+        if (!house.alwaysOn.some((item) => item.id === id)) {
+          return json({ error: 'not_found' }, 404);
+        }
+        return keep({
+          ...house,
+          alwaysOn: house.alwaysOn.map((item) =>
+            item.id === id ? { ...item, ...parsed.data } : item,
+          ),
+        });
+      }
     }
     return json({ error: 'not_found' }, 404);
   }
