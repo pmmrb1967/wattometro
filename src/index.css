@@ -2664,6 +2664,12 @@ a.button-link {
   cursor: pointer;
 }
 
+.link-button:disabled {
+  color: var(--muted);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
 .name-group {
   display: grid;
   gap: 8px;

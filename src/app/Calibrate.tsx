@@ -125,11 +125,14 @@ function SignatureName({
           onChange={(event) => setLabel(event.target.value)}
         />
       </label>
-      {name !== '' && name !== signature.label && (
-        <button type="button" className="link-button" disabled={busy} onClick={() => void rename()}>
-          {t.knownAppliances.rename}
-        </button>
-      )}
+      <button
+        type="button"
+        className="link-button"
+        disabled={busy || name === '' || name === signature.label}
+        onClick={() => void rename()}
+      >
+        {t.knownAppliances.rename}
+      </button>
       {error && <span className="error">{error}</span>}
     </>
   );
