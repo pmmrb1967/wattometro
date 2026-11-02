@@ -4,6 +4,8 @@ PWA gratuita para monitorizar e otimizar o consumo elétrico de uma casa portugu
 
 Não é mais um gráfico: são **conclusões em euros e ações concretas** — potência contratada certa, tarifário mais barato para o teu perfil real, custo do consumo fantasma, fatura prevista do mês, quanto custa cada aparelho, aparelhos a degradar e registo de problemas de tensão para reclamar. IA opcional com a tua própria chave; a app funciona sem ela.
 
+**Experimentar online, sem conta:** <https://app.wattometro.workers.dev> ("Ver demonstração" abre uma casa fictícia; "Usar sem conta" lê o teu ficheiro da E-Redes).
+
 Estado: em desenvolvimento, em uso numa casa — ver [`planning/plan.md`](planning/plan.md).
 
 ![Início da conta de demonstração: potência do último minuto, energia de hoje, tensão e as poupanças possíveis em euros](docs/images/demo-home.png)
@@ -65,7 +67,7 @@ Só com o ficheiro da E-Redes, qualquer pessoa pode usar a app publicada **sem c
 
 ## Usar o código na tua própria instalação
 
-A app publicada em `app.wattometro.workers.dev` é a do autor, para uso familiar: **não tem registo público** (as contas são criadas pelo dono) e o plano gratuito da Cloudflare chega para poucas casas. Só com a E-Redes, basta [usá-la sem conta](#usar-sem-conta). Com um Shelly, para a usares por tua conta, **crias a tua própria conta Cloudflare** (o plano gratuito chega para uma casa) e publicas lá o código. Os dados ficam na tua conta. Não é preciso mudar nada no código da app: só a configuração.
+A app publicada em <https://app.wattometro.workers.dev> é a do autor, para uso familiar: **não tem registo público** (as contas são criadas pelo dono) e o plano gratuito da Cloudflare chega para poucas casas. Só com a E-Redes, basta [usá-la sem conta](#usar-sem-conta). Com um Shelly, para a usares por tua conta, **crias a tua própria conta Cloudflare** (o plano gratuito chega para uma casa) e publicas lá o código. Os dados ficam na tua conta. Não é preciso mudar nada no código da app: só a configuração.
 
 ### O que precisas
 
