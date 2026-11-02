@@ -131,6 +131,31 @@ export async function signatureRecords(
   return packRecords(rows);
 }
 
+/**
+ * Renames an appliance: every calibration with the label of this one, as they
+ * are all the same appliance. False for another household's signature.
+ */
+export async function renameSignature(
+  sql: Sql,
+  householdId: string,
+  id: string,
+  label: string,
+): Promise<boolean> {
+  const owner = await sql.first<{ label: string }>(
+    'SELECT label FROM signatures WHERE id = ? AND household_id = ?',
+    id,
+    householdId,
+  );
+  if (!owner) return false;
+  await sql.run(
+    'UPDATE signatures SET label = ? WHERE household_id = ? AND label = ?',
+    label,
+    householdId,
+    owner.label,
+  );
+  return true;
+}
+
 export async function deleteSignature(sql: Sql, householdId: string, id: string): Promise<void> {
   await sql.batch([
     {

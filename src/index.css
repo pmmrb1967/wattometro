@@ -1377,6 +1377,7 @@ a.action:hover {
 }
 
 .form input,
+.signature-list input,
 .form select {
   width: 100%;
   min-height: 44px;
@@ -1781,8 +1782,13 @@ a.action:hover {
 
 .signature-list li > div {
   flex: 1;
+  min-width: 0;
   display: grid;
   gap: 2px;
+}
+
+.signature-list .link-button {
+  justify-self: start;
 }
 
 .visually-hidden {

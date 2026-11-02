@@ -820,6 +820,15 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         ? secondsRecords(data, ...signatureRange(found))
         : json({ error: 'not_found' }, 404);
     }
+    if (method === 'PATCH' && !signature[2] && found) {
+      const label = (body as { label?: unknown } | undefined)?.label;
+      if (typeof label !== 'string') return json({ error: 'invalid_request' }, 400);
+      for (const item of demo.signatures) {
+        if (item.label === found.label && item !== found) item.label = label;
+      }
+      found.label = label;
+      return empty();
+    }
     if (method === 'DELETE' && !signature[2]) {
       demo.signatures = demo.signatures.filter((item) => item.id !== id);
       return empty();

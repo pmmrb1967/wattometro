@@ -64,6 +64,8 @@
  *                              (repo/signatures.ts); 404 unknown meter, 409 no_seconds yet
  *   GET  /v1/signatures        → {signatures: [{id, meter, label, from, to, minutes, createdAt}]}
  *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
+ *   PATCH /v1/signatures/:id  {label} → 204: renames every calibration of that appliance;
+ *                              404 not the household's
  *   DELETE /v1/signatures/:id  → 204
  *   GET  /v1/nilm/days?meter&from&to → {days: [{day, version, minutes, data}]}: the cycles the
  *                              browser found on each Lisbon day [from, to] (≤ 400 days), data
@@ -167,6 +169,7 @@ import {
   createSignature,
   deleteSignature,
   listSignatures,
+  renameSignature,
   MAX_SIGNATURE_SECONDS,
   signatureRecords,
 } from './repo/signatures';
@@ -427,6 +430,7 @@ const SignatureBody = z
     to: z.number().int().min(0),
   })
   .refine(({ from, to }) => from < to && to - from <= MAX_SIGNATURE_SECONDS);
+const SignatureRenameBody = z.object({ label: z.string().trim().min(1).max(60) });
 export const MAX_IMPORT_QUARTERS = 3000;
 export const MAX_IMPORT_BYTES = 256 * 1024;
 // 13 months before the current one, plus the current one (src/app/household-energy.ts).
@@ -1185,6 +1189,19 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     if (!records) return c.json({ error: 'not_found' }, 404);
     c.header('Content-Type', 'application/octet-stream');
     return c.body(records.buffer as ArrayBuffer);
+  });
+
+  app.patch('/v1/signatures/:id', requireUser, async (c) => {
+    const parsed = await body(c, SignatureRenameBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { householdId } = c.get('user');
+    const found = await renameSignature(
+      config.sql,
+      householdId,
+      c.req.param('id'),
+      parsed.data.label,
+    );
+    return found ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
   });
 
   app.delete('/v1/signatures/:id', requireUser, async (c) => {

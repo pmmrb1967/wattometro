@@ -29,6 +29,7 @@ import {
   deleteSignature,
   fetchSignatures,
   fetchSignatureSeconds,
+  renameSignature,
   type Signature,
 } from './api';
 import { addAppliance, useAppliances } from './appliances-store';
@@ -88,14 +89,62 @@ function Recognise({ signature, cycle }: { signature: Signature; cycle: Cycle })
   );
 }
 
+/** The name of a calibrated appliance, which changes on all its calibrations. */
+function SignatureName({
+  signature,
+  onRenamed,
+}: {
+  signature: Signature;
+  onRenamed: (label: string) => void;
+}) {
+  const { signOut } = useSession();
+  const [label, setLabel] = useState(signature.label);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = label.trim();
+
+  async function rename() {
+    setBusy(true);
+    setError(null);
+    const outcome = await renameSignature(signature.id, name);
+    setBusy(false);
+    if (outcome.ok) return onRenamed(name);
+    const text = failureText(outcome, t.knownAppliances.failed);
+    if (text === null) return signOut();
+    setError(text);
+  }
+
+  return (
+    <>
+      <label>
+        <span className="visually-hidden">{t.knownAppliances.name}</span>
+        <input
+          value={label}
+          maxLength={60}
+          disabled={busy}
+          onChange={(event) => setLabel(event.target.value)}
+        />
+      </label>
+      {name !== '' && name !== signature.label && (
+        <button type="button" className="link-button" disabled={busy} onClick={() => void rename()}>
+          {t.knownAppliances.rename}
+        </button>
+      )}
+      {error && <span className="error">{error}</span>}
+    </>
+  );
+}
+
 function Library({
   signatures,
   found,
   onRemove,
+  onRename,
 }: {
   signatures: Signature[];
   found: Map<string, Found>;
   onRemove: (signature: Signature) => void;
+  onRename: (signature: Signature, label: string) => void;
 }) {
   if (signatures.length === 0) return <p className="hint">{texts.empty}</p>;
   return (
@@ -104,9 +153,12 @@ function Library({
         // A run without a cycle is null; one not analysed yet is not in the map.
         const cycle = found.has(signature.id) ? (found.get(signature.id) as Found) : 'loading';
         return (
-          <li key={signature.id}>
+          <li key={`${signature.id}:${signature.label}`}>
             <div>
-              <strong>{signature.label}</strong>
+              <SignatureName
+                signature={signature}
+                onRenamed={(label) => onRename(signature, label)}
+              />
               <span className="hint">
                 {formatLisbonDateTime(signature.from)}–{formatLisbonTime(signature.to)}
               </span>
@@ -327,6 +379,9 @@ export function Calibrate() {
     else fail(outcome);
   }
 
+  const renamed = ({ label: old }: Signature, label: string) =>
+    setSignatures((list) => (list ?? []).map((s) => (s.label === old ? { ...s, label } : s)));
+
   const labels = [...new Set((signatures ?? []).map((signature) => signature.label))];
   const labelField = (
     <label>
@@ -486,7 +541,12 @@ export function Calibrate() {
         {signatures === null ? (
           <p className="hint">{t.loading}</p>
         ) : (
-          <Library signatures={signatures} found={found} onRemove={(s) => void remove(s)} />
+          <Library
+            signatures={signatures}
+            found={found}
+            onRemove={(s) => void remove(s)}
+            onRename={renamed}
+          />
         )}
       </section>
 

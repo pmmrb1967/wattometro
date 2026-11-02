@@ -177,6 +177,44 @@ describe('signatures', () => {
     expect(left?.n).toBe(0);
   });
 
+  it('renames every calibration of an appliance, only in its household', async () => {
+    await minutes(0, START, START + 300, 2000);
+    await minutes(1, START, START + 300, 2000);
+    const ana = await signIn(0);
+    const rui = await signIn(1);
+    const meter = `${households[0]!.deviceId}:0`;
+    const mark = async (label: string, from: number, cookie = ana, on = meter) => {
+      const created = await request(cookie, 'POST', '/v1/signatures', {
+        meter: on,
+        label,
+        from,
+        to: from + 60,
+      });
+      return ((await created.json()) as { signature: { id: string } }).signature.id;
+    };
+    const first = await mark('Máquina de lavar', START + 60);
+    await mark('Máquina de lavar', START + 120);
+    await mark('Forno', START + 180);
+    const theirs = await mark('Máquina de lavar', START + 60, rui, `${households[1]!.deviceId}:0`);
+    const put = (cookie: string, id: string, label: string) =>
+      request(cookie, 'PATCH', `/v1/signatures/${id}`, { label });
+    const labels = async (cookie: string) =>
+      (
+        (await (await request(cookie, 'GET', '/v1/signatures')).json()) as {
+          signatures: { label: string }[];
+        }
+      ).signatures.map((signature) => signature.label);
+
+    expect((await put(ana, first, ' Máquina da roupa ')).status).toBe(204);
+    expect((await labels(ana)).sort()).toEqual(['Forno', 'Máquina da roupa', 'Máquina da roupa']);
+    expect(await labels(rui)).toEqual(['Máquina de lavar']);
+
+    expect((await put(rui, first, 'Roubada')).status).toBe(404);
+    expect((await put(ana, theirs, 'Roubada')).status).toBe(404);
+    expect((await put(ana, first, ' ')).status).toBe(400);
+    expect(await labels(rui)).toEqual(['Máquina de lavar']);
+  });
+
   it('saves nothing before the minutes have arrived', async () => {
     const cookie = await signIn();
     const response = await request(cookie, 'POST', '/v1/signatures', {

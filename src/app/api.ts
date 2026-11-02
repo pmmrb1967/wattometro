@@ -549,6 +549,13 @@ export async function fetchSignatureSeconds(
   return failure(response, []);
 }
 
+/** Renames the appliance: every calibration with this one's label. */
+export async function renameSignature(id: string, label: string): Promise<{ ok: true } | Failure> {
+  const response = await send('PATCH', `/v1/signatures/${encodeURIComponent(id)}`, { label });
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
 export async function deleteSignature(id: string): Promise<{ ok: true } | Failure> {
   const response = await send('DELETE', `/v1/signatures/${encodeURIComponent(id)}`);
   if (response?.ok) return { ok: true };

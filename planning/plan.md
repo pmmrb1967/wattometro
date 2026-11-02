@@ -345,6 +345,7 @@ Estudo de 27/10/2026 (Sense, Emporia, Smappee, Ecojoko, Tibber, Homey, Octopus, 
 
 ## Decisões
 
+- 2026-11-02 — **Mudar o nome em "Aparelhos calibrados" muda-o em todas as calibrações com esse nome.** São o mesmo aparelho, e a sugestão de nomes ao calibrar ficaria com os dois. O nome em "Aparelhos que a app reconhece" continua à parte: é outra lista, e uma correção numa não deve mudar a outra sem se ver.
 - 2026-10-29 — Aviso push de dia fora do habitual: o Cron aplica o teste da app (`judgeDay`, extraído de `findAnomalies` e partilhado) aos totais diários de `daily`, não aos quartos de hora (escolha do utilizador: ~85 linhas em vez de ~8 000 por dia, CPU folgada). Sem temperatura no Worker: só nas casas que disseram que ela não conta.
 - 2026-10-29 — Casa só com E-Redes: a Qualidade esconde os resumos quando a casa não tem nenhum Shelly ("0 cortes" lia-se como "não houve cortes", quando nada foi medido). As falhas da E-Redes vêm do `daily` (quartos de hora e estimados por dia), sem ler os 15 min.
 - 2026-10-21 — Nome do projeto: **wattometro** (marca Wattómetro).
