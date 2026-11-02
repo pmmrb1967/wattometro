@@ -63,6 +63,8 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
+        // For link previews only: no phone needs a copy.
+        globIgnores: ['**/og-image.png'],
         // The API shares the origin: never answer it with the app shell.
         navigateFallbackDenylist: [/^\/v1(\/|$)/],
         // Web Push alerts (public/push-sw.js, docs/alerts.md).
