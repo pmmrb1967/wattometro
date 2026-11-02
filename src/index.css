@@ -3070,10 +3070,28 @@ h1,
   margin-bottom: 6px;
 }
 
-/* Tarifários › Carro elétrico: the three figures side by side when there is room. */
+/*
+ * Tarifários › Carro elétrico, Painéis solares: the figures side by side when
+ * there is room. Each field shares three rows with its neighbours (title, box,
+ * hint), so a title on two lines does not push its box out of line. The space
+ * between fields sits under each one: a gap would stay open around the empty
+ * hint row of a field without a hint.
+ */
 .car-inputs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   align-items: start;
-  gap: 12px;
+  gap: 0 12px;
+  margin-bottom: -12px;
+}
+
+.car-inputs > label {
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  gap: 0;
+  margin-bottom: 12px;
+}
+
+.car-inputs > label > * {
+  margin-top: 4px;
 }

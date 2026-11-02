@@ -1618,7 +1618,7 @@ export const t = {
       km: 'Quilómetros por ano',
       consumption: 'Consumo do carro (kWh por 100 km)',
       consumptionHint: 'O que o computador de bordo ou a ficha do carro indicam, por exemplo 16,5.',
-      charger: 'Potência do carregador em kW (opcional)',
+      charger: 'Carregador em kW (opcional)',
       chargerHint: 'Para saber quantas horas carrega por noite.',
       invalid: 'Escreve um número com uma casa decimal no máximo, por exemplo 16,5.',
       perYear: (kwh: string, share: number) =>
@@ -1655,7 +1655,7 @@ export const t = {
       } as Record<string, string>,
       loss: 'Perdas do sistema (%)',
       lossHint: 'Cabos, inversor e sujidade. O PVGIS sugere 14 %.',
-      surplusPrice: 'Preço de venda do excedente, €/kWh (opcional)',
+      surplusPrice: 'Excedente, €/kWh (opcional)',
       surplusPriceHint: 'O que o comercializador te pagaria pela energia que vai para a rede.',
       install: 'Custo da instalação, € (opcional)',
       installHint: 'Para saber em quantos anos se paga.',
