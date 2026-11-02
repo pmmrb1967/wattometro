@@ -70,7 +70,7 @@ function Action({
   kind?: 'saving' | 'cost';
 }) {
   return (
-    <Link to={to} className="action">
+    <Link to={to} className={kind === 'saving' ? 'action saving' : 'action'}>
       <span className="action-title">{title}</span>
       <ActionValue value={value} kind={kind} />
       <span className="action-hint">{hint}</span>

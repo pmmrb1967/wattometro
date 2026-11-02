@@ -25,7 +25,8 @@
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   /* Titles and the amounts that matter (as in Faturómetro); self-hosted, no request out. */
   --font-display: 'Bricolage Grotesque Variable', var(--font);
-  /* One type scale: every size in the app is one of these (the tab bar has its own). */
+  /* One type scale: every size in the app is one of these (the tab bar and the labels
+     inside charts, which scale with them, have their own). */
   --fs-xs: 0.8125rem;
   --fs-sm: 0.875rem;
   --fs-md: 1rem;
@@ -379,7 +380,7 @@ a {
     gap: 12px;
     padding: 10px 12px;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: var(--fs-md);
     text-align: left;
   }
 
@@ -404,7 +405,7 @@ a {
     align-items: center;
     margin-bottom: 8px;
     font: inherit;
-    font-size: 0.95rem;
+    font-size: var(--fs-md);
     color: var(--muted);
     background: none;
     border: 0;
@@ -500,6 +501,11 @@ a {
     gap: 8px;
   }
 
+  /* Several meters are far taller than the boxes: they keep their own height. */
+  .home-boxes.several {
+    align-content: start;
+  }
+
   /* The meter card as tall as the boxes beside it, its parts spread over that height. */
   .home-meters {
     display: flex;
@@ -516,7 +522,8 @@ a {
   }
 
   .home-boxes > *,
-  .home-boxes > .actions > * {
+  .home-boxes > .actions > *,
+  .home-boxes > .action-group {
     margin: 0;
   }
 
@@ -547,6 +554,10 @@ h1 {
 h2 {
   margin: 32px 0 8px;
   font-size: var(--fs-lg);
+}
+
+h3 {
+  font-size: var(--fs-md);
 }
 
 .card h2 {
@@ -587,7 +598,7 @@ h2 {
 .landing-title {
   margin: 8px 0 0;
   font-size: clamp(2rem, 7vw, 3.25rem);
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.02em;
   text-wrap: balance;
@@ -786,7 +797,7 @@ h2 {
   margin: 0 0 24px;
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 4vw, 2rem);
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: -0.015em;
 }
 
@@ -897,8 +908,8 @@ h2 {
   grid-row: span 2;
   color: var(--accent);
   font-family: var(--font-display);
-  font-size: 2.5rem;
-  font-weight: 800;
+  font-size: var(--fs-display);
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -971,6 +982,56 @@ a.action:hover {
 .action-value small {
   font-size: var(--fs-xs);
   font-weight: 600;
+}
+
+/* A saving is what the app is for: it stands out from the boxes around it. */
+.action.saving {
+  grid-template-columns: 1fr;
+  border-color: transparent;
+  background: var(--accent-soft);
+}
+
+.action.saving .action-value {
+  font-size: var(--fs-hero);
+  line-height: 1.2;
+}
+
+/* On the soft background the small word needs more contrast than the green gives. */
+.action.saving .action-value small {
+  color: var(--text);
+}
+
+/* Today's figures: lines of one box, quieter than a saving. */
+.action-group {
+  display: grid;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.action-group:empty {
+  display: none;
+}
+
+.action-group .actions {
+  gap: 0;
+  margin: 0;
+}
+
+.action-group .action {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.action-group .actions + .actions,
+.action-group .action + .action {
+  border-top: 1px solid var(--border);
+}
+
+.action-group a.action:hover .action-title {
+  color: var(--accent);
 }
 
 .action-hint {
@@ -1130,7 +1191,7 @@ a.action:hover {
   position: absolute;
   top: 16px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -1659,6 +1720,30 @@ a.action:hover {
   .chat-launcher {
     right: 24px;
     bottom: 24px;
+  }
+
+  /* At the foot of the side menu it covers nothing. Too short a window (a phone on its
+     side) has no room there: the button stays in the corner. */
+  @media (min-height: 560px) {
+    .has-nav .chat-launcher {
+      right: auto;
+      bottom: 16px;
+      left: 12px;
+    }
+
+    .has-nav.is-nav-collapsed .chat-launcher {
+      left: 8px;
+      padding: 12px;
+    }
+
+    .has-nav.is-nav-collapsed .chat-launcher span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
 
   .chat-panel {
@@ -2455,7 +2540,7 @@ a.button-link {
     content: attr(data-label);
     display: block;
     color: var(--muted);
-    font-size: 0.75rem;
+    font-size: var(--fs-xs);
     font-weight: 400;
   }
 
@@ -2683,7 +2768,7 @@ a.button-link {
 .compare-amount {
   margin: 0;
   font-size: var(--fs-hero);
-  font-weight: 760;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -2864,6 +2949,8 @@ a.button-link {
 
 /* Titles and the amounts that matter in the display face. */
 h1,
+h2,
+h3,
 .landing-title,
 .brand,
 .big,
@@ -3068,6 +3155,24 @@ h1,
 .social-benefits legend {
   font-weight: 600;
   margin-bottom: 6px;
+}
+
+/* Consumo: which meter, one quiet line under the page's introduction. */
+.meter-line {
+  margin-top: 16px;
+}
+
+.meter-line label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.meter-line select {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
 }
 
 /*

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * "Perguntar à IA" on every page (except Definições): a button in the
- * bottom right corner opens the chat in a panel (the whole screen on phones).
+ * "Perguntar à IA" on every page (except Definições): a button (at the foot of
+ * the side menu, or in the corner on phones) opens the chat in a panel (the
+ * whole screen on phones).
  * The conversation stays while the user moves between pages; the panel and its
  * data are only loaded on the first opening. "/perguntar" opens it on Início.
  */

@@ -151,9 +151,9 @@ export function Consumption() {
     <>
       {header}
       {energy.choices.length > 1 && (
-        <section className="card form">
+        <div className="form meter-line">
           <MeterSelect energy={energy} label={t.tariffs.meter} />
-        </section>
+        </div>
       )}
       {!quarters && <p className="hint">{t.loading}</p>}
       {quarters && (

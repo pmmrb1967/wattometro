@@ -75,8 +75,8 @@ function TodayCost({ meter, tariff }: { meter: Meter; tariff: Tariff | null }) {
 }
 
 /**
- * Today's cost and peak as boxes like "Onde podes poupar", in the left column:
- * for the household's only meter (with several, each card keeps its own).
+ * Today's cost and peak as lines of one box, under the month's forecast: for
+ * the household's only meter (with several, each card keeps its own).
  */
 function TodayBoxes({ meter, tariff }: { meter: Meter; tariff: Tariff | null | undefined }) {
   const { today } = meter;
@@ -315,6 +315,7 @@ export function Home() {
     tariffs === undefined || tariffs === null || nowTs === null
       ? undefined
       : tariffOn(tariffs, lisbonDate(nowTs));
+  const several = now !== null && now !== 'unavailable' && now.meters.length > 1;
 
   return (
     <>
@@ -345,17 +346,19 @@ export function Home() {
 
           <AnomalyCard energy={energy} />
         </div>
-        <div className="home-column home-boxes">
+        <div className={several ? 'home-column home-boxes several' : 'home-column home-boxes'}>
           {now !== null && now !== 'unavailable' && (
             <>
               <DatabaseWarning database={now.database} />
             </>
           )}
           <HomeActions energy={energy} />
-          <BillForecastCard energy={energy} />
-          {now !== null && now !== 'unavailable' && now.meters.length === 1 && (
-            <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
-          )}
+          <div className="action-group">
+            <BillForecastCard energy={energy} />
+            {now !== null && now !== 'unavailable' && now.meters.length === 1 && (
+              <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
+            )}
+          </div>
           {/* Every amount in euros here (actions, forecast, today's cost) includes VAT. */}
           {todayTariff && <p className="hint home-vat">{t.home.vatNote}</p>}
         </div>
