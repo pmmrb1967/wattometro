@@ -1758,6 +1758,13 @@ a.action:hover {
   }
 }
 
+/* "Ao segundo": the day and the order side by side, if "Hoje (até agora)" still fits. */
+.day-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
 /* "Calibrar aparelhos": the two times side by side; the kept runs as a list. */
 .calibrate-times {
   display: grid;

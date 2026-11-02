@@ -1130,6 +1130,8 @@ export const t = {
     nameFailed: 'Não foi possível guardar o nome. Tenta outra vez.',
     tooMany: 'Já há aparelhos a mais com nome. Apaga algum em "Calibrar aparelhos".',
     day: 'Dia',
+    orderBy: 'Ordenar por',
+    orders: { cost: 'Custo', time: 'Hora', power: 'Potência', duration: 'Duração' },
     today: 'Hoje (até agora)',
     error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
     none: 'Não há valores ao segundo deste dia.',

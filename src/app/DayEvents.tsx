@@ -23,6 +23,7 @@ import {
 import { formatKwh, formatPower } from '../lib/units';
 import { confusable, describeGroup, groupAppliance } from '../nilm/appliances';
 import { tariffOn, type TariffInput } from '../domain/tariff';
+import { GROUP_ORDERS, parseGroupOrder, sortGroups, type GroupOrder } from '../nilm/group-order';
 import { formatCents } from '../lib/money';
 import {
   analyseDay,
@@ -93,6 +94,25 @@ function FridgeLine({
 
 /** Below this, groups sit near the detector's floor (MIN_STEP_W) and the house's own noise. */
 const RELIABLE_W = 60;
+
+const ORDER_KEY = 'wattometro.dayEvents.order';
+
+/** The order last chosen on this browser. */
+function loadOrder(): GroupOrder {
+  try {
+    return parseGroupOrder(localStorage.getItem(ORDER_KEY));
+  } catch {
+    return parseGroupOrder(null);
+  }
+}
+
+function saveOrder(order: GroupOrder): void {
+  try {
+    localStorage.setItem(ORDER_KEY, order);
+  } catch {
+    // Not kept on this device; the order still applies while the page is open.
+  }
+}
 
 /**
  * "Dar nome": names a group; the name then applies to every cycle that fits, on
@@ -222,6 +242,12 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
   const known = useAppliances(me.householdId);
   // The group being named: its first cycle's start.
   const [naming, setNaming] = useState<number | null>(null);
+  const [order, setOrder] = useState<GroupOrder>(loadOrder);
+
+  function chooseOrder(next: GroupOrder) {
+    setOrder(next);
+    saveOrder(next);
+  }
 
   useEffect(() => {
     if (!meter) return;
@@ -247,18 +273,16 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
     [result, appliances, tariff],
   );
 
-  // The dearest first (the most energy without a tariff).
   const groups = useMemo(() => {
     if (!result) return [];
-    return result.groups
-      .map((group) => ({
+    return sortGroups(
+      result.groups.map((group) => ({
         group,
         costCents: tariff ? groupCostCents(group, result, tariff) : null,
-      }))
-      .sort(
-        (a, b) => (b.costCents ?? 0) - (a.costCents ?? 0) || b.group.energyWh - a.group.energyWh,
-      );
-  }, [result, tariff]);
+      })),
+      order,
+    );
+  }, [result, tariff, order]);
 
   if (!meter || days.length === 0) return null;
   const pending = !loaded || loaded.day !== day;
@@ -270,16 +294,31 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
       <p>
         <Link to="/consumo/calibrar">{t.calibrate.open}</Link>
       </p>
-      <label>
-        {texts.day}
-        <select value={day} onChange={(event) => setDay(event.target.value)}>
-          {days.map((item) => (
-            <option key={item} value={item}>
-              {item === today ? texts.today : formatLocalDate(item)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="day-controls">
+        <label>
+          {texts.day}
+          <select value={day} onChange={(event) => setDay(event.target.value)}>
+            {days.map((item) => (
+              <option key={item} value={item}>
+                {item === today ? texts.today : formatLocalDate(item)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {texts.orderBy}
+          <select
+            value={order}
+            onChange={(event) => chooseOrder(parseGroupOrder(event.target.value))}
+          >
+            {GROUP_ORDERS.map((item) => (
+              <option key={item} value={item}>
+                {texts.orders[item]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {pending && <p className="hint">{t.loading}</p>}
       {!pending && loaded && 'error' in loaded && <p className="error">{texts.error}</p>}
       {!pending && result && result.minutes === 0 && <p>{texts.none}</p>}
