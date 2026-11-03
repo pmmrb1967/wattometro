@@ -38,6 +38,17 @@ function load(householdId: string) {
   });
 }
 
+/** Loads them again: an equipment renamed or linked changed their names (equipment-store.ts). */
+export function reloadAppliances(householdId: string) {
+  if (household !== householdId) return;
+  // Without the loading state: the pages keep showing the old list until the new one comes.
+  void fetchAppliances().then((outcome) => {
+    if (household === householdId && outcome.ok) {
+      set({ kind: 'ready', appliances: outcome.appliances });
+    }
+  });
+}
+
 const ready = () => (state.kind === 'ready' ? state.appliances : []);
 
 /**

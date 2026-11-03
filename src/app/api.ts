@@ -6,6 +6,7 @@ import { demoResponse } from '../demo/server';
 import { isLocal } from '../local/mode';
 import { localResponse } from '../local/server';
 import { alwaysOnItemSchema, type AlwaysOnInput, type AlwaysOnItem } from '../domain/always-on';
+import { equipmentSchema, type Equipment, type EquipmentInput } from '../domain/equipment';
 import { parsePvgis, type SolarYear } from '../domain/solar';
 import { OFFERS_URL, offersFileSchema, type OffersFile } from '../domain/erse';
 import { OMIE_URL, omieFileSchema, type OmieFile } from '../domain/omie';
@@ -572,6 +573,8 @@ const Appliance = z.object({
   maxDurationS: int.nullable(),
   // Missing from a server before migration 0018 (a cached response).
   heats: int.nullable().default(null),
+  // Missing from a server before migration 0026 (a cached response).
+  equipmentId: z.string().nullable().default(null),
   createdAt: int,
 });
 export type Appliance = z.infer<typeof Appliance>;
@@ -718,6 +721,76 @@ export async function updateAlwaysOn(
 
 export async function deleteAlwaysOn(id: string): Promise<{ ok: true } | Failure> {
   const response = await send('DELETE', `/v1/always-on/${encodeURIComponent(id)}`);
+  if (response?.ok) return { ok: true };
+  return failure(response, []);
+}
+
+/** Another equipment of the household has this name (any case). */
+export type NameTaken = { ok: false; reason: 'nameTaken' };
+
+const NameTakenBody = z.object({ error: z.literal('name_taken') });
+
+/** Whether a 409 answer says the name is taken (read from a clone: failure() may read it too). */
+async function isNameTaken(response: Response | null): Promise<boolean> {
+  if (response?.status !== 409) return false;
+  return NameTakenBody.safeParse(
+    await response
+      .clone()
+      .json()
+      .catch(() => null),
+  ).success;
+}
+
+/** The house's equipment (server/src/repo/equipment.ts), by name. */
+export async function fetchEquipment(): Promise<{ ok: true; items: Equipment[] } | Failure> {
+  const response = await send('GET', '/v1/equipment');
+  if (response?.ok) {
+    const { items } = z.object({ items: z.array(equipmentSchema) }).parse(await response.json());
+    return { ok: true, items };
+  }
+  return failure(response, []);
+}
+
+export async function createEquipment(
+  input: EquipmentInput,
+): Promise<{ ok: true; item: Equipment } | NameTaken | Failure> {
+  const response = await send('POST', '/v1/equipment', input);
+  if (response?.ok) {
+    return {
+      ok: true,
+      item: z.object({ item: equipmentSchema }).parse(await response.json()).item,
+    };
+  }
+  if (await isNameTaken(response)) return { ok: false, reason: 'nameTaken' };
+  return failure(response, [400, 409]);
+}
+
+/** A new name renames the appliances linked to it and their calibrations. */
+export async function updateEquipment(
+  id: string,
+  input: EquipmentInput,
+): Promise<{ ok: true } | NameTaken | Failure> {
+  const response = await send('PUT', `/v1/equipment/${encodeURIComponent(id)}`, input);
+  if (response?.ok) return { ok: true };
+  if (await isNameTaken(response)) return { ok: false, reason: 'nameTaken' };
+  return failure(response, [400, 404]);
+}
+
+/** Links the appliances of these names (any case); they take the equipment's name. */
+export async function linkEquipment(
+  id: string,
+  labels: readonly string[],
+): Promise<{ ok: true } | Failure> {
+  const response = await send('POST', `/v1/equipment/${encodeURIComponent(id)}/link`, {
+    labels,
+  });
+  if (response?.ok) return { ok: true };
+  return failure(response, [400, 404]);
+}
+
+/** The linked appliances stay, unlinked. */
+export async function deleteEquipment(id: string): Promise<{ ok: true } | Failure> {
+  const response = await send('DELETE', `/v1/equipment/${encodeURIComponent(id)}`);
   if (response?.ok) return { ok: true };
   return failure(response, []);
 }
