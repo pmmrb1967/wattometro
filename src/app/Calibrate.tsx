@@ -33,6 +33,7 @@ import {
   type Signature,
 } from './api';
 import { addAppliance, useAppliances } from './appliances-store';
+import { nameKey } from '../domain/equipment';
 import { uncalibrated } from '../domain/equipment-suggest';
 import { useEquipment } from './equipment-store';
 import { KnownAppliances } from './KnownAppliances';
@@ -242,6 +243,7 @@ function Uncalibrated({ householdId }: { householdId: string }) {
 export function Calibrate() {
   const { me, signOut } = useSession();
   const appliances = useAppliances(me.householdId);
+  const register = useEquipment(me.householdId);
   const linkedLabels = useMemo(
     () =>
       new Set(
@@ -433,7 +435,15 @@ export function Calibrate() {
   const renamed = ({ label: old }: Signature, label: string) =>
     setSignatures((list) => (list ?? []).map((s) => (s.label === old ? { ...s, label } : s)));
 
-  const labels = [...new Set((signatures ?? []).map((signature) => signature.label))];
+  // The names already calibrated, then the registered equipment not among them.
+  const calibrated = [...new Set((signatures ?? []).map((signature) => signature.label))];
+  const keys = new Set(calibrated.map(nameKey));
+  const labels = [
+    ...calibrated,
+    ...(register.kind === 'ready' ? register.items : [])
+      .map((item) => item.name)
+      .filter((name) => !keys.has(nameKey(name))),
+  ];
   const labelField = (
     <label>
       {texts.appliance}

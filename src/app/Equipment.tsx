@@ -10,6 +10,7 @@ import {
   EQUIPMENT_KINDS,
   equipmentInputSchema,
   fitsPlate,
+  MAX_EQUIPMENT,
   nameKey,
   PROGRAMME_KINDS,
   type Equipment,
@@ -19,51 +20,15 @@ import {
 } from '../domain/equipment';
 import { t } from '../i18n/pt-PT';
 import { isLocal } from '../local/mode';
-import { formatHoursMinutes, parseHoursMinutes } from '../lib/time';
-import { formatKwhField, formatPower, parseKwhToWh } from '../lib/units';
+import { formatPower } from '../lib/units';
 import type { Appliance } from './api';
 import { useAppliances } from './appliances-store';
 import { EquipmentUses } from './EquipmentUses';
 import { linkAppliances, removeEquipment, saveEquipment, useEquipment } from './equipment-store';
+import { EMPTY_ROW, programmeOf, rowOf, type ProgrammeRow } from './programme-row';
 import { failureText, useSession } from './session';
 
 const texts = t.equipment;
-
-/** A programme as typed: text until it is saved. */
-interface ProgrammeRow {
-  name: string;
-  duration: string;
-  energy: string;
-  temperature: string;
-  load: string;
-}
-
-const rowOf = (programme: Programme): ProgrammeRow => ({
-  name: programme.name,
-  duration: formatHoursMinutes(programme.durationS),
-  energy: formatKwhField(programme.energyWh),
-  temperature: programme.temperatureC === null ? '' : String(programme.temperatureC),
-  load: programme.loadKg === null ? '' : String(programme.loadKg).replace('.', ','),
-});
-
-const optionalNumber = (text: string): number | null => {
-  const trimmed = text.trim().replace(',', '.');
-  return trimmed === '' ? null : Number(trimmed);
-};
-
-/** The row as a programme; null when it is not one. */
-function programmeOf(row: ProgrammeRow): Programme | null {
-  const durationS = parseHoursMinutes(row.duration);
-  const energyWh = parseKwhToWh(row.energy);
-  if (row.name.trim() === '' || durationS === null || energyWh === null) return null;
-  return {
-    name: row.name.trim(),
-    durationS,
-    energyWh,
-    temperatureC: optionalNumber(row.temperature),
-    loadKg: optionalNumber(row.load),
-  };
-}
 
 const text = (value: string | null) => value ?? '';
 const orNull = (value: string) => (value.trim() === '' ? null : value.trim());
@@ -130,6 +95,10 @@ function EquipmentForm({
     }
     if (outcome.reason === 'nameTaken') {
       setError(texts.nameTaken);
+      return;
+    }
+    if (outcome.reason === 'tooMany') {
+      setError(texts.tooMany(MAX_EQUIPMENT));
       return;
     }
     const message = failureText(outcome, texts.failed);
@@ -327,12 +296,7 @@ function EquipmentForm({
               type="button"
               className="secondary"
               disabled={busy || rows.length >= 20}
-              onClick={() =>
-                setRows((current) => [
-                  ...current,
-                  { name: '', duration: '', energy: '', temperature: '', load: '' },
-                ])
-              }
+              onClick={() => setRows((current) => [...current, EMPTY_ROW])}
             >
               {texts.programmes.add}
             </button>

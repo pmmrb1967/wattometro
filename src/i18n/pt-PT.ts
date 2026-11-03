@@ -1184,6 +1184,7 @@ export const t = {
       `Apagar "${name}"? Os aparelhos ligados continuam a ser reconhecidos, com o mesmo nome.`,
     failed: 'Não foi possível guardar. Tenta outra vez.',
     nameTaken: 'Já tens um equipamento com esse nome.',
+    tooMany: (max: number) => `Já tens ${max} equipamentos, o máximo do registo.`,
     fields: {
       name: 'Nome',
       namePlaceholder: 'Máquina da roupa',
@@ -1231,7 +1232,8 @@ export const t = {
       load: 'kg',
       add: 'Acrescentar programa',
       remove: 'Tirar',
-      invalid: 'Cada programa precisa de nome, duração em h:mm (1:21) e energia em kWh (0,458).',
+      invalid:
+        'Cada programa precisa de nome, duração em h:mm (1:21) e energia em kWh (0,458); a temperatura em graus inteiros e a carga em kg de meio em meio (4,5).',
     },
     linked: {
       title: 'Aparelhos reconhecidos',
@@ -1262,6 +1264,7 @@ export const t = {
       caveat:
         'O manual mede em condições de ensaio: a carga e a temperatura da água mudam o consumo.',
       loading: 'A procurar os usos…',
+      failed: 'Não foi possível ler os dias guardados. Tenta mais tarde.',
     },
     settingsTitle: 'Equipamentos da casa',
     settingsText:

@@ -34,27 +34,41 @@ function Uses({
   appliances: Appliance[];
   meter: string;
 }) {
-  const [found, setFound] = useState<{ key: string; uses: ProgrammeUse[] } | null>(null);
+  const [found, setFound] = useState<{ key: string; uses: ProgrammeUse[] | 'failed' } | null>(null);
   const linked = appliances.filter((appliance) => appliance.equipmentId === item.id);
-  // What changes the result: the meter, the appliances linked and the manual.
-  const key = JSON.stringify([meter, linked.map((appliance) => appliance.id), item.programmes]);
+  // What changes the result: the meter, every appliance (classify picks the
+  // closest of them all, linked or not) and the manual.
+  const key = JSON.stringify([
+    meter,
+    appliances.map((appliance) => [
+      appliance.id,
+      appliance.equipmentId,
+      appliance.minDurationS,
+      appliance.maxDurationS,
+    ]),
+    item.programmes,
+  ]);
   const uses = found?.key === key ? found.uses : null;
 
   useEffect(() => {
     let current = true;
     const today = lisbonToday();
-    void storedAnalyses(meter, addDays(today, -USES_DAYS), today).then((days) => {
-      if (!current) return;
-      const ids = new Set(linked.map((appliance) => appliance.id));
-      const cycles = [...days.values()].flatMap((day) => {
-        const named = classify(day.cycles, appliances);
-        return day.cycles.filter((cycle) => {
-          const appliance = named.get(cycle.start);
-          return appliance !== undefined && ids.has(appliance.id);
+    void storedAnalyses(meter, addDays(today, -USES_DAYS), today)
+      .then((days) => {
+        if (!current) return;
+        const ids = new Set(linked.map((appliance) => appliance.id));
+        const cycles = [...days.values()].flatMap((day) => {
+          const named = classify(day.cycles, appliances);
+          return day.cycles.filter((cycle) => {
+            const appliance = named.get(cycle.start);
+            return appliance !== undefined && ids.has(appliance.id);
+          });
         });
+        setFound({ key, uses: programmeUses(cycles, item.programmes) });
+      })
+      .catch(() => {
+        if (current) setFound({ key, uses: 'failed' });
       });
-      setFound({ key, uses: programmeUses(cycles, item.programmes) });
-    });
     return () => {
       current = false;
     };
@@ -63,6 +77,7 @@ function Uses({
   }, [key]);
 
   if (uses === null) return <p className="hint">{texts.loading}</p>;
+  if (uses === 'failed') return <p className="error">{texts.failed}</p>;
   if (uses.length === 0) return <p>{texts.none}</p>;
   const average = averageDifferencePct(uses);
   return (
