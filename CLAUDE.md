@@ -107,6 +107,7 @@ wattometro/
 - `daily` — por contador e dia de Lisboa: energia, potência máxima, tensão mín./máx.; energia por período horário e consumo base na Fase 3.
 - `maintenance_state` — progresso do Cron (até onde agregou, última purga, tamanho da base).
 - `voltage_10m` — tensão por 10 min (Cron), para a NP EN 50160; `outages` — um registo por arranque do Shelly (o script envia a hora de arranque); episódios de tensão e conformidade calculados no browser (`src/domain/voltage.ts`). Zona de qualidade de serviço em `households.quality_zone`.
+- `equipment` — registo opcional dos equipamentos da casa (nome único por casa, potência da chapa, programas do manual em JSON); `appliances.equipment_id` liga os aparelhos reconhecidos, que ficam com o nome do equipamento (`docs/equipment.md`).
 - `tariffs` — tarifário da casa (opção horária, ciclo, mapa de períodos, potência em VA, preços sem IVA em **micro-euros inteiros**, taxas da fatura, data de início).
 
 Orçamento de armazenamento no plano gratuito: **500 MB por base D1**. `readings_1m` ≈ 50–80 MB por ano por dispositivo; `readings_1s` ≈ 0,5 MB por dia (361 bytes por minuto), ou seja, ≈ 47 MB com 90 dias de retenção. Os dados ao segundo **não aumentam o número de pedidos nem de linhas escritas** (vão no mesmo pedido e na mesma linha por minuto). Se o tamanho se aproximar do limite, mover `readings_1s` (e depois `readings_1m`) para uma base separada (padrão já usado no Faturómetro com `FILES`).
