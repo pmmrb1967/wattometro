@@ -99,6 +99,21 @@ export function parsePtTenths(text: string): number | null {
   return Number(match[1]) * 10 + Number(match[2] ?? 0);
 }
 
+/** "0,458" (or "0.458", "2") kWh → 458 Wh; null unless non-negative with three decimals at most. */
+export function parseKwhToWh(text: string): Wh | null {
+  const match = /^\s*(\d{1,3})(?:[.,](\d{1,3}))?\s*$/.exec(text);
+  if (!match) return null;
+  return Number(match[1]) * 1000 + Number((match[2] ?? '').padEnd(3, '0'));
+}
+
+/** Wh as a kWh field holds them (458 → "0,458"). */
+export function formatKwhField(wh: Wh): string {
+  assertInteger(wh, 'Wh');
+  return decimal(3)
+    .format(wh / 1000)
+    .replace(/\s/g, '');
+}
+
 /** A power held for one hour (PVGIS's hourly PV power, docs/pvgis.md) as whole Wh. */
 export function hourWh(watts: number): Wh {
   return Math.max(0, Math.round(watts));

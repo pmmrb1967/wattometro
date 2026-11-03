@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  formatKwhField,
+  parseKwhToWh,
   formatCelsius,
   formatKva,
   parsePtTenths,
@@ -97,5 +99,26 @@ describe('parsePtTenths', () => {
     expect(parsePtTenths('16,55')).toBeNull();
     expect(parsePtTenths('-3')).toBeNull();
     expect(parsePtTenths('abc')).toBeNull();
+  });
+});
+
+describe('parseKwhToWh', () => {
+  it('reads kWh as the manual writes them, to whole Wh', () => {
+    expect(parseKwhToWh('0,458')).toBe(458);
+    expect(parseKwhToWh(' 1.011 ')).toBe(1011);
+    expect(parseKwhToWh('2')).toBe(2000);
+    expect(parseKwhToWh('0,5')).toBe(500);
+  });
+
+  it('refuses what is not a kWh with three decimals at most', () => {
+    expect(parseKwhToWh('')).toBeNull();
+    expect(parseKwhToWh('0,4581')).toBeNull();
+    expect(parseKwhToWh('-1')).toBeNull();
+    expect(parseKwhToWh('abc')).toBeNull();
+  });
+
+  it('writes Wh back for the field', () => {
+    expect(formatKwhField(458)).toBe('0,458');
+    expect(formatKwhField(2000)).toBe('2,000');
   });
 });

@@ -3219,3 +3219,54 @@ h3,
 .car-inputs > label > * {
   margin-top: 4px;
 }
+
+/* "Equipamentos": the form's short fields side by side, a programme per row. */
+.equipment-form {
+  display: grid;
+  gap: 12px;
+}
+
+.equipment-form h2 {
+  margin: 0;
+}
+
+.equipment-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 12px;
+}
+
+.programmes,
+.link-choices {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.programmes legend,
+.link-choices legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.programme-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  align-items: end;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.programme-row .programme-name {
+  grid-column: 1 / -1;
+}
+
+.programme-row .link-button {
+  justify-self: start;
+  min-height: 44px;
+}

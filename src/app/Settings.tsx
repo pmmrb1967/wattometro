@@ -129,6 +129,17 @@ function PasswordForm() {
 const GROUPS = t.settings.groups;
 
 /** The local mode's settings: no account, no Shelly, no alerts; the data in this browser. */
+/** The register of the house's equipment lives on its own page (Equipment.tsx). */
+function EquipmentSection() {
+  return (
+    <section className="card">
+      <h2>{t.equipment.settingsTitle}</h2>
+      <p>{t.equipment.settingsText}</p>
+      <Link to="/equipamentos">{t.equipment.settingsLink}</Link>
+    </section>
+  );
+}
+
 function LocalSettings() {
   const groups = GROUPS.filter(([id]) => id !== 'avisos').map(([id, name]) =>
     id === 'conta' ? ([id, t.local.lookGroup] as const) : ([id, name] as const),
@@ -167,6 +178,7 @@ function LocalSettings() {
       <SettingsGroup id="casa" name={GROUPS[4][1]}>
         <LocationSection />
         <InstallationSection />
+        <EquipmentSection />
       </SettingsGroup>
       <SettingsGroup id="conta" name={t.local.lookGroup}>
         <ThemeSection />
@@ -212,6 +224,7 @@ function AccountSettings() {
         <HouseholdForm />
         <LocationSection />
         <InstallationSection />
+        <EquipmentSection />
       </SettingsGroup>
       <SettingsGroup id="conta" name={GROUPS[5][1]}>
         <section className="card">

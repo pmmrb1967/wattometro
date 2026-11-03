@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  formatHoursMinutes,
+  parseHoursMinutes,
   startOfMadridDay,
   eredesQuarterStart,
   lisbonLocalTime,
@@ -172,5 +174,25 @@ describe('startOfMadridDay', () => {
   it('is one hour before Lisbon midnight, in winter and in summer', () => {
     expect(startOfMadridDay('2026-01-06')).toBe(Date.parse('2026-01-05T23:00:00Z') / 1000);
     expect(startOfMadridDay('2026-07-06')).toBe(Date.parse('2026-07-05T22:00:00Z') / 1000);
+  });
+});
+
+describe('parseHoursMinutes', () => {
+  it('reads h:mm as the manual writes it', () => {
+    expect(parseHoursMinutes('1:21')).toBe(4860);
+    expect(parseHoursMinutes(' 3:48 ')).toBe(13_680);
+    expect(parseHoursMinutes('0:14')).toBe(840);
+  });
+
+  it('refuses minutes past 59 and other text', () => {
+    expect(parseHoursMinutes('1:60')).toBeNull();
+    expect(parseHoursMinutes('1:5')).toBeNull();
+    expect(parseHoursMinutes('90')).toBeNull();
+    expect(parseHoursMinutes('')).toBeNull();
+  });
+
+  it('writes seconds back as h:mm', () => {
+    expect(formatHoursMinutes(4860)).toBe('1:21');
+    expect(formatHoursMinutes(840)).toBe('0:14');
   });
 });

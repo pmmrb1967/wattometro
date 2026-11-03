@@ -19,6 +19,8 @@ const WEEKDAYS_PLURAL = [
   'domingos',
 ];
 
+import type { EquipmentKind } from '../domain/equipment';
+
 export const t = {
   appName: 'Wattómetro',
   loading: 'A carregar…',
@@ -1149,6 +1151,91 @@ export const t = {
     intro:
       'O que cada aparelho reconhecido gasta e custa, e os valores ao segundo de um dia, onde dás nome aos aparelhos.',
     noShelly: 'Só com um Shelly no quadro: os aparelhos reconhecem-se pelos valores ao segundo.',
+    equipmentLink: 'Os teus equipamentos',
+  },
+  equipment: {
+    title: 'Equipamentos',
+    intro:
+      'Opcional. Ajuda a app a reconhecer os aparelhos nas medições: o nome, a divisão e a potência da chapa já chegam.',
+    listTitle: 'Os teus equipamentos',
+    empty:
+      'Ainda não registaste nenhum equipamento. Começa pelos que mais gastam: máquinas, forno, aquecedores.',
+    add: 'Registar um equipamento',
+    newTitle: 'Novo equipamento',
+    edit: 'Editar',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    remove: 'Apagar equipamento',
+    confirmRemove: (name: string) =>
+      `Apagar "${name}"? Os aparelhos ligados continuam a ser reconhecidos, com o mesmo nome.`,
+    failed: 'Não foi possível guardar. Tenta outra vez.',
+    nameTaken: 'Já tens um equipamento com esse nome.',
+    fields: {
+      name: 'Nome',
+      namePlaceholder: 'Máquina da roupa',
+      kind: 'Tipo',
+      noKind: 'Sem tipo',
+      brand: 'Marca',
+      model: 'Modelo',
+      room: 'Divisão',
+      roomPlaceholder: 'Cozinha',
+      ratedPower: 'Potência da chapa (W)',
+      ratedPowerHint:
+        'A da etiqueta na parte de trás ou no manual. É um máximo: a medida costuma ficar abaixo.',
+      energyClass: 'Classe energética',
+      noClass: 'Sem classe',
+      notes: 'Notas',
+    },
+    kinds: {
+      washer: 'Máquina de lavar roupa',
+      dishwasher: 'Máquina de lavar loiça',
+      dryer: 'Máquina de secar',
+      fridge: 'Frigorífico',
+      freezer: 'Arca congeladora',
+      oven: 'Forno',
+      hob: 'Placa ou fogão',
+      microwave: 'Micro-ondas',
+      airfryer: 'Airfryer',
+      kettle: 'Chaleira',
+      coffee: 'Máquina de café',
+      heater: 'Aquecedor',
+      air_conditioner: 'Ar condicionado',
+      water_heater: 'Termoacumulador',
+      ev_charger: 'Carregador de carro',
+      tv: 'Televisão',
+      computer: 'Computador',
+      other: 'Outro',
+    } satisfies Record<EquipmentKind, string>,
+    programmes: {
+      title: 'Programas do manual',
+      intro:
+        'A tabela do manual com a duração e a energia de cada programa. A app diz qual foi o programa provável de cada lavagem e compara a energia com a do manual.',
+      name: 'Programa',
+      duration: 'Duração (h:mm)',
+      energy: 'Energia (kWh)',
+      temperature: '°C',
+      load: 'kg',
+      add: 'Acrescentar programa',
+      remove: 'Tirar',
+      invalid: 'Cada programa precisa de nome, duração em h:mm (1:21) e energia em kWh (0,458).',
+    },
+    linked: {
+      title: 'Aparelhos reconhecidos',
+      intro:
+        'Os aparelhos que a app reconhece nas medições e são este equipamento. Ligados, passam a ter o nome dele; os níveis (um botão ou dois) distinguem-se pela potência.',
+      none: 'Nenhum aparelho reconhecido ligado.',
+      choose: 'Ligar aparelhos reconhecidos',
+      sameName: 'mesmo nome',
+      overPlate: 'acima da chapa',
+      link: 'Ligar',
+      noneToLink: 'Não há aparelhos reconhecidos por ligar. Dá-lhes nome em Consumo › Aparelhos.',
+      noShelly: 'Com um Shelly no quadro, a app reconhece os aparelhos e liga-os aos equipamentos.',
+    },
+    summary: (parts: string[]) => parts.join(' · '),
+    settingsTitle: 'Equipamentos da casa',
+    settingsText:
+      'O registo dos equipamentos que tens em casa, opcional. Ajuda a reconhecer os aparelhos nas medições.',
+    settingsLink: 'Ver os equipamentos',
   },
   calibrate: {
     title: 'Calibrar aparelhos',

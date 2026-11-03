@@ -178,6 +178,19 @@ export function lisbonToday(): LocalDate {
   return lisbonDate(Math.floor(Date.now() / 1000));
 }
 
+/** "1:21" (h:mm, as a manual writes a programme) → 4860 s; null unless whole hours and two-digit minutes. */
+export function parseHoursMinutes(text: string): number | null {
+  const match = /^\s*(\d{1,2}):([0-5]\d)\s*$/.exec(text);
+  if (!match) return null;
+  return Number(match[1]) * HOUR + Number(match[2]) * MINUTE;
+}
+
+/** Seconds as h:mm (4860 → "1:21"), the minutes rounded down. */
+export function formatHoursMinutes(seconds: number): string {
+  assertEpoch(seconds);
+  return `${Math.floor(seconds / HOUR)}:${pad(Math.floor((seconds % HOUR) / MINUTE))}`;
+}
+
 /** A duration as shown to the user (e.g. 45 → "45 s", 200 → "3 min 20 s", 7500 → "2 h 05 min"). */
 export function formatDuration(seconds: number): string {
   assertEpoch(seconds);
