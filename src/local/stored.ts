@@ -20,6 +20,8 @@ export type LocalMigrations = Record<number, (old: Fields) => Fields>;
 const MIGRATIONS: LocalMigrations = {
   // Version 2: the list of what stays on (src/domain/always-on.ts).
   1: (old) => ({ ...old, alwaysOn: [] }),
+  // Version 3: the register of the house's equipment (src/domain/equipment.ts).
+  2: (old) => ({ ...old, equipment: [] }),
 };
 
 const isRecord = (value: unknown): value is Fields =>

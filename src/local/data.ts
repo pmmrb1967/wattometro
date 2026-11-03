@@ -7,12 +7,13 @@
 import { z } from 'zod';
 import { alwaysOnItemSchema } from '../domain/always-on';
 import { budgetSchema } from '../domain/budget';
+import { equipmentSchema } from '../domain/equipment';
 import { installationSchema, UNKNOWN_INSTALLATION } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { lisbonDate } from '../lib/time';
 
 /** Version of the stored data and of the backup file. */
-export const LOCAL_VERSION = 2;
+export const LOCAL_VERSION = 3;
 
 const int = z.number().int();
 
@@ -36,6 +37,7 @@ export const localDataSchema = z.object({
   budget: budgetSchema.nullable(),
   installation: installationSchema,
   alwaysOn: z.array(alwaysOnItemSchema),
+  equipment: z.array(equipmentSchema),
 });
 export type LocalData = z.infer<typeof localDataSchema>;
 
@@ -49,6 +51,7 @@ export function emptyLocalData(): LocalData {
     budget: null,
     installation: UNKNOWN_INSTALLATION,
     alwaysOn: [],
+    equipment: [],
   };
 }
 

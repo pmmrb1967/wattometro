@@ -7,6 +7,7 @@ import {
   withQuarters,
   type LocalData,
 } from './data';
+import { MAX_EQUIPMENT } from '../domain/equipment';
 import { createLocalServer } from './server';
 import { memoryStore, type LocalStore } from './store';
 
@@ -178,6 +179,67 @@ describe('local server', () => {
 
     await api.respond('DELETE', path);
     expect(await body(await api.respond('GET', '/v1/always-on'))).toEqual({ items: [] });
+  });
+
+  it('keeps the equipment, one of a name, in this browser', async () => {
+    const { store, api } = server();
+    const kettle = {
+      name: 'Chaleira',
+      kind: 'kettle',
+      brand: null,
+      model: null,
+      room: 'Cozinha',
+      ratedPowerW: 2200,
+      energyClass: null,
+      notes: null,
+      programmes: [],
+    };
+    const created = await api.respond('POST', '/v1/equipment', kettle);
+    expect(created.status).toBe(201);
+    const { item } = (await created.json()) as { item: { id: string } };
+    expect(item).toEqual({ ...kettle, id: item.id, createdAt: NOW });
+    expect((await kept(store))?.equipment).toEqual([item]);
+
+    const again = await api.respond('POST', '/v1/equipment', { ...kettle, name: ' CHALEIRA ' });
+    expect(again.status).toBe(409);
+    expect(await body(again)).toEqual({ error: 'name_taken' });
+    const oven = await api.respond('POST', '/v1/equipment', { ...kettle, name: 'Forno' });
+    const ovenId = ((await oven.json()) as { item: { id: string } }).item.id;
+    const path = `/v1/equipment/${ovenId}`;
+    expect((await api.respond('PUT', path, { ...kettle, name: 'chaleira' })).status).toBe(409);
+    expect(
+      (await api.respond('PUT', path, { ...kettle, name: 'Forno', room: 'Sala' })).status,
+    ).toBe(204);
+    expect((await api.respond('PUT', '/v1/equipment/nope', kettle)).status).toBe(404);
+    expect((await api.respond('POST', `${path}/link`, { labels: ['Forno'] })).status).toBe(204);
+    expect(await body(await api.respond('GET', '/v1/equipment'))).toMatchObject({
+      items: [{ name: 'Chaleira' }, { name: 'Forno', room: 'Sala' }],
+    });
+
+    await api.respond('DELETE', path);
+    expect(await body(await api.respond('GET', '/v1/equipment'))).toMatchObject({
+      items: [{ name: 'Chaleira' }],
+    });
+  });
+
+  it('keeps at most MAX_EQUIPMENT', async () => {
+    const { api } = server();
+    const bare = {
+      kind: null,
+      brand: null,
+      model: null,
+      room: null,
+      ratedPowerW: null,
+      energyClass: null,
+      notes: null,
+      programmes: [],
+    };
+    for (let index = 0; index < MAX_EQUIPMENT; index += 1) {
+      await api.respond('POST', '/v1/equipment', { ...bare, name: `E${index}` });
+    }
+    const over = await api.respond('POST', '/v1/equipment', { ...bare, name: 'Mais' });
+    expect(over.status).toBe(409);
+    expect(await body(over)).toEqual({ error: 'too_many' });
   });
 
   it('has no Shelly, no alerts and keeps the AI key in the browser', async () => {

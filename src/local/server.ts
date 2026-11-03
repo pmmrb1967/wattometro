@@ -10,6 +10,8 @@
 import { z } from 'zod';
 import { alwaysOnInputSchema, MAX_ALWAYS_ON } from '../domain/always-on';
 import { budgetSchema } from '../domain/budget';
+import { equipmentInputSchema } from '../domain/equipment';
+import { addEquipment, changeEquipment, sortedEquipment } from '../domain/equipment-list';
 import { installationSchema } from '../domain/installation';
 import { tariffInputSchema } from '../domain/tariff';
 import { dailyEnergy, empty, energyRecords, invalid, json } from '../demo/responses';
@@ -273,6 +275,21 @@ export function createLocalServer(
       // What only a Shelly gives: nothing.
       case 'GET /v1/outages':
         return json({ outages: [] });
+      case 'GET /v1/equipment':
+        return json({ items: sortedEquipment(house.equipment) });
+      case 'POST /v1/equipment': {
+        const parsed = equipmentInputSchema.safeParse(body);
+        if (!parsed.success) return invalid();
+        const added = addEquipment(
+          house.equipment,
+          parsed.data,
+          `local-eq-${crypto.randomUUID()}`,
+          Math.floor(clock()),
+        );
+        if (typeof added === 'string') return json({ error: added }, 409);
+        const saved = await keep({ ...house, equipment: added.items });
+        return saved.ok ? json({ item: added.item }, 201) : saved;
+      }
       case 'GET /v1/signatures':
         return json({ signatures: [] });
       case 'GET /v1/appliances':
@@ -304,6 +321,27 @@ export function createLocalServer(
             item.id === id ? { ...item, ...parsed.data } : item,
           ),
         });
+      }
+    }
+    const equipment = /^\/v1\/equipment\/([^/]+)(\/link)?$/.exec(url.pathname);
+    if (equipment) {
+      const id = decodeURIComponent(equipment[1] as string);
+      const known = house.equipment.some((item) => item.id === id);
+      if (equipment[2]) {
+        // Without a Shelly there are no appliances to link.
+        if (method !== 'POST') return json({ error: 'not_found' }, 404);
+        return known ? empty() : json({ error: 'not_found' }, 404);
+      }
+      if (method === 'DELETE') {
+        return keep({ ...house, equipment: house.equipment.filter((item) => item.id !== id) });
+      }
+      if (method === 'PUT') {
+        const parsed = equipmentInputSchema.safeParse(body);
+        if (!parsed.success) return invalid();
+        const changed = changeEquipment(house.equipment, id, parsed.data);
+        if (changed === 'not_found') return json({ error: changed }, 404);
+        if (changed === 'name_taken') return json({ error: changed }, 409);
+        return keep({ ...house, equipment: changed });
       }
     }
     return json({ error: 'not_found' }, 404);

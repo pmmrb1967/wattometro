@@ -14,6 +14,13 @@ import { z } from 'zod';
 import { alwaysOnInputSchema, type AlwaysOnItem } from '../domain/always-on';
 import { addDays } from '../domain/consumption';
 import { budgetSchema, type Budget } from '../domain/budget';
+import { equipmentInputSchema, nameKey, type Equipment } from '../domain/equipment';
+import {
+  addEquipment,
+  changeEquipment,
+  namedEquipment,
+  sortedEquipment,
+} from '../domain/equipment-list';
 import { installationSchema, type Installation } from '../domain/installation';
 import { tariffInputSchema, type Tariff } from '../domain/tariff';
 import { encodeSeconds, READINGS_1S_BYTES } from '../lib/readings-1s';
@@ -48,6 +55,7 @@ interface DemoState {
   signatures: DemoSignature[];
   appliances: DemoAppliance[];
   alwaysOn: AlwaysOnItem[];
+  equipment: Equipment[];
   /** PUT /v1/nilm/days, by day (the browser's own encoding). */
   nilmDays: Map<string, { day: string; version: number; minutes: number; data: string }>;
 }
@@ -61,11 +69,14 @@ interface DemoAppliance {
   minDurationS: number | null;
   maxDurationS: number | null;
   heats: number | null;
+  equipmentId: string | null;
   createdAt: number;
 }
 
 /** A descriptor as the server accepts it (server/src/app.ts, ApplianceBody). */
-function applianceInput(value: unknown): Omit<DemoAppliance, 'id' | 'createdAt'> | null {
+function applianceInput(
+  value: unknown,
+): Omit<DemoAppliance, 'id' | 'equipmentId' | 'createdAt'> | null {
   if (typeof value !== 'object' || value === null) return null;
   const { label, powerW, statesW, pulsing, minDurationS, maxDurationS, heats } = value as Record<
     string,
@@ -169,6 +180,7 @@ function current(): DemoState {
       signatures: demoSignatures(),
       appliances: [],
       alwaysOn: demoAlwaysOn(),
+      equipment: demoEquipment(),
       nilmDays: new Map(),
     };
   }
@@ -190,6 +202,58 @@ function demoAlwaysOn(): AlwaysOnItem[] {
     },
   ];
 }
+
+/** Invented too: no real model, the manual's values only an example. */
+function demoEquipment(): Equipment[] {
+  const createdAt = Math.floor(Date.now() / 1000);
+  const none = { brand: null, model: null, energyClass: null, notes: null, programmes: [] };
+  return [
+    {
+      ...none,
+      id: 'demo-eq-washer',
+      name: 'Máquina da roupa',
+      kind: 'washer',
+      brand: 'Exemplo',
+      room: 'Lavandaria',
+      ratedPowerW: 2100,
+      programmes: [
+        { name: 'Mix', durationS: 4860, energyWh: 458, temperatureC: 40, loadKg: 4 },
+        { name: 'Eco 40-60', durationS: 13_680, energyWh: 1011, temperatureC: 40, loadKg: 9 },
+      ],
+      createdAt,
+    },
+    {
+      ...none,
+      id: 'demo-eq-fridge',
+      name: 'Frigorífico',
+      kind: 'fridge',
+      room: 'Cozinha',
+      ratedPowerW: null,
+      energyClass: 'E',
+      createdAt,
+    },
+    {
+      ...none,
+      id: 'demo-eq-kettle',
+      name: 'Chaleira',
+      kind: 'kettle',
+      room: 'Cozinha',
+      ratedPowerW: 2200,
+      createdAt,
+    },
+  ];
+}
+
+/** Gives an equipment's name to its appliances and to their calibrations, as the server does. */
+function renameLinked(demo: DemoState, equipmentId: string, name: string) {
+  const linked = demo.appliances.filter((item) => item.equipmentId === equipmentId);
+  const old = new Set(linked.map((item) => item.label));
+  for (const signature of demo.signatures) if (old.has(signature.label)) signature.label = name;
+  for (const appliance of linked) appliance.label = name;
+}
+
+const isLinkedLabel = (demo: DemoState, label: string) =>
+  demo.appliances.some((item) => item.label === label && item.equipmentId !== null);
 
 /** One calibration already made: the dishwasher of yesterday evening (src/demo/model.ts). */
 function demoSignatures(): DemoSignature[] {
@@ -730,13 +794,31 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     case 'POST /v1/appliances': {
       const input = applianceInput(body);
       if (!input) return invalid();
+      const equipment = namedEquipment(demo.equipment, input.label);
       const appliance = {
         id: `demo-appliance-${demo.appliances.length + 1}-${Date.now()}`,
         ...input,
+        label: equipment?.name ?? input.label,
+        equipmentId: equipment?.id ?? null,
         createdAt: Math.floor(Date.now() / 1000),
       };
       demo.appliances.push(appliance);
       return json({ appliance }, 201);
+    }
+    case 'GET /v1/equipment':
+      return json({ items: sortedEquipment(demo.equipment) });
+    case 'POST /v1/equipment': {
+      const parsed = equipmentInputSchema.safeParse(body);
+      if (!parsed.success) return invalid();
+      const added = addEquipment(
+        demo.equipment,
+        parsed.data,
+        `demo-eq-${demo.equipment.length + 1}-${Date.now()}`,
+        Math.floor(Date.now() / 1000),
+      );
+      if (typeof added === 'string') return json({ error: added }, 409);
+      demo.equipment = added.items;
+      return json({ item: added.item }, 201);
     }
     case 'GET /v1/always-on':
       return json({
@@ -779,6 +861,39 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     }
   }
 
+  const equipment = /^\/v1\/equipment\/([^/]+)(\/link)?$/.exec(url.pathname);
+  if (equipment) {
+    const id = decodeURIComponent(equipment[1] as string);
+    const found = demo.equipment.find((item) => item.id === id);
+    if (method === 'POST' && equipment[2]) {
+      const labels = (body as { labels?: unknown } | undefined)?.labels;
+      if (!Array.isArray(labels) || !labels.every((label) => typeof label === 'string')) {
+        return invalid();
+      }
+      if (!found) return json({ error: 'not_found' }, 404);
+      const wanted = new Set(labels.map(nameKey));
+      const chosen = demo.appliances.filter((item) => wanted.has(nameKey(item.label)));
+      for (const item of chosen) item.equipmentId = id;
+      renameLinked(demo, id, found.name);
+      return empty();
+    }
+    if (method === 'PUT' && !equipment[2]) {
+      const parsed = equipmentInputSchema.safeParse(body);
+      if (!parsed.success) return invalid();
+      const changed = changeEquipment(demo.equipment, id, parsed.data);
+      if (changed === 'not_found') return json({ error: changed }, 404);
+      if (changed === 'name_taken') return json({ error: changed }, 409);
+      demo.equipment = changed;
+      renameLinked(demo, id, parsed.data.name);
+      return empty();
+    }
+    if (method === 'DELETE' && !equipment[2]) {
+      for (const item of demo.appliances) if (item.equipmentId === id) item.equipmentId = null;
+      demo.equipment = demo.equipment.filter((item) => item.id !== id);
+      return empty();
+    }
+  }
+
   const appliance = /^\/v1\/appliances\/([^/]+)$/.exec(url.pathname);
   if (appliance) {
     const id = decodeURIComponent(appliance[1] as string);
@@ -798,7 +913,12 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         return invalid();
       }
       if (!found) return json({ error: 'not_found' }, 404);
-      if (name !== null) found.label = name;
+      if (name !== null && found.equipmentId !== null) return json({ error: 'linked' }, 409);
+      if (name !== null) {
+        const equipment = namedEquipment(demo.equipment, name);
+        found.label = equipment?.name ?? name;
+        found.equipmentId = equipment?.id ?? null;
+      }
       if (range !== undefined) {
         found.minDurationS = range.minS as number;
         found.maxDurationS = range.maxS as number;
@@ -823,6 +943,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     if (method === 'PATCH' && !signature[2] && found) {
       const label = (body as { label?: unknown } | undefined)?.label;
       if (typeof label !== 'string') return json({ error: 'invalid_request' }, 400);
+      if (isLinkedLabel(demo, found.label)) return json({ error: 'linked' }, 409);
       for (const item of demo.signatures) {
         if (item.label === found.label && item !== found) item.label = label;
       }

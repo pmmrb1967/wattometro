@@ -154,4 +154,55 @@ describe('demo API, through the app calculations', () => {
     expect(put({ ...changed, heating: ['none', 'wood'] })).toBe(400);
     resetDemo();
   });
+
+  it('has a register of equipment whose names its appliances follow', async () => {
+    const { items } = (await get('/v1/equipment')) as {
+      items: { id: string; name: string; programmes: unknown[] }[];
+    };
+    expect(items.map((item) => item.name)).toEqual(['Chaleira', 'Frigorífico', 'Máquina da roupa']);
+    expect(items[2]!.programmes).toHaveLength(2);
+    const bare = {
+      kind: null,
+      brand: null,
+      model: null,
+      room: null,
+      ratedPowerW: null,
+      energyClass: null,
+      notes: null,
+      programmes: [],
+    };
+    const duplicate = demoResponse('POST', '/v1/equipment', { ...bare, name: 'chaleira' });
+    expect(duplicate.status).toBe(409);
+    expect(await duplicate.json()).toEqual({ error: 'name_taken' });
+
+    // The calibrated dishwasher, linked to a new equipment and then renamed with it.
+    const descriptor = {
+      label: 'Máquina da loiça',
+      powerW: 2000,
+      statesW: [2000],
+      pulsing: false,
+      minDurationS: null,
+      maxDurationS: null,
+      heats: null,
+    };
+    expect(demoResponse('POST', '/v1/appliances', descriptor).status).toBe(201);
+    const created = demoResponse('POST', '/v1/equipment', { ...bare, name: 'Loiça' });
+    const { item } = (await created.json()) as { item: { id: string } };
+    const link = { labels: ['máquina da loiça'] };
+    expect(demoResponse('POST', `/v1/equipment/${item.id}/link`, link).status).toBe(204);
+    const renamed = { ...bare, name: 'Máquina de lavar loiça' };
+    expect(demoResponse('PUT', `/v1/equipment/${item.id}`, renamed).status).toBe(204);
+    const { appliances } = (await get('/v1/appliances')) as {
+      appliances: { label: string; equipmentId: string | null }[];
+    };
+    expect(appliances).toMatchObject([{ label: 'Máquina de lavar loiça', equipmentId: item.id }]);
+    const { signatures } = (await get('/v1/signatures')) as { signatures: { label: string }[] };
+    expect(signatures.map((signature) => signature.label)).toEqual(['Máquina de lavar loiça']);
+
+    expect(demoResponse('DELETE', `/v1/equipment/${item.id}`).status).toBe(204);
+    expect(((await get('/v1/appliances')) as { appliances: unknown[] }).appliances).toMatchObject([
+      { label: 'Máquina de lavar loiça', equipmentId: null },
+    ]);
+    resetDemo();
+  });
 });

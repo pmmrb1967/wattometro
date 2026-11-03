@@ -56,6 +56,25 @@ describe('readStored', () => {
       ...STORED_V1,
       version: LOCAL_VERSION,
       alwaysOn: [],
+      equipment: [],
+    });
+  });
+
+  it('reads version 2 with an empty register of equipment, nothing else lost', () => {
+    const router = {
+      id: 'local-on-1',
+      label: 'Router',
+      quantity: 1,
+      powerW: 12,
+      measured: true,
+      createdAt: 1_768_435_200,
+    };
+    const read = readStored({ ...STORED_V1, version: 2, alwaysOn: [router] });
+    expect(read.kind === 'ok' && read.data).toEqual({
+      ...STORED_V1,
+      version: LOCAL_VERSION,
+      alwaysOn: [router],
+      equipment: [],
     });
   });
 
@@ -75,6 +94,7 @@ describe('readStored', () => {
     const read = readStored(older, {
       0: ({ qualityZone, ...others }) => ({ ...others, zone: qualityZone }),
       1: (old) => old,
+      2: (old) => old,
     });
     expect(read).toEqual({ kind: 'ok', data: emptyLocalData() });
   });
