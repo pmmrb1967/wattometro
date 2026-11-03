@@ -41,7 +41,41 @@ export interface PhotoChoices {
   programmes: ProgrammeChoice[];
 }
 
-export function photoChoices(reading: EquipmentReading, current: FormValues): PhotoChoices {
+/**
+ * What the user ticked or unticked, with what the form held then: a choice
+ * counts only while the form still holds that, so a value typed meanwhile is
+ * never replaced on a choice made before it.
+ */
+export interface Decisions {
+  fields: Partial<Record<FieldKey, { checked: boolean; current: string }>>;
+  /** By the programme's name key. */
+  programmes: Record<string, { checked: boolean; replaces: boolean }>;
+}
+
+export const NO_DECISIONS: Decisions = { fields: {}, programmes: {} };
+
+export function decisionsOf(choices: PhotoChoices): Decisions {
+  return {
+    fields: Object.fromEntries(
+      choices.fields.map((field) => [
+        field.key,
+        { checked: field.checked, current: field.current },
+      ]),
+    ),
+    programmes: Object.fromEntries(
+      choices.programmes.map((item) => [
+        nameKey(item.row.name),
+        { checked: item.checked, replaces: item.replaces },
+      ]),
+    ),
+  };
+}
+
+export function photoChoices(
+  reading: EquipmentReading,
+  current: FormValues,
+  decisions: Decisions = NO_DECISIONS,
+): PhotoChoices {
   const read: Record<FieldKey, string | null> = {
     kind: reading.kind,
     brand: reading.brand,
@@ -53,12 +87,16 @@ export function photoChoices(reading: EquipmentReading, current: FormValues): Ph
     const value = read[key];
     const now = current[key].trim();
     if (value === null || value === now) return [];
-    return [{ key, read: value, current: now, checked: now === '' }];
+    const decided = decisions.fields[key];
+    const checked = decided && decided.current === now ? decided.checked : now === '';
+    return [{ key, read: value, current: now, checked }];
   });
   const names = new Set(current.rows.map((row) => nameKey(row.name)));
   const programmes = reading.programmes.map((programme) => {
     const replaces = names.has(nameKey(programme.name));
-    return { row: rowOf(programme), replaces, checked: !replaces };
+    const decided = decisions.programmes[nameKey(programme.name)];
+    const checked = decided && decided.replaces === replaces ? decided.checked : !replaces;
+    return { row: rowOf(programme), replaces, checked };
   });
   return { fields, programmes };
 }

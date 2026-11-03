@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import type { EquipmentReading } from '../domain/equipment-reading';
-import { applyChoices, photoChoices, type FormValues } from './photo-choices';
+import { applyChoices, decisionsOf, photoChoices, type FormValues } from './photo-choices';
 
 const READING: EquipmentReading = {
   kind: 'washer',
@@ -46,6 +46,35 @@ describe('photoChoices', () => {
       'model',
       'power',
     ]);
+  });
+});
+
+describe('the user’s choices over a form that changed', () => {
+  it('works out the offer again from the form as it is now, keeping what was unticked', () => {
+    const atSend = photoChoices(READING, EMPTY);
+    const decisions = decisionsOf({
+      ...atSend,
+      fields: atSend.fields.map((field) => ({ ...field, checked: field.key !== 'power' })),
+    });
+    // While the AI read, the user typed a brand and a programme of the same name.
+    const now: FormValues = {
+      ...EMPTY,
+      brand: 'Bosch',
+      rows: [{ name: 'Eco 40-60', duration: '3:40', energy: '1', temperature: '', load: '' }],
+    };
+    const choices = photoChoices(READING, now, decisions);
+    expect(choices.fields.find((field) => field.key === 'brand')).toEqual({
+      key: 'brand',
+      read: 'Exemplo',
+      current: 'Bosch',
+      checked: false,
+    });
+    expect(choices.fields.find((field) => field.key === 'power')?.checked).toBe(false);
+    expect(choices.programmes.find((item) => item.row.name === 'Eco 40-60')).toMatchObject({
+      replaces: true,
+      checked: false,
+    });
+    expect(applyChoices(now, choices).brand).toBe('Bosch');
   });
 });
 

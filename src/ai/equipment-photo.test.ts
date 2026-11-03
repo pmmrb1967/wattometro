@@ -34,7 +34,7 @@ describe('readEquipmentPhotos', () => {
       programmes: [{ name: 'Mix', durationS: 4860, energyWh: 460 }],
     });
     expect(result.usage).toMatchObject([
-      { task: 'read_equipment', promptVersion: 'equipment-photo-1' },
+      { task: 'read_equipment', promptVersion: 'equipment-photo-2' },
     ]);
     const messages = api.requests[0]?.body.messages as { content: { type: string }[] }[];
     const content = messages[0]!.content;
@@ -51,6 +51,18 @@ describe('readEquipmentPhotos', () => {
       readEquipmentPhotos(provider(api.fetch), [{ mime: 'image/jpeg', base64: 'AAAA' }]),
     ).rejects.toMatchObject({ code: 'invalid_output' });
     expect(api.requests).toHaveLength(2);
+  });
+
+  it('does not send the photos again when the answer was cut for length', async () => {
+    const cut = {
+      status: 200,
+      body: message([{ type: 'text', text: '{"kind": "wash' }], 'max_tokens'),
+    };
+    const api = fakeApi([cut, cut]);
+    await expect(
+      readEquipmentPhotos(provider(api.fetch), [{ mime: 'image/jpeg', base64: 'AAAA' }]),
+    ).rejects.toMatchObject({ code: 'invalid_output' });
+    expect(api.requests).toHaveLength(1);
   });
 
   it('estimates each photo on the high side', () => {

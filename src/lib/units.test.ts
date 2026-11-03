@@ -134,6 +134,11 @@ describe('values printed on a plate or a manual', () => {
     expect(parsePrintedPowerW('1 850 W')).toBe(1850);
     expect(parsePrintedPowerW('1 850 W')).toBe(1850);
     expect(parsePrintedPowerW('220-240 V')).toBeNull();
+    // A degree of protection or a voltage before it is not part of the number.
+    expect(parsePrintedPowerW('IPX4 230 W')).toBe(230);
+    expect(parsePrintedPowerW('230V~ 50Hz 2000W')).toBe(2000);
+    expect(parsePrintedPowerW('2000 Watts')).toBe(2000);
+    expect(parsePrintedPowerW('1850 W - 2200 W')).toBe(2200);
     expect(parsePrintedPowerW('potente')).toBeNull();
   });
 
@@ -143,5 +148,12 @@ describe('values printed on a plate or a manual', () => {
     expect(parsePrintedEnergyWh('1,011 kWh/ciclo')).toBe(1011);
     expect(parsePrintedEnergyWh('0.95')).toBe(950);
     expect(parsePrintedEnergyWh('-')).toBeNull();
+  });
+
+  it('refuses an energy per 100 cycles, per year or per 1000 h: not one cycle', () => {
+    expect(parsePrintedEnergyWh('0,95 kWh/100 ciclos')).toBeNull();
+    expect(parsePrintedEnergyWh('15 kWh / 100')).toBeNull();
+    expect(parsePrintedEnergyWh('152 kWh/ano')).toBeNull();
+    expect(parsePrintedEnergyWh('1,011 kWh/ciclo')).toBe(1011);
   });
 });

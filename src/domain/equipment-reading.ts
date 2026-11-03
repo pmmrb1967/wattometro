@@ -56,10 +56,22 @@ const text = (value: string | null): string | null => {
   return trimmed === '' ? null : trimmed.slice(0, MAX_TEXT);
 };
 
-/** The first number of a temperature or a load ("40 °C", "4,5 kg"); null for "Frio". */
-const firstNumber = (value: string | null): number | null => {
-  const match = /(\d{1,3}(?:[.,]\d)?)/.exec(value ?? '');
-  return match ? Number((match[1] as string).replace(',', '.')) : null;
+/** A temperature in whole degrees up to 95 ("40 °C"); null otherwise ("Frio", "40.5"). */
+const temperatureOf = (value: string | null): number | null => {
+  const match = /(\d{1,3})([.,]\d)?/.exec(value ?? '');
+  if (!match || match[2] !== undefined) return null;
+  const degrees = Number(match[1]);
+  return degrees <= 95 ? degrees : null;
+};
+
+/** A load in kg, in half kilos up to 20 ("4,5 kg"); null without "kg" ("13 conjuntos"). */
+const loadOf = (value: string | null): number | null => {
+  const match = /(\d{1,2})(?:[.,](\d{1,2}))?\s*kg/i.exec(value ?? '');
+  if (!match) return null;
+  const decimals = match[2] ?? '';
+  const exact = decimals.slice(1).replace(/0/g, '') === '';
+  const tenths = Number(match[1]) * 10 + Number(decimals.slice(0, 1) || '0');
+  return exact && tenths % 5 === 0 && tenths <= 200 ? tenths / 10 : null;
 };
 
 function programmeOf(printed: PrintedProgramme): Programme | null {
@@ -70,8 +82,8 @@ function programmeOf(printed: PrintedProgramme): Programme | null {
     name: printed.name.trim().slice(0, MAX_PROGRAMME_NAME),
     durationS,
     energyWh,
-    temperatureC: firstNumber(printed.temperature),
-    loadKg: firstNumber(printed.load),
+    temperatureC: temperatureOf(printed.temperature),
+    loadKg: loadOf(printed.load),
   });
   return parsed.success ? parsed.data : null;
 }

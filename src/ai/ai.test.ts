@@ -152,4 +152,25 @@ describe('settings', () => {
       requests: 2,
     });
   });
+
+  it('keeps the log when an entry is of a task this version does not know', () => {
+    const usage = {
+      task: 'explain' as const,
+      model: 'claude-sonnet-5-5',
+      promptVersion: 'v',
+      inputTokens: 1000,
+      outputTokens: 200,
+      costMicroUsd: 4000,
+    };
+    const at = '2026-11-02T12:00:00.000Z';
+    localStorage.setItem(
+      'wattometro.ai-usage.b@x.pt',
+      JSON.stringify([{ ...usage, task: 'a_later_task', at }, { ...usage, at }, { at }]),
+    );
+    recordUsage('b@x.pt', [usage], new Date('2026-11-03T12:00:00Z'));
+    expect(usageThisMonth('b@x.pt', new Date('2026-11-25T12:00:00Z'))).toEqual({
+      costMicroUsd: 12_000,
+      requests: 3,
+    });
+  });
 });

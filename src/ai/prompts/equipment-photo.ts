@@ -7,11 +7,11 @@
  * number: it is never asked for. The version changes with the text.
  */
 import { z } from 'zod';
-import { EQUIPMENT_KINDS } from '../../domain/equipment';
+import { EQUIPMENT_KINDS, MAX_PROGRAMMES } from '../../domain/equipment';
 import { t } from '../../i18n/pt-PT';
 import { forTheApi } from './schema';
 
-export const EQUIPMENT_PHOTO_PROMPT_VERSION = 'equipment-photo-1';
+export const EQUIPMENT_PHOTO_PROMPT_VERSION = 'equipment-photo-2';
 
 /** At most this many photos in one reading. */
 export const MAX_EQUIPMENT_PHOTOS = 3;
@@ -34,7 +34,7 @@ export const printedEquipmentSchema = z.strictObject({
         load: printed(40),
       }),
     )
-    .max(30),
+    .max(MAX_PROGRAMMES),
 });
 
 export const EQUIPMENT_PHOTO_SCHEMA = forTheApi(z.toJSONSchema(printedEquipmentSchema)) as Record<
@@ -50,7 +50,7 @@ Regras:
 - "kind" é o tipo de equipamento, um destes códigos: ${EQUIPMENT_KINDS.map((code) => `${code} (${t.equipment.kinds[code]})`).join(', ')}; null se não for claro.
 - "ratedPower" é a potência nominal da chapa (W ou kW, não a tensão nem a corrente). Se a chapa der várias, usa a maior.
 - "energyClass" é a letra da classe energética da etiqueta (A a G), como está.
-- "programmes" são as linhas da tabela de programas: nome, duração, energia por ciclo, temperatura e carga, como estão. Lista vazia se não houver tabela.
+- "programmes" são as linhas da tabela de programas: nome, duração, energia de um ciclo, temperatura e carga, como estão; no máximo ${MAX_PROGRAMMES}. A etiqueta energética dá kWh por 100 ciclos: isso não é a energia de um programa, não o copies para "programmes". Lista vazia se não houver tabela.
 - Nunca copies números de série nem dados pessoais.`;
 
 export const EQUIPMENT_PHOTO_USER = 'Copia o que estas fotografias dizem do equipamento.';

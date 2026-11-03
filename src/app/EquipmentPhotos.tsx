@@ -13,13 +13,17 @@ import { MAX_EQUIPMENT_PHOTOS } from '../ai/prompts/equipment-photo';
 import { AiError, type AiImage } from '../ai/provider';
 import { providerFromSettings, recordUsage } from '../ai/settings';
 import { PROGRAMME_KINDS, type EquipmentKind } from '../domain/equipment';
+import type { EquipmentReading } from '../domain/equipment-reading';
 import { t } from '../i18n/pt-PT';
 import { shrinkPhoto } from '../lib/image';
 import { useAiSettings } from './ai-sync';
 import { aiErrorText } from './ai-errors';
 import {
   applyChoices,
+  decisionsOf,
+  NO_DECISIONS,
   photoChoices,
+  type Decisions,
   type FieldChoice,
   type FormValues,
   type PhotoChoices,
@@ -34,7 +38,7 @@ type State =
   | { kind: 'preparing' }
   | { kind: 'confirm'; photos: AiImage[]; cost: string }
   | { kind: 'busy' }
-  | { kind: 'review'; choices: PhotoChoices; refused: string[]; spent: string }
+  | { kind: 'review'; reading: EquipmentReading; decisions: Decisions; spent: string }
   | { kind: 'error'; text: string };
 
 const totalCost = (usage: readonly { costMicroUsd: number }[]) =>
@@ -94,31 +98,20 @@ export function EquipmentPhotos({
     try {
       const { reading, usage } = await readEquipmentPhotos(provider, photos);
       recordUsage(me.email, usage);
-      setState({
-        kind: 'review',
-        choices: photoChoices(reading, values),
-        refused: reading.refused,
-        spent: totalCost(usage),
-      });
+      setState({ kind: 'review', reading, decisions: NO_DECISIONS, spent: totalCost(usage) });
     } catch (error) {
       if (error instanceof AiError) recordUsage(me.email, error.usage);
       setState({ kind: 'error', text: aiErrorText(error) });
     }
   }
 
-  const tick = (change: (choices: PhotoChoices) => PhotoChoices) =>
-    setState((current) =>
-      current.kind === 'review' ? { ...current, choices: change(current.choices) } : current,
-    );
-
   const picker = (
-    <label className="button secondary photo-picker">
+    <label>
       {texts.choose}
       <input
         type="file"
         accept="image/*"
         multiple
-        hidden
         disabled={disabled}
         onChange={(event) => void onFiles(event)}
       />
@@ -126,7 +119,12 @@ export function EquipmentPhotos({
   );
 
   if (state.kind === 'review') {
-    const { choices, refused, spent } = state;
+    const { reading, decisions, spent } = state;
+    const refused = reading.refused;
+    // Worked out again from the form as it is now: what was typed meanwhile counts.
+    const choices = photoChoices(reading, values, decisions);
+    const tick = (change: (choices: PhotoChoices) => PhotoChoices) =>
+      setState({ ...state, decisions: decisionsOf(change(choices)) });
     const chosenKind = choices.fields.find((field) => field.key === 'kind' && field.checked);
     const finalKind = (chosenKind?.read ?? values.kind) as EquipmentKind | '';
     const withProgrammes = finalKind !== '' && PROGRAMME_KINDS.includes(finalKind);
@@ -136,7 +134,7 @@ export function EquipmentPhotos({
         <h3>{texts.reviewTitle}</h3>
         {nothing ? <p>{texts.nothing}</p> : <p className="hint">{texts.reviewIntro}</p>}
         {choices.fields.map((field) => (
-          <label className="check" key={field.key}>
+          <label className="checkbox" key={field.key}>
             <input
               type="checkbox"
               checked={field.checked}
@@ -162,7 +160,7 @@ export function EquipmentPhotos({
             <fieldset>
               <legend>{t.equipment.programmes.title}</legend>
               {choices.programmes.map((item, index) => (
-                <label className="check" key={`${item.row.name}-${index}`}>
+                <label className="checkbox" key={`${item.row.name}-${index}`}>
                   <input
                     type="checkbox"
                     checked={item.checked}

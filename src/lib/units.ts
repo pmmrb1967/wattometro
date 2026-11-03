@@ -121,8 +121,12 @@ function scaledDecimal(whole: string, fraction: string, digits: number): number 
   return Number(whole) * 10 ** digits + Number(kept === '' ? '0' : kept) + roundUp;
 }
 
-/** Spaces between thousands, the no-break ones too (\s covers them): "1 850" → "1850". */
-const joinThousands = (text: string) => text.replace(/(\d)\s+(?=\d{3}(?!\d))/g, '$1');
+/**
+ * Spaces between thousands, the no-break ones too (\s covers them): "1 850" →
+ * "1850"; not after a letter or a decimal ("IPX4 230 W" stays two numbers).
+ */
+const joinThousands = (text: string) =>
+  text.replace(/(?<![\w.,])(\d{1,3})\s+(?=\d{3}(?!\d))/g, '$1');
 
 /** A number printed in W or kW, as W: "2,1" kW, "2100" W, "2.200" W (a thousands point). */
 function printedWatts(number: string, kilo: boolean): number {
@@ -138,22 +142,28 @@ function printedWatts(number: string, kilo: boolean): number {
  * (a voltage, a word).
  */
 export function parsePrintedPowerW(text: string): number | null {
-  const match = /(\d+(?:[.,]\d+)?)(?:\s*[-–/]\s*(\d+(?:[.,]\d+)?))?\s*(kW|W)(?![a-z])/i.exec(
-    joinThousands(text),
-  );
-  if (!match) return null;
-  const kilo = /^k/i.test(match[3] as string);
-  const values = [match[1], match[2]]
-    .filter((value): value is string => value !== undefined)
-    .map((value) => printedWatts(value, kilo));
-  const top = Math.max(...values);
+  const pattern =
+    /(\d+(?:[.,]\d+)?)(?:\s*[-–/]\s*(\d+(?:[.,]\d+)?))?\s*(kW|W(?:atts?)?)(?![a-z])/gi;
+  const values = [...joinThousands(text).matchAll(pattern)].flatMap((match) => {
+    const kilo = /^k/i.test(match[3] as string);
+    return [match[1], match[2]]
+      .filter((value): value is string => value !== undefined)
+      .map((value) => printedWatts(value, kilo));
+  });
+  const top = values.length === 0 ? 0 : Math.max(...values);
   return top > 0 ? top : null;
 }
 
-/** An energy as a manual prints it ("0,46 kWh", "458 Wh"), as Wh; without a unit, kWh. */
+/**
+ * An energy as a manual prints it ("0,46 kWh", "458 Wh"), as Wh; without a
+ * unit, kWh. Null for an energy per 100 cycles, per year or per 1000 h (the
+ * energy label's): not one cycle's.
+ */
 export function parsePrintedEnergyWh(text: string): Wh | null {
-  const match = /(\d+(?:[.,]\d+)?)\s*(kWh|Wh)?/i.exec(joinThousands(text));
-  if (!match) return null;
+  const match = /(\d+(?:[.,]\d+)?)\s*(kWh|Wh)?(\s*\/\s*(?:\d|ano|annum|year))?/i.exec(
+    joinThousands(text),
+  );
+  if (!match || match[3] !== undefined) return null;
   const [whole = '0', fraction = ''] = (match[1] as string).split(/[.,]/);
   const inWh = match[2]?.toLowerCase() === 'wh';
   return inWh && fraction.length !== 3

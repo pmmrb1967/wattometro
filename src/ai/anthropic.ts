@@ -178,11 +178,13 @@ export class AnthropicProvider implements AiProvider {
       }
       usage.push(this.usage(request.task, request.promptVersion, response));
       if (response.stop_reason === 'refusal') throw new AiError('refused', usage);
+      // Cut for length: the same request would be cut again, and paid twice.
+      if (response.stop_reason === 'max_tokens') break;
       try {
         const parsed = request.validator.safeParse(JSON.parse(answerText(response.content)));
         if (parsed.success) return { data: parsed.data, usage };
       } catch {
-        // Not JSON (e.g. cut by max_tokens): one more attempt.
+        // Not JSON: one more attempt.
       }
     }
     throw new AiError('invalid_output', usage);

@@ -22,7 +22,8 @@ export type AiSettings = z.infer<typeof AiSettingsSchema>;
 
 const UsageEntry = z.object({
   at: z.string(),
-  task: z.enum(['chat', 'explain', 'read_equipment', 'test']),
+  // Any task: a log written by a later version is kept, not dropped whole.
+  task: z.string(),
   model: z.string(),
   promptVersion: z.string(),
   inputTokens: z.number().int(),
@@ -95,7 +96,11 @@ export function providerFromSettings(settings: AiSettings): AiProvider | undefin
 }
 
 function loadUsage(email: string): UsageEntry[] {
-  return read(usageKey(email), z.array(UsageEntry), []);
+  const entries = read(usageKey(email), z.array(z.unknown()), []);
+  return entries.flatMap((entry) => {
+    const parsed = UsageEntry.safeParse(entry);
+    return parsed.success ? [parsed.data] : [];
+  });
 }
 
 export function recordUsage(email: string, usage: readonly AiUsage[], now = new Date()): void {

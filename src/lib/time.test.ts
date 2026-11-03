@@ -207,5 +207,14 @@ describe('parsePrintedDurationS', () => {
     expect(parsePrintedDurationS('3 h 48 min')).toBe(13_680);
     expect(parsePrintedDurationS('2 h')).toBe(7200);
     expect(parsePrintedDurationS('?')).toBeNull();
+    expect(parsePrintedDurationS("90'")).toBe(5400);
+    expect(parsePrintedDurationS('90 mn')).toBe(5400);
+    expect(parsePrintedDurationS('1 hora e 30 minutos')).toBe(5400);
+    expect(parsePrintedDurationS('1h30')).toBe(5400);
+  });
+
+  it('reads hours with a decimal as such, not as the digit after the comma', () => {
+    expect(parsePrintedDurationS('1,5 h')).toBe(5400);
+    expect(parsePrintedDurationS('2.25 h')).toBe(8100);
   });
 });
