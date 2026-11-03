@@ -3270,3 +3270,7 @@ h3,
   justify-self: start;
   min-height: 44px;
 }
+
+.programme-line {
+  margin: 4px 0 0;
+}

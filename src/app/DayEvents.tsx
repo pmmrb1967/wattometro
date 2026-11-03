@@ -40,6 +40,8 @@ import { groupLoadKind } from '../nilm/load-kind';
 import { addAppliance, forgetAppliance, useAppliances } from './appliances-store';
 import { nameKey } from '../domain/equipment';
 import { suggestEquipment } from '../domain/equipment-suggest';
+import { programmeUses } from '../domain/equipment-programmes';
+import { programmeText } from './programme-text';
 import { useEquipment } from './equipment-store';
 import type { HouseholdEnergy } from './household-energy';
 import { loadDaySeconds } from './seconds-cache';
@@ -295,6 +297,8 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
   }, [loaded]);
 
   const appliances = known.kind === 'ready' ? known.appliances : null;
+  const equipment = useEquipment(me.householdId);
+  const register = equipment.kind === 'ready' ? equipment.items : [];
   const tariff = loaded && energy.tariffs ? tariffOn(energy.tariffs, loaded.day) : null;
   const named = useMemo(
     () => (result && appliances ? nameDay(result, appliances, tariff) : null),
@@ -393,6 +397,12 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                 const first = group.cycles[0]!.start;
                 const appliance = named ? groupAppliance(group, named.byCycle) : null;
                 const kind = groupLoadKind(group);
+                // Its equipment's manual: the likely programme of each whole programme.
+                const manual = appliance
+                  ? register.find((item) => nameKey(item.name) === nameKey(appliance.label))
+                      ?.programmes
+                  : undefined;
+                const uses = manual && manual.length > 0 ? programmeUses(group.cycles, manual) : [];
                 const when =
                   group.count === 1
                     ? texts.once(formatLisbonTime(first), formatDuration(group.durationS))
@@ -433,6 +443,12 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                           formatDuration(appliance.maxDurationS),
                         )}`}
                     </p>
+                    {uses.map((use) => (
+                      <p key={use.start} className="hint programme-line">
+                        {group.count > 1 && `${formatLisbonTime(use.start)}: `}
+                        {programmeText(use)}
+                      </p>
+                    ))}
                     {group.count > 1 && (
                       <details className="adjust group-cycles">
                         <summary>{texts.showEach(group.count)}</summary>

@@ -1103,6 +1103,16 @@ export const t = {
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
     notThisLabel: (label: string, power: string) =>
       `Não é "${label}"? Que aparelho é este (${power})?`,
+    likelyProgramme: (
+      name: string,
+      manualDuration: string,
+      manualKwh: string,
+      kwh: string,
+      difference: string | null,
+    ) =>
+      `Parece o programa ${name}: o manual diz ${manualDuration} e ${manualKwh}; este usou ${kwh}${difference === null ? '' : `, ${difference}`}.`,
+    noProgramme: (duration: string) =>
+      `Programa não identificado: nenhum programa do manual dura perto de ${duration}.`,
     plateWarning: (name: string, plate: string, power: string) =>
       `A chapa de "${name}" diz ${plate}; este grupo tem ${power}. Guarda na mesma se tens a certeza.`,
     fromRegister:
@@ -1236,6 +1246,23 @@ export const t = {
       noShelly: 'Com um Shelly no quadro, a app reconhece os aparelhos e liga-os aos equipamentos.',
     },
     summary: (parts: string[]) => parts.join(' · '),
+    difference: (pct: number) =>
+      pct === 0
+        ? 'o mesmo que o manual'
+        : pct > 0
+          ? `mais ${pct} % do que o manual`
+          : `menos ${-pct} % do que o manual`,
+    uses: {
+      title: 'Últimos usos',
+      intro: (days: number) =>
+        `Os programas inteiros dos últimos ${days} dias já analisados, com o programa provável e a energia comparada com a do manual.`,
+      none: 'Ainda não há programas inteiros reconhecidos deste equipamento.',
+      noProgrammes: 'Escreve os programas do manual para a app dizer qual foi cada um.',
+      average: (difference: string) => `Em média, ${difference}.`,
+      caveat:
+        'O manual mede em condições de ensaio: a carga e a temperatura da água mudam o consumo.',
+      loading: 'A procurar os usos…',
+    },
     settingsTitle: 'Equipamentos da casa',
     settingsText:
       'O registo dos equipamentos que tens em casa, opcional. Ajuda a reconhecer os aparelhos nas medições.',

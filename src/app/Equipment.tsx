@@ -23,6 +23,7 @@ import { formatHoursMinutes, parseHoursMinutes } from '../lib/time';
 import { formatKwhField, formatPower, parseKwhToWh } from '../lib/units';
 import type { Appliance } from './api';
 import { useAppliances } from './appliances-store';
+import { EquipmentUses } from './EquipmentUses';
 import { linkAppliances, removeEquipment, saveEquipment, useEquipment } from './equipment-store';
 import { failureText, useSession } from './session';
 
@@ -545,6 +546,7 @@ export function EquipmentPage() {
           ) : (
             <LinkedAppliances item={current} appliances={appliances} />
           )}
+          <EquipmentUses item={current} appliances={appliances} />
         </>
       )}
     </>
