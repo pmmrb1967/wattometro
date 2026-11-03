@@ -53,6 +53,36 @@ A app compara cada programa inteiro medido (ciclos com aquecimentos,
 O manual mede em condições de ensaio (carga e temperatura da água): a diferença
 mostra-se como comparação, nunca como defeito, e não há conclusão de desgaste.
 
+## Ler de fotografias (com IA)
+
+Só com a chave de IA do utilizador; sem ela o formulário é o mesmo
+(`src/app/EquipmentPhotos.tsx`).
+
+- Até **3 fotografias** de cada vez: chapa, etiqueta energética, tabela de
+  programas do manual.
+- No browser, cada fotografia é reduzida ao que a API lê (até ~1,15 MP e 1568 px
+  no lado maior) e desenhada outra vez em JPEG, o que deixa de fora os metadados
+  da câmara (EXIF: localização, data, aparelho) — `src/lib/image.ts`.
+- Vai diretamente para `api.anthropic.com` com a chave do utilizador; nunca
+  passa pelo Worker e não fica guardada em lado nenhum. O custo estimado
+  (~1600 tokens por fotografia, por excesso) mostra-se sempre antes de enviar,
+  mesmo com o envio automático ligado.
+- A IA **copia o texto impresso** ("2,1 kW", "0,46 kWh", "3 h 48 min"), sem
+  converter nem calcular (`src/ai/prompts/equipment-photo.ts`, com versão);
+  a resposta é validada com zod e tentada mais uma vez no máximo. A resposta
+  não tem campo para números de série.
+- Os números lê-os o código (`src/domain/equipment-reading.ts`, com
+  `parsePrintedPowerW`/`parsePrintedEnergyWh` em `src/lib/units.ts` e
+  `parsePrintedDurationS` em `src/lib/time.ts`), com as regras do registo; um
+  programa sem duração ou energia legível fica de fora, com aviso. Uma gama de
+  potência ("1850-2200 W") dá o topo, o teto da chapa.
+- O utilizador confirma valor a valor (`src/app/photo-choices.ts`): vem marcado
+  o que preenche um campo vazio; o que substituiria um valor diferente, ou um
+  programa do mesmo nome, vem por marcar. Nada é gravado sem "Guardar".
+
+Sem IA, um OCR no browser (Tesseract.js) poderia ler a chapa (potência, marca,
+modelo), mas não as colunas de uma tabela; fica como passo seguinte possível.
+
 ## Fontes avaliadas e postas de lado
 
 - **EPREL** (base europeia de etiquetas energéticas): responde por número de

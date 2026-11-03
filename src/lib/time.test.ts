@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  parsePrintedDurationS,
   formatHoursMinutes,
   parseHoursMinutes,
   startOfMadridDay,
@@ -194,5 +195,17 @@ describe('parseHoursMinutes', () => {
   it('writes seconds back as h:mm', () => {
     expect(formatHoursMinutes(4860)).toBe('1:21');
     expect(formatHoursMinutes(840)).toBe('0:14');
+  });
+});
+
+describe('parsePrintedDurationS', () => {
+  it('reads the ways a manual prints a duration', () => {
+    expect(parsePrintedDurationS('1:21')).toBe(4860);
+    expect(parsePrintedDurationS('3:48 h')).toBe(13_680);
+    expect(parsePrintedDurationS('81 min')).toBe(4860);
+    expect(parsePrintedDurationS('3h48')).toBe(13_680);
+    expect(parsePrintedDurationS('3 h 48 min')).toBe(13_680);
+    expect(parsePrintedDurationS('2 h')).toBe(7200);
+    expect(parsePrintedDurationS('?')).toBeNull();
   });
 });

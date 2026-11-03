@@ -23,6 +23,7 @@ import { isLocal } from '../local/mode';
 import { formatPower } from '../lib/units';
 import type { Appliance } from './api';
 import { useAppliances } from './appliances-store';
+import { EquipmentPhotos } from './EquipmentPhotos';
 import { EquipmentUses } from './EquipmentUses';
 import { linkAppliances, removeEquipment, saveEquipment, useEquipment } from './equipment-store';
 import { EMPTY_ROW, programmeOf, rowOf, type ProgrammeRow } from './programme-row';
@@ -137,6 +138,18 @@ function EquipmentForm({
           onChange={(event) => setName(event.target.value)}
         />
       </label>
+      <EquipmentPhotos
+        values={{ kind, brand, model, power, energyClass, rows }}
+        disabled={busy}
+        onApply={(next) => {
+          setKind(next.kind);
+          setBrand(next.brand);
+          setModel(next.model);
+          setPower(next.power);
+          setEnergyClass(next.energyClass as typeof energyClass);
+          setRows(next.rows);
+        }}
+      />
       <div className="equipment-fields">
         <label>
           {texts.fields.kind}

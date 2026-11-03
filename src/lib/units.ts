@@ -114,6 +114,53 @@ export function formatKwhField(wh: Wh): string {
     .replace(/\s/g, '');
 }
 
+/** A whole number and its decimal digits scaled by 10^digits ("2", "1", 3 → 2100), without floats. */
+function scaledDecimal(whole: string, fraction: string, digits: number): number {
+  const kept = fraction.slice(0, digits).padEnd(digits, '0');
+  const roundUp = fraction.length > digits && Number(fraction[digits]) >= 5 ? 1 : 0;
+  return Number(whole) * 10 ** digits + Number(kept === '' ? '0' : kept) + roundUp;
+}
+
+/** Spaces between thousands, the no-break ones too (\s covers them): "1 850" → "1850". */
+const joinThousands = (text: string) => text.replace(/(\d)\s+(?=\d{3}(?!\d))/g, '$1');
+
+/** A number printed in W or kW, as W: "2,1" kW, "2100" W, "2.200" W (a thousands point). */
+function printedWatts(number: string, kilo: boolean): number {
+  const [whole = '0', fraction = ''] = number.split(/[.,]/);
+  return kilo || fraction.length === 3
+    ? scaledDecimal(whole, fraction, 3)
+    : scaledDecimal(whole, fraction, 0);
+}
+
+/**
+ * A power as a plate or a manual prints it ("2100 W", "2,1 kW"); a range
+ * ("1850-2200 W") gives its top, the plate's ceiling. Null without W or kW
+ * (a voltage, a word).
+ */
+export function parsePrintedPowerW(text: string): number | null {
+  const match = /(\d+(?:[.,]\d+)?)(?:\s*[-–/]\s*(\d+(?:[.,]\d+)?))?\s*(kW|W)(?![a-z])/i.exec(
+    joinThousands(text),
+  );
+  if (!match) return null;
+  const kilo = /^k/i.test(match[3] as string);
+  const values = [match[1], match[2]]
+    .filter((value): value is string => value !== undefined)
+    .map((value) => printedWatts(value, kilo));
+  const top = Math.max(...values);
+  return top > 0 ? top : null;
+}
+
+/** An energy as a manual prints it ("0,46 kWh", "458 Wh"), as Wh; without a unit, kWh. */
+export function parsePrintedEnergyWh(text: string): Wh | null {
+  const match = /(\d+(?:[.,]\d+)?)\s*(kWh|Wh)?/i.exec(joinThousands(text));
+  if (!match) return null;
+  const [whole = '0', fraction = ''] = (match[1] as string).split(/[.,]/);
+  const inWh = match[2]?.toLowerCase() === 'wh';
+  return inWh && fraction.length !== 3
+    ? scaledDecimal(whole, fraction, 0)
+    : scaledDecimal(whole, fraction, 3);
+}
+
 /** A power held for one hour (PVGIS's hourly PV power, docs/pvgis.md) as whole Wh. */
 export function hourWh(watts: number): Wh {
   return Math.max(0, Math.round(watts));

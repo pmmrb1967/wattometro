@@ -185,6 +185,24 @@ export function parseHoursMinutes(text: string): number | null {
   return Number(match[1]) * HOUR + Number(match[2]) * MINUTE;
 }
 
+/**
+ * A duration as a manual prints it, in seconds: "1:21", "3:48 h", "3h48",
+ * "3 h 48 min", "81 min", "2 h". Null when none of these.
+ */
+export function parsePrintedDurationS(text: string): number | null {
+  const clock = /(\d{1,2}):([0-5]\d)/.exec(text);
+  const hours = /(\d{1,2})\s*h(?:oras?)?\s*(?:(\d{1,2})\s*(?:min|m)?)?/i.exec(text);
+  const minutes = /(\d{1,4})\s*(?:min|m(?![a-z]))/i.exec(text);
+  const seconds = clock
+    ? Number(clock[1]) * HOUR + Number(clock[2]) * MINUTE
+    : hours
+      ? Number(hours[1]) * HOUR + Number(hours[2] ?? 0) * MINUTE
+      : minutes
+        ? Number(minutes[1]) * MINUTE
+        : 0;
+  return seconds > 0 ? seconds : null;
+}
+
 /** Seconds as h:mm (4860 → "1:21"), the minutes rounded down. */
 export function formatHoursMinutes(seconds: number): string {
   assertEpoch(seconds);

@@ -5,6 +5,7 @@
  * JSON in EXPLAIN_SCHEMA, checked with zod; the version changes with the text.
  */
 import { z } from 'zod';
+import { forTheApi } from './schema';
 
 export const EXPLAIN_PROMPT_VERSION = 'explain-1';
 
@@ -19,27 +20,6 @@ export const explanationSchema = z.strictObject({
   actions: z.array(z.string().min(1).max(300)).max(3),
 });
 export type Explanation = z.infer<typeof explanationSchema>;
-
-/** Keywords structured outputs do not accept; zod still checks them on the answer. */
-const UNSUPPORTED = [
-  '$schema',
-  'minLength',
-  'maxLength',
-  'minItems',
-  'maxItems',
-  'minimum',
-  'maximum',
-];
-
-function forTheApi(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(forTheApi);
-  if (value === null || typeof value !== 'object') return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => !UNSUPPORTED.includes(key))
-      .map(([key, item]) => [key, forTheApi(item)]),
-  );
-}
 
 export const EXPLAIN_SCHEMA = forTheApi(z.toJSONSchema(explanationSchema)) as Record<
   string,

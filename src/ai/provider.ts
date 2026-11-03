@@ -29,7 +29,7 @@ export class AiError extends Error {
   }
 }
 
-export type AiTask = 'chat' | 'explain' | 'test';
+export type AiTask = 'chat' | 'explain' | 'read_equipment' | 'test';
 
 export interface AiUsage {
   task: AiTask;
@@ -47,8 +47,14 @@ export interface AiEstimate {
   costMicroUsd: number;
 }
 
+/** A photo as the API takes it (src/lib/image.ts makes it small first). */
+export interface AiImage {
+  mime: 'image/jpeg';
+  base64: string;
+}
+
 export interface TextRequest {
-  task: 'explain';
+  task: 'explain' | 'read_equipment';
   promptVersion: string;
   system: string;
   user: string;
@@ -57,6 +63,8 @@ export interface TextRequest {
 
 /** A text answered in a JSON schema and checked with zod; one retry at most. */
 export interface StructuredRequest<T> extends TextRequest {
+  /** Photos read with the text, sent before it; never kept. */
+  images?: readonly AiImage[];
   schema: Record<string, unknown>;
   validator: { safeParse(value: unknown): { success: true; data: T } | { success: false } };
 }

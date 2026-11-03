@@ -1167,6 +1167,47 @@ export const t = {
     noShelly: 'Só com um Shelly no quadro: os aparelhos reconhecem-se pelos valores ao segundo.',
     equipmentLink: 'Os teus equipamentos',
   },
+  equipmentPhotos: {
+    title: 'Ler de fotografias',
+    intro: (max: number) =>
+      `Com a tua chave de IA: escolhe até ${max} fotografias da chapa, da etiqueta energética ou da tabela de programas do manual. Vão diretamente para a IA, mais pequenas e sem a localização, e não ficam guardadas. Confirmas cada valor antes de o usar.`,
+    choose: 'Escolher fotografias',
+    tooMany: (max: number) => `Escolhe no máximo ${max} fotografias.`,
+    unreadable: 'Não consegui abrir uma das fotografias. Experimenta uma em JPEG ou PNG.',
+    preparing: 'A preparar as fotografias…',
+    confirm: (count: number, cost: string) =>
+      `Enviar ${count === 1 ? '1 fotografia' : `${count} fotografias`} à IA? Custo estimado: até ${cost}.`,
+    send: 'Enviar',
+    cancel: 'Cancelar',
+    busy: 'A IA está a ler as fotografias…',
+    reviewTitle: 'Li isto nas fotografias',
+    reviewIntro:
+      'Marca o que queres usar. Confirma cada valor com a fotografia: a IA pode ler mal um número.',
+    nothing: 'Não encontrei nestas fotografias nada que o registo use.',
+    now: (value: string) => `agora: ${value}`,
+    programme: (row: {
+      name: string;
+      duration: string;
+      energy: string;
+      temperature: string;
+      load: string;
+    }) =>
+      [
+        `${row.name}: ${row.duration}, ${row.energy} kWh`,
+        row.temperature === '' ? null : `${row.temperature} °C`,
+        row.load === '' ? null : `${row.load} kg`,
+      ]
+        .filter((part) => part !== null)
+        .join(', '),
+    replaces: 'substitui o programa com o mesmo nome',
+    programmesNeedKind: (count: number) =>
+      `Li ${count === 1 ? '1 programa' : `${count} programas`}, mas os programas só se guardam numa máquina de lavar roupa ou loiça. Escolhe primeiro o tipo.`,
+    refused: (names: string) => `Não consegui ler a duração ou a energia de: ${names}.`,
+    spent: (cost: string) => `Esta leitura custou ${cost}.`,
+    apply: 'Usar estes valores',
+    discard: 'Descartar',
+    applied: 'Pus os valores no formulário. Revê-os e carrega em Guardar.',
+  },
   equipment: {
     title: 'Equipamentos',
     intro:

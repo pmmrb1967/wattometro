@@ -22,7 +22,7 @@ export type AiSettings = z.infer<typeof AiSettingsSchema>;
 
 const UsageEntry = z.object({
   at: z.string(),
-  task: z.enum(['chat', 'explain', 'test']),
+  task: z.enum(['chat', 'explain', 'read_equipment', 'test']),
   model: z.string(),
   promptVersion: z.string(),
   inputTokens: z.number().int(),

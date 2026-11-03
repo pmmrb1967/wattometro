@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  parsePrintedEnergyWh,
+  parsePrintedPowerW,
   formatKwhField,
   parseKwhToWh,
   formatCelsius,
@@ -120,5 +122,26 @@ describe('parseKwhToWh', () => {
   it('writes Wh back for the field', () => {
     expect(formatKwhField(458)).toBe('0,458');
     expect(formatKwhField(2000)).toBe('2,000');
+  });
+});
+
+describe('values printed on a plate or a manual', () => {
+  it('reads a power in W or kW; a range gives its top', () => {
+    expect(parsePrintedPowerW('2100 W')).toBe(2100);
+    expect(parsePrintedPowerW('2,1 kW')).toBe(2100);
+    expect(parsePrintedPowerW('2.2kW')).toBe(2200);
+    expect(parsePrintedPowerW('1850-2200W')).toBe(2200);
+    expect(parsePrintedPowerW('1 850 W')).toBe(1850);
+    expect(parsePrintedPowerW('1 850 W')).toBe(1850);
+    expect(parsePrintedPowerW('220-240 V')).toBeNull();
+    expect(parsePrintedPowerW('potente')).toBeNull();
+  });
+
+  it('reads an energy in kWh or Wh; without a unit, kWh', () => {
+    expect(parsePrintedEnergyWh('0,46 kWh')).toBe(460);
+    expect(parsePrintedEnergyWh('458 Wh')).toBe(458);
+    expect(parsePrintedEnergyWh('1,011 kWh/ciclo')).toBe(1011);
+    expect(parsePrintedEnergyWh('0.95')).toBe(950);
+    expect(parsePrintedEnergyWh('-')).toBeNull();
   });
 });

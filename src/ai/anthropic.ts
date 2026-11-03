@@ -63,6 +63,20 @@ export function answerText(content: readonly Anthropic.Beta.BetaContentBlock[]):
     .trim();
 }
 
+/** The text, after the photos when there are any. */
+function structuredContent(
+  request: StructuredRequest<unknown>,
+): string | Anthropic.Beta.BetaContentBlockParam[] {
+  if (!request.images || request.images.length === 0) return request.user;
+  return [
+    ...request.images.map((image) => ({
+      type: 'image' as const,
+      source: { type: 'base64' as const, media_type: image.mime, data: image.base64 },
+    })),
+    { type: 'text' as const, text: request.user },
+  ];
+}
+
 export class AnthropicProvider implements AiProvider {
   readonly model: string;
   protected readonly client: Anthropic;
@@ -157,7 +171,7 @@ export class AnthropicProvider implements AiProvider {
           },
           max_tokens: request.maxOutputTokens,
           system: request.system,
-          messages: [{ role: 'user', content: request.user }],
+          messages: [{ role: 'user', content: structuredContent(request) }],
         });
       } catch (error) {
         throw new AiError(toAiError(error).code, usage);
