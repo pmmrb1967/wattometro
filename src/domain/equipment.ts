@@ -33,6 +33,8 @@ export const EQUIPMENT_KINDS = [
 ] as const;
 export type EquipmentKind = (typeof EQUIPMENT_KINDS)[number];
 
+export const ENERGY_CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
+
 /** The kinds whose manual has a table of programmes the app matches whole programmes with. */
 export const PROGRAMME_KINDS: readonly EquipmentKind[] = ['washer', 'dishwasher'];
 
@@ -67,7 +69,7 @@ export const equipmentInputSchema = z
     model: optionalText(60),
     room: optionalText(40),
     ratedPowerW: z.number().int().min(1).max(50_000).nullable(),
-    energyClass: z.enum(['A', 'B', 'C', 'D', 'E', 'F', 'G']).nullable(),
+    energyClass: z.enum(ENERGY_CLASSES).nullable(),
     notes: optionalText(500),
     programmes: z.array(programmeSchema).max(MAX_PROGRAMMES),
   })

@@ -6,6 +6,7 @@
  * MAX_SIGNATURE_SECONDS / 60 + 2 rows read.
  */
 import type { Sql } from '../db';
+import { isLinkedLabel } from './equipment';
 import { packRecords } from './seconds';
 
 /** The longest run marked at once: a washing machine's programme, an oven. */
@@ -133,27 +134,30 @@ export async function signatureRecords(
 
 /**
  * Renames an appliance: every calibration with the label of this one, as they
- * are all the same appliance. False for another household's signature.
+ * are all the same appliance. 'not_found' for another household's signature;
+ * 'linked' when named as an appliance linked to an equipment (rename that instead).
  */
 export async function renameSignature(
   sql: Sql,
   householdId: string,
   id: string,
   label: string,
-): Promise<boolean> {
+): Promise<'ok' | 'not_found' | 'linked'> {
   const owner = await sql.first<{ label: string }>(
     'SELECT label FROM signatures WHERE id = ? AND household_id = ?',
     id,
     householdId,
   );
-  if (!owner) return false;
+  if (!owner) return 'not_found';
+  // Named as a linked appliance: the equipment's name governs (repo/equipment.ts).
+  if (await isLinkedLabel(sql, householdId, owner.label)) return 'linked';
   await sql.run(
     'UPDATE signatures SET label = ? WHERE household_id = ? AND label = ?',
     label,
     householdId,
     owner.label,
   );
-  return true;
+  return 'ok';
 }
 
 export async function deleteSignature(sql: Sql, householdId: string, id: string): Promise<void> {

@@ -65,7 +65,7 @@
  *   GET  /v1/signatures        → {signatures: [{id, meter, label, from, to, minutes, createdAt}]}
  *   GET  /v1/signatures/:id/seconds → application/octet-stream, its minutes as records
  *   PATCH /v1/signatures/:id  {label} → 204: renames every calibration of that appliance;
- *                              404 not the household's
+ *                              404 not the household's; 409 linked (named as a linked appliance)
  *   DELETE /v1/signatures/:id  → 204
  *   GET  /v1/nilm/days?meter&from&to → {days: [{day, version, minutes, data}]}: the cycles the
  *                              browser found on each Lisbon day [from, to] (≤ 400 days), data
@@ -80,13 +80,22 @@
  *                              minDurationS, maxDurationS, heats, createdAt}]}
  *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?,
  *                              heats?}
- *                              → 201 {appliance}; 409 too_many
- *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404
+ *                              → 201 {appliance}; 409 too_many. Named as an equipment, it is
+ *                              linked to it (equipmentId) and takes its name
+ *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404; 409 linked (a
+ *                              linked appliance has the equipment's name)
  *   DELETE /v1/appliances/:id  → 204
  *   GET  /v1/always-on         → {items: [{id, label, quantity, powerW, measured, createdAt}]}
  *   POST /v1/always-on         {label, quantity, powerW, measured} → 201 {item}; 409 too_many
  *   PUT  /v1/always-on/:id     {label, quantity, powerW, measured} → 204; 404
  *   DELETE /v1/always-on/:id   → 204
+ *   GET  /v1/equipment         → {items: Equipment[]} (src/domain/equipment.ts), by name
+ *   POST /v1/equipment         EquipmentInput → 201 {item}; 409 too_many | name_taken
+ *   PUT  /v1/equipment/:id     EquipmentInput → 204; 404; 409 name_taken. A new name renames the
+ *                              linked appliances and their calibrations (repo/equipment.ts)
+ *   POST /v1/equipment/:id/link {labels} → 204: the appliances of those names (any case) are
+ *                              linked and take its name; 404
+ *   DELETE /v1/equipment/:id   → 204; the linked appliances stay, unlinked
  *   GET  /v1/omie              → {days: [{date, start, step, prices}]}: the market prices of today
  *                              and tomorrow, once published (omie.ts; cents per MWh)
  *   POST /v1/import/eredes     {quarters: [ts, Wh, estimated 0|1][]} (≤ 3000, ts = start of the
@@ -155,6 +164,14 @@ import {
   updateAppliance,
 } from './repo/appliances';
 import { createAlwaysOn, deleteAlwaysOn, listAlwaysOn, updateAlwaysOn } from './repo/always-on';
+import {
+  createEquipment,
+  deleteEquipment,
+  linkEquipment,
+  listEquipment,
+  updateEquipment,
+} from './repo/equipment';
+import { equipmentInputSchema } from '../../src/domain/equipment';
 import {
   deleteSubscription,
   findSubscription,
@@ -431,6 +448,9 @@ const SignatureBody = z
   })
   .refine(({ from, to }) => from < to && to - from <= MAX_SIGNATURE_SECONDS);
 const SignatureRenameBody = z.object({ label: z.string().trim().min(1).max(60) });
+const EquipmentLinkBody = z.object({
+  labels: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
+});
 export const MAX_IMPORT_QUARTERS = 3000;
 export const MAX_IMPORT_BYTES = 256 * 1024;
 // 13 months before the current one, plus the current one (src/app/household-energy.ts).
@@ -1109,7 +1129,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const parsed = await body(c, ApplianceChange);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     const { label, durations } = parsed.data;
-    const updated = await updateAppliance(
+    const outcome = await updateAppliance(
       config.sql,
       c.get('user').householdId,
       c.req.param('id'),
@@ -1118,7 +1138,8 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
         ...(durations !== undefined ? { durations } : {}),
       },
     );
-    return updated ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+    if (outcome === 'linked') return c.json({ error: 'linked' }, 409);
+    return outcome === 'ok' ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
   });
 
   app.delete('/v1/appliances/:id', requireUser, async (c) => {
@@ -1153,6 +1174,48 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
 
   app.delete('/v1/always-on/:id', requireUser, async (c) => {
     await deleteAlwaysOn(config.sql, c.get('user').householdId, c.req.param('id'));
+    return c.body(null, 204);
+  });
+
+  app.get('/v1/equipment', requireUser, async (c) =>
+    c.json({ items: await listEquipment(config.sql, c.get('user').householdId) }),
+  );
+
+  app.post('/v1/equipment', requireUser, async (c) => {
+    const parsed = await body(c, equipmentInputSchema);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const item = await createEquipment(config.sql, c.get('user').householdId, parsed.data, now());
+    if (typeof item === 'string') return c.json({ error: item }, 409);
+    return c.json({ item }, 201);
+  });
+
+  app.put('/v1/equipment/:id', requireUser, async (c) => {
+    const parsed = await body(c, equipmentInputSchema);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const outcome = await updateEquipment(
+      config.sql,
+      c.get('user').householdId,
+      c.req.param('id'),
+      parsed.data,
+    );
+    if (outcome === 'name_taken') return c.json({ error: outcome }, 409);
+    return outcome === 'ok' ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+  });
+
+  app.post('/v1/equipment/:id/link', requireUser, async (c) => {
+    const parsed = await body(c, EquipmentLinkBody);
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const found = await linkEquipment(
+      config.sql,
+      c.get('user').householdId,
+      c.req.param('id'),
+      parsed.data.labels,
+    );
+    return found ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+  });
+
+  app.delete('/v1/equipment/:id', requireUser, async (c) => {
+    await deleteEquipment(config.sql, c.get('user').householdId, c.req.param('id'));
     return c.body(null, 204);
   });
 
@@ -1195,13 +1258,14 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
     const parsed = await body(c, SignatureRenameBody);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
     const { householdId } = c.get('user');
-    const found = await renameSignature(
+    const outcome = await renameSignature(
       config.sql,
       householdId,
       c.req.param('id'),
       parsed.data.label,
     );
-    return found ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
+    if (outcome === 'linked') return c.json({ error: 'linked' }, 409);
+    return outcome === 'ok' ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);
   });
 
   app.delete('/v1/signatures/:id', requireUser, async (c) => {

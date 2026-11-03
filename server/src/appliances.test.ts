@@ -78,7 +78,9 @@ describe('/v1/appliances', () => {
     const list = async (cookie: string) =>
       ((await (await request(cookie, 'GET', '/v1/appliances')).json()) as { appliances: unknown[] })
         .appliances;
-    expect(await list(ana)).toEqual([{ ...FRIDGE, id: appliance.id, createdAt: NOW }]);
+    expect(await list(ana)).toEqual([
+      { ...FRIDGE, id: appliance.id, equipmentId: null, createdAt: NOW },
+    ]);
     expect(await list(rui)).toEqual([]);
 
     // Another household can neither rename nor delete it.
