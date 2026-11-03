@@ -72,6 +72,28 @@ describe('classify', () => {
     expect(classify(mixed, [airfryer, both]).get(mixed[0]!.start)?.label).toBe('Fogão');
   });
 
+  it('lets a rhythm only promote: a blurred one does not hand the use to an appliance without one', () => {
+    // The hob has learnt 44 s, the airfryer nothing; two plates at once read 22 s.
+    const hobUse = cyclesOf([...flat(60, 160), ...pulses(10, 14, 30, 2250, 160), ...flat(60, 160)]);
+    const blurred = [{ ...hobUse[0]!, pulses: { ...hobUse[0]!.pulses!, periodS: 22 } }];
+    const hob = appliance('h', 'Fogão', 2250, { pulsing: true, periodS: 44 });
+    const airfryer = appliance('a', 'Airfryer', 2160, { pulsing: true });
+    expect(classify(blurred, [hob, airfryer]).get(blurred[0]!.start)?.label).toBe('Fogão');
+  });
+
+  it('learns no rhythm from a group whose uses pulse to different rhythms', () => {
+    const cycles = cyclesOf([
+      ...flat(60, 160),
+      ...pulses(10, 14, 30, 2150, 160),
+      ...flat(400, 160),
+      ...pulses(10, 30, 30, 2150, 160),
+      ...flat(90, 160),
+    ]);
+    const [group] = groupCycles(cycles);
+    expect(group!.cycles).toHaveLength(2);
+    expect(describeGroup(group!).periodS).toBeNull();
+  });
+
   it('names the cycles that fit, the closest power winning', () => {
     // Fridge 100 W (twice), kettle 2000 W, water heater 1800 W, something of 600 W.
     const cycles = cyclesOf([

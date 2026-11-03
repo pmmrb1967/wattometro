@@ -258,6 +258,13 @@ describe('demo API, through the app calculations', () => {
       ['Airfryer', 60],
       ['Fogão', 44],
     ]);
+    const path = `/v1/appliances/${appliance.id}`;
+    expect(demoResponse('PATCH', path, { periodS: 601 }).status).toBe(400);
+    expect(demoResponse('PATCH', path, { periodS: null }).status).toBe(204);
+    const after = (await get('/v1/appliances')) as {
+      appliances: { label: string; periodS: number | null }[];
+    };
+    expect(after.appliances.find((item) => item.label === 'Fogão')?.periodS).toBeNull();
     resetDemo();
   });
 });

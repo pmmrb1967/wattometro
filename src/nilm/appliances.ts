@@ -49,6 +49,8 @@ export interface ApplianceDescriptor {
 
 /** A rhythm fits within this share of the appliance's (44 s and 60 s are 36 % apart). */
 export const PERIOD_TOLERANCE = 0.2;
+/** The longest rhythm kept (what the server takes). */
+export const MAX_PERIOD_S = 600;
 
 export interface Appliance extends ApplianceDescriptor {
   id: string;
@@ -74,13 +76,21 @@ export function durationRange(durationsS: readonly number[]): { minS: number; ma
   };
 }
 
-/** The median rhythm of pulsing cycles; null without one. */
+/**
+ * The rhythm of pulsing cycles, when they agree on one (each within
+ * PERIOD_TOLERANCE of the median); null otherwise. A group of "Ao segundo" is
+ * by power only and can hold the hob and the airfryer: no rhythm is better
+ * than a wrong one.
+ */
 function rhythmOf(cycles: readonly Cycle[]): number | null {
   const periods = cycles
     .map((cycle) => cycle.pulses?.periodS ?? 0)
     .filter((period) => period > 0)
     .sort((a, b) => a - b);
-  return periods.length === 0 ? null : (periods[periods.length >> 1] as number);
+  if (periods.length === 0) return null;
+  const median = periods[periods.length >> 1] as number;
+  const agree = periods.every((period) => Math.abs(period - median) <= median * PERIOD_TOLERANCE);
+  return agree && median <= MAX_PERIOD_S ? median : null;
 }
 
 export function describeGroup(group: CycleGroup): ApplianceDescriptor {
@@ -193,15 +203,15 @@ function distance(cycle: Cycle, appliance: ApplianceDescriptor): number | null {
 }
 
 /**
- * How a pulsing cycle's rhythm sits with an appliance's: 0 it fits, 1 one of
- * them is not known, 2 it does not fit. The rhythm orders, never excludes: two
- * plates pulsing at once blur it, and then the power decides as before.
+ * 0 when a pulsing cycle's rhythm fits the appliance's, 1 otherwise (not
+ * known, or another). The rhythm only promotes: two plates pulsing at once
+ * blur it, and then the power decides as without rhythms.
  */
 function rhythmRank(cycle: Cycle, appliance: ApplianceDescriptor): number {
   const seen = cycle.pulses?.periodS ?? 0;
   const known = appliance.periodS ?? null;
   if (seen <= 0 || known === null) return 1;
-  return Math.abs(seen - known) <= known * PERIOD_TOLERANCE ? 0 : 2;
+  return Math.abs(seen - known) <= known * PERIOD_TOLERANCE ? 0 : 1;
 }
 
 /** The appliance each cycle is, by its start; cycles that fit none are left out. */

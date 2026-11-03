@@ -122,7 +122,12 @@ export async function updateAppliance(
   sql: Sql,
   householdId: string,
   id: string,
-  change: { label?: string; durations?: { minS: number; maxS: number }; periodS?: number },
+  /** periodS null forgets the rhythm; missing keeps it. */
+  change: {
+    label?: string;
+    durations?: { minS: number; maxS: number };
+    periodS?: number | null;
+  },
 ): Promise<'ok' | 'not_found' | 'linked'> {
   const owner = await sql.first<{ equipment_id: string | null }>(
     'SELECT equipment_id FROM appliances WHERE id = ? AND household_id = ?',
@@ -148,13 +153,14 @@ export async function updateAppliance(
       query: `UPDATE appliances SET label = COALESCE(?, label),
                 min_duration_s = COALESCE(?, min_duration_s),
                 max_duration_s = COALESCE(?, max_duration_s),
-                period_s = COALESCE(?, period_s),
+                period_s = CASE WHEN ? = 1 THEN ? ELSE period_s END,
                 equipment_id = ?
               WHERE id = ? AND household_id = ?`,
       params: [
         label,
         change.durations?.minS ?? null,
         change.durations?.maxS ?? null,
+        change.periodS !== undefined ? 1 : 0,
         change.periodS ?? null,
         equipmentId,
         id,

@@ -678,7 +678,11 @@ export async function createAppliance(input: {
 /** A new name, or the durations widened by another programme. */
 export async function updateAppliance(
   id: string,
-  change: { label?: string; durations?: { minS: number; maxS: number }; periodS?: number },
+  change: {
+    label?: string;
+    durations?: { minS: number; maxS: number };
+    periodS?: number | null;
+  },
 ): Promise<{ ok: true } | Failure> {
   const response = await send('PATCH', `/v1/appliances/${encodeURIComponent(id)}`, change);
   if (response?.ok) return { ok: true };

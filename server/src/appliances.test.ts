@@ -150,6 +150,7 @@ describe('/v1/appliances', () => {
     const path = `/v1/appliances/${appliance.id}`;
     expect((await request(ana, 'PATCH', path, { periodS: 44 })).status).toBe(204);
     expect((await request(ana, 'PATCH', path, { periodS: 0 })).status).toBe(400);
+    expect((await request(ana, 'PATCH', path, { periodS: 601 })).status).toBe(400);
     const { appliances } = (await (await request(ana, 'GET', '/v1/appliances')).json()) as {
       appliances: { label: string; periodS: number | null }[];
     };
@@ -157,6 +158,12 @@ describe('/v1/appliances', () => {
       ['Airfryer', 60],
       ['Fogão', 44],
     ]);
+    // A wrong rhythm is forgotten.
+    expect((await request(ana, 'PATCH', path, { periodS: null })).status).toBe(204);
+    const again = (await (await request(ana, 'GET', '/v1/appliances')).json()) as {
+      appliances: { label: string; periodS: number | null }[];
+    };
+    expect(again.appliances.find((item) => item.label === 'Fogão')?.periodS).toBeNull();
   });
 
   it('needs a session', async () => {

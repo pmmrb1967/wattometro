@@ -93,7 +93,7 @@ export interface Cycle {
   /**
    * A run of pulses made one (periodic.ts): how many, the seconds they were on,
    * and its rhythm, the typical seconds from one pulse's start to the next
-   * (a hob's regulator 44 s, an airfryer's thermostat 60 s).
+   * (a hob's regulator 44 s, an airfryer's thermostat 60 s); 0 when not known.
    */
   pulses?: { count: number; onS: number; periodS: number };
   /** A whole programme made one (programmes.ts): its heatings, and the seconds they were on. */

@@ -396,7 +396,8 @@ const ApplianceChange = z
   .object({
     label: ApplianceLabel.optional(),
     durations: Durations.optional(),
-    periodS: PeriodS.optional(),
+    // null forgets a wrong rhythm.
+    periodS: PeriodS.nullable().optional(),
   })
   .refine(
     ({ label, durations, periodS }) =>

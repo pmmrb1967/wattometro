@@ -90,7 +90,12 @@ function applianceInput(
   }
   if (typeof pulsing !== 'boolean') return null;
   const rhythm = periodS ?? null;
-  if (rhythm !== null && (!Number.isInteger(rhythm) || (rhythm as number) < 1)) return null;
+  if (
+    rhythm !== null &&
+    (!Number.isInteger(rhythm) || (rhythm as number) < 1 || (rhythm as number) > 600)
+  ) {
+    return null;
+  }
   const heatings = heats ?? null;
   if (heatings !== null && (!Number.isInteger(heatings) || (heatings as number) < 1)) return null;
   const min = minDurationS ?? null;
@@ -928,7 +933,11 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       const name = typeof label === 'string' ? label.trim() : null;
       const range = durations as { minS?: unknown; maxS?: unknown } | undefined;
       if (name === null && range === undefined && periodS === undefined) return invalid();
-      if (periodS !== undefined && (!Number.isInteger(periodS) || (periodS as number) < 1)) {
+      if (
+        periodS !== undefined &&
+        periodS !== null &&
+        (!Number.isInteger(periodS) || (periodS as number) < 1 || (periodS as number) > 600)
+      ) {
         return invalid();
       }
       if (name !== null && (name === '' || name.length > 60)) return invalid();
@@ -942,7 +951,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       }
       if (!found) return json({ error: 'not_found' }, 404);
       if (name !== null && found.equipmentId !== null) return json({ error: 'linked' }, 409);
-      if (periodS !== undefined) found.periodS = periodS as number;
+      if (periodS !== undefined) found.periodS = periodS as number | null;
       if (name !== null) {
         const equipment = namedEquipment(demo.equipment, name);
         if (equipment) renameSignatures(demo, [name], equipment.name);
