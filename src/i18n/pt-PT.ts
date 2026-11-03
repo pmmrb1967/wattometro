@@ -1103,6 +1103,10 @@ export const t = {
     whatIsItLabel: (power: string) => `Que aparelho é este (${power})?`,
     notThisLabel: (label: string, power: string) =>
       `Não é "${label}"? Que aparelho é este (${power})?`,
+    plateWarning: (name: string, plate: string, power: string) =>
+      `A chapa de "${name}" diz ${plate}; este grupo tem ${power}. Guarda na mesma se tens a certeza.`,
+    fromRegister:
+      'Os equipamentos que registaste aparecem ao escrever, primeiro os que a chapa permite.',
     confusable: (label: string, other: string) =>
       `Guardado. Atenção: "${label}" e "${other}" têm ciclos quase iguais (mesma potência e duração parecida). A app fica com o mais próximo, mas pode trocá-los.`,
     close: 'Fechar',
@@ -1238,6 +1242,9 @@ export const t = {
     settingsLink: 'Ver os equipamentos',
   },
   calibrate: {
+    uncalibratedTitle: 'Por calibrar',
+    uncalibratedIntro:
+      'Equipamentos que registaste e que a app ainda não reconhece. Calibra-os com o nome deles, ou liga-os na página do equipamento.',
     title: 'Calibrar aparelhos',
     open: 'Calibrar um aparelho',
     back: '← Aparelhos',
@@ -1321,6 +1328,8 @@ export const t = {
     failed: 'Não foi possível ler ou guardar um dos dias. Tenta outra vez mais tarde.',
   },
   knownAppliances: {
+    seeEquipment: 'Ver equipamento',
+    linkedHint: 'O nome muda-se no equipamento.',
     title: 'Aparelhos que a app reconhece',
     intro:
       'Cada um é reconhecido pela potência, pela forma e pela duração dos seus ciclos, em todos os dias com valores ao segundo. Dás-lhes nome em "Dar nome" no cartão "Ao segundo" ou a partir de uma calibração. Para mudar um nome, escreve-o na caixa e carrega em "Guardar nome". Um programa mais curto ou mais longo (máquina de lavar a 30 ou a 60 °C) que não seja reconhecido: dá-lhe o mesmo nome e a duração aceite alarga-se.',

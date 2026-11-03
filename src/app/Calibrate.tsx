@@ -7,7 +7,7 @@
  * finds in it (src/nilm/signature.ts): the appliance's power and duration,
  * and from it the app recognises the appliance on every day (Phase 8.3).
  */
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { addDays } from '../domain/consumption';
 import { t } from '../i18n/pt-PT';
@@ -33,6 +33,8 @@ import {
   type Signature,
 } from './api';
 import { addAppliance, useAppliances } from './appliances-store';
+import { uncalibrated } from '../domain/equipment-suggest';
+import { useEquipment } from './equipment-store';
 import { KnownAppliances } from './KnownAppliances';
 import { SECONDS_DAYS } from './nilm-days';
 import { Reprocess } from './Reprocess';
@@ -92,9 +94,12 @@ function Recognise({ signature, cycle }: { signature: Signature; cycle: Cycle })
 /** The name of a calibrated appliance, which changes on all its calibrations. */
 function SignatureName({
   signature,
+  linked,
   onRenamed,
 }: {
   signature: Signature;
+  /** Named as an appliance linked to an equipment: renamed there. */
+  linked: boolean;
   onRenamed: (label: string) => void;
 }) {
   const { signOut } = useSession();
@@ -112,6 +117,15 @@ function SignatureName({
     const text = failureText(outcome, t.knownAppliances.failed);
     if (text === null) return signOut();
     setError(text);
+  }
+
+  if (linked) {
+    return (
+      <>
+        <strong>{signature.label}</strong>
+        <Link to="/equipamentos">{t.knownAppliances.seeEquipment}</Link>
+      </>
+    );
   }
 
   return (
@@ -141,11 +155,13 @@ function SignatureName({
 function Library({
   signatures,
   found,
+  linked,
   onRemove,
   onRename,
 }: {
   signatures: Signature[];
   found: Map<string, Found>;
+  linked: ReadonlySet<string>;
   onRemove: (signature: Signature) => void;
   onRename: (signature: Signature, label: string) => void;
 }) {
@@ -160,6 +176,7 @@ function Library({
             <div>
               <SignatureName
                 signature={signature}
+                linked={linked.has(signature.label)}
                 onRenamed={(label) => onRename(signature, label)}
               />
               <span className="hint">
@@ -201,8 +218,39 @@ function Library({
   );
 }
 
+/** The registered equipment no recognised appliance is linked to yet. */
+function Uncalibrated({ householdId }: { householdId: string }) {
+  const register = useEquipment(householdId);
+  const known = useAppliances(householdId);
+  if (register.kind !== 'ready' || known.kind !== 'ready') return null;
+  const missing = uncalibrated(register.items, known.appliances);
+  if (missing.length === 0) return null;
+  return (
+    <section className="card">
+      <h2>{texts.uncalibratedTitle}</h2>
+      <p className="hint">{texts.uncalibratedIntro}</p>
+      <ul>
+        {missing.map((item) => (
+          <li key={item.id}>{item.name}</li>
+        ))}
+      </ul>
+      <Link to="/equipamentos">{t.appliancesPage.equipmentLink}</Link>
+    </section>
+  );
+}
+
 export function Calibrate() {
   const { me, signOut } = useSession();
+  const appliances = useAppliances(me.householdId);
+  const linkedLabels = useMemo(
+    () =>
+      new Set(
+        appliances.kind === 'ready'
+          ? appliances.appliances.flatMap((item) => (item.equipmentId === null ? [] : [item.label]))
+          : [],
+      ),
+    [appliances],
+  );
   const energy = useHouseholdEnergy();
   const meter = energy.houseShelly;
   const household = me.householdId;
@@ -547,11 +595,14 @@ export function Calibrate() {
           <Library
             signatures={signatures}
             found={found}
+            linked={linkedLabels}
             onRemove={(s) => void remove(s)}
             onRename={renamed}
           />
         )}
       </section>
+
+      {meter && <Uncalibrated householdId={me.householdId} />}
 
       <KnownAppliances />
 

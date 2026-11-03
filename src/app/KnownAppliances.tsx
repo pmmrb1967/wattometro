@@ -5,6 +5,7 @@
  * forget it. Named from "Ao segundo" ("Dar nome") or from a calibration.
  */
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { t } from '../i18n/pt-PT';
 import { formatDuration } from '../lib/time';
 import { formatPower } from '../lib/units';
@@ -37,6 +38,8 @@ function Row({ appliance }: { appliance: Appliance }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const changed = label.trim() !== '' && label.trim() !== appliance.label;
+  // Linked to an equipment, it has its name: that is renamed instead (Equipment.tsx).
+  const linked = appliance.equipmentId !== null;
 
   async function act(run: () => ReturnType<typeof forgetAppliance>) {
     setBusy(true);
@@ -52,26 +55,35 @@ function Row({ appliance }: { appliance: Appliance }) {
   return (
     <li>
       <div>
-        <label>
-          <span className="visually-hidden">{texts.name}</span>
-          <input
-            value={label}
-            maxLength={60}
-            disabled={busy}
-            onChange={(event) => setLabel(event.target.value)}
-          />
-        </label>
+        {linked ? (
+          <>
+            <strong>{appliance.label}</strong>
+            <Link to="/equipamentos">{texts.seeEquipment}</Link>
+          </>
+        ) : (
+          <label>
+            <span className="visually-hidden">{texts.name}</span>
+            <input
+              value={label}
+              maxLength={60}
+              disabled={busy}
+              onChange={(event) => setLabel(event.target.value)}
+            />
+          </label>
+        )}
         <span className="hint">{describeAppliance(appliance)}</span>
         {error && <span className="error">{error}</span>}
       </div>
-      <button
-        type="button"
-        className="primary"
-        disabled={busy || !changed}
-        onClick={() => void act(() => renameKnownAppliance(appliance.id, label.trim()))}
-      >
-        {texts.rename}
-      </button>
+      {!linked && (
+        <button
+          type="button"
+          className="primary"
+          disabled={busy || !changed}
+          onClick={() => void act(() => renameKnownAppliance(appliance.id, label.trim()))}
+        >
+          {texts.rename}
+        </button>
+      )}
       <button
         type="button"
         className="secondary danger"

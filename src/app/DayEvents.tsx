@@ -7,7 +7,7 @@
  * day: a group without a name has "Dar nome", a named one "Mudar o nome" (and
  * "Esquecer este aparelho"). Only with a Shelly, for the last days.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { HowItWorks } from '../components/HowItWorks';
 import { InfoTip } from '../components/InfoTip';
@@ -38,6 +38,9 @@ import type { CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
 import { groupLoadKind } from '../nilm/load-kind';
 import { addAppliance, forgetAppliance, useAppliances } from './appliances-store';
+import { nameKey } from '../domain/equipment';
+import { suggestEquipment } from '../domain/equipment-suggest';
+import { useEquipment } from './equipment-store';
 import type { HouseholdEnergy } from './household-energy';
 import { loadDaySeconds } from './seconds-cache';
 import { failureText, useSession } from './session';
@@ -128,11 +131,16 @@ function NameGroup({
   current: Appliance | null;
   onDone: () => void;
 }) {
-  const { signOut } = useSession();
+  const { me, signOut } = useSession();
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const register = useEquipment(me.householdId);
+  const listId = useId();
+  const powerW230 = describeGroup(group).powerW;
+  const suggestions = suggestEquipment(powerW230, register.kind === 'ready' ? register.items : []);
+  const typed = suggestions.find(({ item }) => nameKey(item.name) === nameKey(label));
 
   async function save() {
     setBusy(true);
@@ -192,9 +200,29 @@ function NameGroup({
           maxLength={60}
           autoFocus
           placeholder={t.calibrate.appliancePlaceholder}
+          list={suggestions.length > 0 ? listId : undefined}
           onChange={(event) => setLabel(event.target.value)}
         />
       </label>
+      {suggestions.length > 0 && (
+        <>
+          <datalist id={listId}>
+            {suggestions.map(({ item }) => (
+              <option key={item.id} value={item.name} />
+            ))}
+          </datalist>
+          <p className="hint">{texts.fromRegister}</p>
+        </>
+      )}
+      {typed && !typed.fits && typed.item.ratedPowerW !== null && (
+        <p className="warning">
+          {texts.plateWarning(
+            typed.item.name,
+            formatPower(typed.item.ratedPowerW),
+            formatPower(powerW230),
+          )}
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
       <div className="actions">
         <button type="submit" className="primary" disabled={busy || label.trim() === ''}>
