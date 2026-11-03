@@ -205,4 +205,33 @@ describe('demo API, through the app calculations', () => {
     ]);
     resetDemo();
   });
+
+  it('renames calibrations whatever their case when an appliance takes an equipment name', async () => {
+    const descriptor = {
+      label: 'máquina da loiça',
+      powerW: 2000,
+      statesW: [2000],
+      pulsing: false,
+      minDurationS: null,
+      maxDurationS: null,
+      heats: null,
+    };
+    const bare = {
+      kind: null,
+      brand: null,
+      model: null,
+      room: null,
+      ratedPowerW: null,
+      energyClass: null,
+      notes: null,
+      programmes: [],
+    };
+    expect(
+      demoResponse('POST', '/v1/equipment', { ...bare, name: 'MÁQUINA DA LOIÇA' }).status,
+    ).toBe(201);
+    expect(demoResponse('POST', '/v1/appliances', descriptor).status).toBe(201);
+    const { signatures } = (await get('/v1/signatures')) as { signatures: { label: string }[] };
+    expect(signatures.map((signature) => signature.label)).toEqual(['MÁQUINA DA LOIÇA']);
+    resetDemo();
+  });
 });

@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 import type { Sql } from '../db';
-import { equipmentNamed } from './equipment';
+import { equipmentNamed, renameSignaturesStatement } from './equipment';
 
 /** More than a house names; keeps a runaway client from filling the table. */
 export const MAX_APPLIANCES = 60;
@@ -100,6 +100,11 @@ export async function createAppliance(
     equipmentId,
     now,
   );
+  // Linked: its calibrations, typed in another case, take the equipment's name too.
+  if (equipment) {
+    const signatures = await renameSignaturesStatement(sql, householdId, [input.label], label);
+    if (signatures) await sql.batch([signatures]);
+  }
   return { id, ...input, label, equipmentId, createdAt: now };
 }
 
@@ -122,15 +127,18 @@ export async function updateAppliance(
   if (!owner) return 'not_found';
   let label = change.label ?? null;
   let equipmentId = owner.equipment_id;
+  let signatures = null;
   if (label !== null) {
     if (owner.equipment_id !== null) return 'linked';
     const equipment = await equipmentNamed(sql, householdId, label);
     if (equipment) {
+      signatures = await renameSignaturesStatement(sql, householdId, [label], equipment.name);
       label = equipment.name;
       equipmentId = equipment.id;
     }
   }
   await sql.batch([
+    ...(signatures ? [signatures] : []),
     {
       query: `UPDATE appliances SET label = COALESCE(?, label),
                 min_duration_s = COALESCE(?, min_duration_s),

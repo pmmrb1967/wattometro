@@ -94,6 +94,8 @@ export async function renameKnownAppliance(
       kind: 'ready',
       appliances: ready().map((item) => (item.id === id ? { ...item, label } : item)),
     });
+    // Named as an equipment, the server linked it and gave it that name exactly.
+    if (household !== null) reloadAppliances(household);
   }
   return outcome;
 }

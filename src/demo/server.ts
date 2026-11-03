@@ -245,15 +245,29 @@ function demoEquipment(): Equipment[] {
 }
 
 /** Gives an equipment's name to its appliances and to their calibrations, as the server does. */
-function renameLinked(demo: DemoState, equipmentId: string, name: string) {
+function renameLinked(
+  demo: DemoState,
+  equipmentId: string,
+  name: string,
+  oldNames: readonly string[] = [],
+) {
   const linked = demo.appliances.filter((item) => item.equipmentId === equipmentId);
-  const old = new Set(linked.map((item) => item.label));
-  for (const signature of demo.signatures) if (old.has(signature.label)) signature.label = name;
+  renameSignatures(demo, [...linked.map((item) => item.label), ...oldNames], name);
   for (const appliance of linked) appliance.label = name;
 }
 
+/** Calibrations named one of `labels` in any case take `name`. */
+function renameSignatures(demo: DemoState, labels: readonly string[], name: string) {
+  const keys = new Set(labels.map(nameKey));
+  for (const signature of demo.signatures) {
+    if (keys.has(nameKey(signature.label))) signature.label = name;
+  }
+}
+
 const isLinkedLabel = (demo: DemoState, label: string) =>
-  demo.appliances.some((item) => item.label === label && item.equipmentId !== null);
+  demo.appliances.some(
+    (item) => nameKey(item.label) === nameKey(label) && item.equipmentId !== null,
+  );
 
 /** One calibration already made: the dishwasher of yesterday evening (src/demo/model.ts). */
 function demoSignatures(): DemoSignature[] {
@@ -802,6 +816,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         equipmentId: equipment?.id ?? null,
         createdAt: Math.floor(Date.now() / 1000),
       };
+      if (equipment) renameSignatures(demo, [input.label], equipment.name);
       demo.appliances.push(appliance);
       return json({ appliance }, 201);
     }
@@ -883,8 +898,12 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       const changed = changeEquipment(demo.equipment, id, parsed.data);
       if (changed === 'not_found') return json({ error: changed }, 404);
       if (changed === 'name_taken') return json({ error: changed }, 409);
+      const key = nameKey(parsed.data.name);
+      for (const item of demo.appliances) {
+        if (item.equipmentId === null && nameKey(item.label) === key) item.equipmentId = id;
+      }
       demo.equipment = changed;
-      renameLinked(demo, id, parsed.data.name);
+      renameLinked(demo, id, parsed.data.name, found ? [found.name] : []);
       return empty();
     }
     if (method === 'DELETE' && !equipment[2]) {
@@ -916,6 +935,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       if (name !== null && found.equipmentId !== null) return json({ error: 'linked' }, 409);
       if (name !== null) {
         const equipment = namedEquipment(demo.equipment, name);
+        if (equipment) renameSignatures(demo, [name], equipment.name);
         found.label = equipment?.name ?? name;
         found.equipmentId = equipment?.id ?? null;
       }

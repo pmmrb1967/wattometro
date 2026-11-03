@@ -335,4 +335,28 @@ describe('linking appliances', () => {
       { id: named.id, label: 'Aquecedor', equipmentId: heater },
     ]);
   });
+
+  it('renames calibrations whatever their case when an appliance is linked or the equipment renamed', async () => {
+    const ana = await signIn(0);
+    const kettle = await create(ana, equipment('Chaleira'));
+    const signature = await calibration(ana, 'chaleira', 0);
+    await appliance(ana, 'chaleira', 2100);
+    expect(await labels(ana)).toEqual(['Chaleira']);
+    await request(ana, 'PUT', `/v1/equipment/${kettle}`, equipment('Chaleira elétrica'));
+    expect(await labels(ana)).toEqual(['Chaleira elétrica']);
+    const rename = await request(ana, 'PATCH', `/v1/signatures/${signature}`, { label: 'Outro' });
+    expect(rename.status).toBe(409);
+  });
+
+  it('links the appliances of the name an equipment is renamed to', async () => {
+    const ana = await signIn(0);
+    const oven = await create(ana, equipment('Forno'));
+    await appliance(ana, 'Forno', 2000);
+    const kettle = await appliance(ana, 'chaleira', 2100);
+    await request(ana, 'PUT', `/v1/equipment/${oven}`, equipment('Chaleira'));
+    expect((await listAppliances(ana)).find((item) => item.id === kettle.id)).toMatchObject({
+      label: 'Chaleira',
+      equipmentId: oven,
+    });
+  });
 });

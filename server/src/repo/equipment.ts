@@ -106,21 +106,79 @@ export async function createEquipment(
   return { ...input, id, createdAt: now };
 }
 
-/** Statements giving `name` to every appliance linked to `equipmentId` and their calibrations. */
-function renameLinked(householdId: string, equipmentId: string, name: string): Statement[] {
+/**
+ * The statement giving `name` to the household's calibrations named one of
+ * `labels` in any case (SQLite's lower() leaves accents, so compared here);
+ * null when there are none.
+ */
+export async function renameSignaturesStatement(
+  sql: Sql,
+  householdId: string,
+  labels: readonly string[],
+  name: string,
+): Promise<Statement | null> {
+  const keys = new Set(labels.map(nameKey));
+  const rows = await sql.all<{ label: string }>(
+    'SELECT DISTINCT label FROM signatures WHERE household_id = ?',
+    householdId,
+  );
+  const matched = rows.map((row) => row.label).filter((label) => keys.has(nameKey(label)));
+  if (matched.length === 0) return null;
+  return {
+    query: `UPDATE signatures SET label = ?
+            WHERE household_id = ? AND label IN (${matched.map(() => '?').join(', ')})`,
+    params: [name, householdId, ...matched],
+  };
+}
+
+/**
+ * Statements linking the appliances `linkIds` to `equipmentId` and giving
+ * `name` to every appliance linked to it and to their calibrations (any case),
+ * also those named `oldName`.
+ */
+async function linkedStatements(
+  sql: Sql,
+  householdId: string,
+  equipmentId: string,
+  name: string,
+  linkIds: readonly string[],
+  oldName: string | null,
+): Promise<Statement[]> {
+  const appliances = await sql.all<{ id: string; label: string; equipment_id: string | null }>(
+    'SELECT id, label, equipment_id FROM appliances WHERE household_id = ?',
+    householdId,
+  );
+  const linking = new Set(linkIds);
+  const labels = appliances
+    .filter((appliance) => appliance.equipment_id === equipmentId || linking.has(appliance.id))
+    .map((appliance) => appliance.label);
+  const signatures = await renameSignaturesStatement(
+    sql,
+    householdId,
+    oldName === null ? labels : [...labels, oldName],
+    name,
+  );
   return [
-    // First the calibrations, while the appliances still have their old names.
-    {
-      query: `UPDATE signatures SET label = ?
-              WHERE household_id = ? AND label IN
-                (SELECT label FROM appliances WHERE household_id = ? AND equipment_id = ?)`,
-      params: [name, householdId, householdId, equipmentId],
-    },
+    ...linkIds.map((applianceId) => ({
+      query: 'UPDATE appliances SET equipment_id = ? WHERE id = ? AND household_id = ?',
+      params: [equipmentId, applianceId, householdId],
+    })),
+    ...(signatures ? [signatures] : []),
     {
       query: 'UPDATE appliances SET label = ? WHERE household_id = ? AND equipment_id = ?',
       params: [name, householdId, equipmentId],
     },
   ];
+}
+
+/** The unlinked appliances of the household named `name` in any case. */
+async function unlinkedNamed(sql: Sql, householdId: string, name: string): Promise<string[]> {
+  const rows = await sql.all<{ id: string; label: string }>(
+    'SELECT id, label FROM appliances WHERE household_id = ? AND equipment_id IS NULL',
+    householdId,
+  );
+  const key = nameKey(name);
+  return rows.filter((row) => nameKey(row.label) === key).map((row) => row.id);
 }
 
 export async function updateEquipment(
@@ -129,14 +187,17 @@ export async function updateEquipment(
   id: string,
   input: EquipmentInput,
 ): Promise<'ok' | 'not_found' | 'name_taken'> {
-  const owner = await sql.first<{ id: string }>(
-    'SELECT id FROM equipment WHERE id = ? AND household_id = ?',
+  const owner = await sql.first<{ name: string }>(
+    'SELECT name FROM equipment WHERE id = ? AND household_id = ?',
     id,
     householdId,
   );
   if (!owner) return 'not_found';
   const other = await equipmentNamed(sql, householdId, input.name);
   if (other && other.id !== id) return 'name_taken';
+  // Appliances already named as the new name are this equipment too ("named as an equipment links it").
+  const linking = await unlinkedNamed(sql, householdId, input.name);
+  const linked = await linkedStatements(sql, householdId, id, input.name, linking, owner.name);
   await sql.batch([
     {
       query: `UPDATE equipment SET name = ?, name_key = ?, kind = ?, brand = ?, model = ?,
@@ -157,7 +218,7 @@ export async function updateEquipment(
         householdId,
       ],
     },
-    ...renameLinked(householdId, id, input.name),
+    ...linked,
   ]);
   return 'ok';
 }
@@ -186,13 +247,16 @@ export async function linkEquipment(
   );
   const chosen = appliances.filter((appliance) => wanted.has(nameKey(appliance.label)));
   if (chosen.length === 0) return true;
-  await sql.batch([
-    ...chosen.map((appliance) => ({
-      query: 'UPDATE appliances SET equipment_id = ? WHERE id = ? AND household_id = ?',
-      params: [id, appliance.id, householdId],
-    })),
-    ...renameLinked(householdId, id, owner.name),
-  ]);
+  await sql.batch(
+    await linkedStatements(
+      sql,
+      householdId,
+      id,
+      owner.name,
+      chosen.map((appliance) => appliance.id),
+      null,
+    ),
+  );
   return true;
 }
 
@@ -211,17 +275,16 @@ export async function deleteEquipment(sql: Sql, householdId: string, id: string)
   ]);
 }
 
-/** Whether `label` is the name of an appliance linked to an equipment. */
+/** Whether `label` (any case) is the name of an appliance linked to an equipment. */
 export async function isLinkedLabel(
   sql: Sql,
   householdId: string,
   label: string,
 ): Promise<boolean> {
-  const row = await sql.first<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM appliances
-     WHERE household_id = ? AND label = ? AND equipment_id IS NOT NULL`,
+  const rows = await sql.all<{ label: string }>(
+    'SELECT DISTINCT label FROM appliances WHERE household_id = ? AND equipment_id IS NOT NULL',
     householdId,
-    label,
   );
-  return (row?.n ?? 0) > 0;
+  const key = nameKey(label);
+  return rows.some((row) => nameKey(row.label) === key);
 }
