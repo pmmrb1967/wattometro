@@ -79,7 +79,7 @@ describe('/v1/appliances', () => {
       ((await (await request(cookie, 'GET', '/v1/appliances')).json()) as { appliances: unknown[] })
         .appliances;
     expect(await list(ana)).toEqual([
-      { ...FRIDGE, id: appliance.id, equipmentId: null, createdAt: NOW },
+      { ...FRIDGE, id: appliance.id, equipmentId: null, periodS: null, createdAt: NOW },
     ]);
     expect(await list(rui)).toEqual([]);
 
@@ -138,6 +138,25 @@ describe('/v1/appliances', () => {
     });
     // A change must change something.
     expect((await request(ana, 'PATCH', '/v1/appliances/x', {})).status).toBe(400);
+  });
+
+  it('keeps the rhythm of a pulsing appliance, and learns it later (migration 0027)', async () => {
+    const ana = await signIn(0);
+    const pulsing = { ...FRIDGE, label: 'Airfryer', powerW: 2084, statesW: [2084], pulsing: true };
+    const created = await request(ana, 'POST', '/v1/appliances', { ...pulsing, periodS: 60 });
+    expect(created.status).toBe(201);
+    const hob = await request(ana, 'POST', '/v1/appliances', { ...pulsing, label: 'Fogão' });
+    const { appliance } = (await hob.json()) as { appliance: { id: string } };
+    const path = `/v1/appliances/${appliance.id}`;
+    expect((await request(ana, 'PATCH', path, { periodS: 44 })).status).toBe(204);
+    expect((await request(ana, 'PATCH', path, { periodS: 0 })).status).toBe(400);
+    const { appliances } = (await (await request(ana, 'GET', '/v1/appliances')).json()) as {
+      appliances: { label: string; periodS: number | null }[];
+    };
+    expect(appliances.map(({ label, periodS }) => [label, periodS])).toEqual([
+      ['Airfryer', 60],
+      ['Fogão', 44],
+    ]);
   });
 
   it('needs a session', async () => {

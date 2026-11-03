@@ -65,14 +65,22 @@ export async function addAppliance(
     ? ({ kind: 'create' } as const)
     : nameAppliance(label, descriptor, ready());
   if (plan.kind === 'widen') {
-    const outcome = await updateAppliance(plan.appliance.id, { durations: plan.durations });
+    // A rhythm seen now, for an appliance that had none, is learnt with the durations.
+    const learnt =
+      plan.periodS !== null && (plan.appliance.periodS ?? null) === null
+        ? { periodS: plan.periodS }
+        : {};
+    const outcome = await updateAppliance(plan.appliance.id, {
+      durations: plan.durations,
+      ...learnt,
+    });
     if (outcome.ok) {
       const { minS, maxS } = plan.durations;
       set({
         kind: 'ready',
         appliances: ready().map((item) =>
           item.id === plan.appliance.id
-            ? { ...item, minDurationS: minS, maxDurationS: maxS }
+            ? { ...item, minDurationS: minS, maxDurationS: maxS, ...learnt }
             : item,
         ),
       });

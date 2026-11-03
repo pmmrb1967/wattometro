@@ -22,6 +22,8 @@ export interface ApplianceInput {
   maxDurationS: number | null;
   /** Heatings of a whole programme (a dishwasher); null for anything else. */
   heats: number | null;
+  /** A pulsing appliance's rhythm, s (migration 0027); null when not known. */
+  periodS: number | null;
 }
 
 export interface Appliance extends ApplianceInput {
@@ -43,11 +45,12 @@ export async function listAppliances(sql: Sql, householdId: string): Promise<App
     min_duration_s: number | null;
     max_duration_s: number | null;
     heats: number | null;
+    period_s: number | null;
     equipment_id: string | null;
     created_at: number;
   }>(
     `SELECT id, label, power_w, states_w, pulsing, min_duration_s, max_duration_s, heats,
-       equipment_id, created_at
+       period_s, equipment_id, created_at
      FROM appliances WHERE household_id = ? ORDER BY label`,
     householdId,
   );
@@ -60,6 +63,7 @@ export async function listAppliances(sql: Sql, householdId: string): Promise<App
     minDurationS: row.min_duration_s,
     maxDurationS: row.max_duration_s,
     heats: row.heats,
+    periodS: row.period_s,
     equipmentId: row.equipment_id,
     createdAt: row.created_at,
   }));
@@ -86,8 +90,8 @@ export async function createAppliance(
   const equipmentId = equipment?.id ?? null;
   await sql.run(
     `INSERT INTO appliances (id, household_id, label, power_w, states_w, pulsing,
-       min_duration_s, max_duration_s, heats, equipment_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       min_duration_s, max_duration_s, heats, period_s, equipment_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     householdId,
     label,
@@ -97,6 +101,7 @@ export async function createAppliance(
     input.minDurationS,
     input.maxDurationS,
     input.heats,
+    input.periodS,
     equipmentId,
     now,
   );
@@ -117,7 +122,7 @@ export async function updateAppliance(
   sql: Sql,
   householdId: string,
   id: string,
-  change: { label?: string; durations?: { minS: number; maxS: number } },
+  change: { label?: string; durations?: { minS: number; maxS: number }; periodS?: number },
 ): Promise<'ok' | 'not_found' | 'linked'> {
   const owner = await sql.first<{ equipment_id: string | null }>(
     'SELECT equipment_id FROM appliances WHERE id = ? AND household_id = ?',
@@ -143,12 +148,14 @@ export async function updateAppliance(
       query: `UPDATE appliances SET label = COALESCE(?, label),
                 min_duration_s = COALESCE(?, min_duration_s),
                 max_duration_s = COALESCE(?, max_duration_s),
+                period_s = COALESCE(?, period_s),
                 equipment_id = ?
               WHERE id = ? AND household_id = ?`,
       params: [
         label,
         change.durations?.minS ?? null,
         change.durations?.maxS ?? null,
+        change.periodS ?? null,
         equipmentId,
         id,
         householdId,

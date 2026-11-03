@@ -575,6 +575,8 @@ const Appliance = z.object({
   heats: int.nullable().default(null),
   // Missing from a server before migration 0026 (a cached response).
   equipmentId: z.string().nullable().default(null),
+  // Missing before migration 0027.
+  periodS: int.nullable().default(null),
   createdAt: int,
 });
 export type Appliance = z.infer<typeof Appliance>;
@@ -661,6 +663,7 @@ export async function createAppliance(input: {
   minDurationS: number | null;
   maxDurationS: number | null;
   heats: number | null;
+  periodS?: number | null;
 }): Promise<{ ok: true; appliance: Appliance } | Failure> {
   const response = await send('POST', '/v1/appliances', input);
   if (response?.ok) {
@@ -675,7 +678,7 @@ export async function createAppliance(input: {
 /** A new name, or the durations widened by another programme. */
 export async function updateAppliance(
   id: string,
-  change: { label?: string; durations?: { minS: number; maxS: number } },
+  change: { label?: string; durations?: { minS: number; maxS: number }; periodS?: number },
 ): Promise<{ ok: true } | Failure> {
   const response = await send('PATCH', `/v1/appliances/${encodeURIComponent(id)}`, change);
   if (response?.ok) return { ok: true };

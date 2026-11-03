@@ -23,7 +23,7 @@ import type { DayAnalysis } from './day';
 import type { PowerEvent } from './events';
 import { groupCycles } from './summary';
 
-export const NILM_VERSION = 4;
+export const NILM_VERSION = 5;
 
 /** What the server keeps of a day (and what the appliances need of it). */
 export type StoredDay = Pick<
@@ -45,6 +45,8 @@ const EventTuple = z.tuple([
   num,
 ]);
 const Pair = z.tuple([num, num]);
+/** A run of pulses: count, seconds on, rhythm (s). */
+const Pulses = z.tuple([num, num, num]);
 const CycleTuple = z.tuple([
   EventTuple,
   EventTuple,
@@ -56,7 +58,7 @@ const CycleTuple = z.tuple([
   num,
   num,
   z.array(Pair),
-  z.union([Pair, z.literal(0)]),
+  z.union([Pulses, z.literal(0)]),
   z.union([Pair, z.literal(0)]),
 ]);
 /** powerW, onPct, energyWh, pauses as [start, end, lowW]. */
@@ -131,7 +133,9 @@ export async function encodeDay(day: StoredDay): Promise<string> {
       cycle.nonActiveVar,
       cycle.energyWh,
       cycle.states.map((state) => [state.from, state.powerW]),
-      pairOf(cycle.pulses),
+      cycle.pulses
+        ? ([cycle.pulses.count, cycle.pulses.onS, cycle.pulses.periodS] as [number, number, number])
+        : 0,
       pairOf(cycle.heats),
     ]),
     fridge: day.fridge && [
@@ -177,7 +181,9 @@ export async function decodeDay(data: string): Promise<StoredDay | null> {
           energyWh: energy,
           states: tuple[9].map(([from, watts]) => ({ from, powerW: watts })),
         };
-        if (tuple[10] !== 0) cycle.pulses = { count: tuple[10][0], onS: tuple[10][1] };
+        if (tuple[10] !== 0) {
+          cycle.pulses = { count: tuple[10][0], onS: tuple[10][1], periodS: tuple[10][2] };
+        }
         if (tuple[11] !== 0) cycle.heats = { count: tuple[11][0], onS: tuple[11][1] };
         return cycle;
       }),

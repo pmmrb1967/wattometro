@@ -69,6 +69,7 @@ interface DemoAppliance {
   minDurationS: number | null;
   maxDurationS: number | null;
   heats: number | null;
+  periodS: number | null;
   equipmentId: string | null;
   createdAt: number;
 }
@@ -78,10 +79,8 @@ function applianceInput(
   value: unknown,
 ): Omit<DemoAppliance, 'id' | 'equipmentId' | 'createdAt'> | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { label, powerW, statesW, pulsing, minDurationS, maxDurationS, heats } = value as Record<
-    string,
-    unknown
-  >;
+  const { label, powerW, statesW, pulsing, minDurationS, maxDurationS, heats, periodS } =
+    value as Record<string, unknown>;
   const name = typeof label === 'string' ? label.trim() : '';
   if (name === '' || name.length > 60 || !Number.isInteger(powerW) || (powerW as number) < 1) {
     return null;
@@ -90,6 +89,8 @@ function applianceInput(
     return null;
   }
   if (typeof pulsing !== 'boolean') return null;
+  const rhythm = periodS ?? null;
+  if (rhythm !== null && (!Number.isInteger(rhythm) || (rhythm as number) < 1)) return null;
   const heatings = heats ?? null;
   if (heatings !== null && (!Number.isInteger(heatings) || (heatings as number) < 1)) return null;
   const min = minDurationS ?? null;
@@ -109,6 +110,7 @@ function applianceInput(
     minDurationS: min as number | null,
     maxDurationS: max as number | null,
     heats: heatings as number | null,
+    periodS: rhythm as number | null,
   };
 }
 
@@ -918,10 +920,17 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     const id = decodeURIComponent(appliance[1] as string);
     const found = demo.appliances.find((item) => item.id === id);
     if (method === 'PATCH') {
-      const { label, durations } = (body ?? {}) as { label?: unknown; durations?: unknown };
+      const { label, durations, periodS } = (body ?? {}) as {
+        label?: unknown;
+        durations?: unknown;
+        periodS?: unknown;
+      };
       const name = typeof label === 'string' ? label.trim() : null;
       const range = durations as { minS?: unknown; maxS?: unknown } | undefined;
-      if (name === null && range === undefined) return invalid();
+      if (name === null && range === undefined && periodS === undefined) return invalid();
+      if (periodS !== undefined && (!Number.isInteger(periodS) || (periodS as number) < 1)) {
+        return invalid();
+      }
       if (name !== null && (name === '' || name.length > 60)) return invalid();
       if (
         range !== undefined &&
@@ -933,6 +942,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       }
       if (!found) return json({ error: 'not_found' }, 404);
       if (name !== null && found.equipmentId !== null) return json({ error: 'linked' }, 409);
+      if (periodS !== undefined) found.periodS = periodS as number;
       if (name !== null) {
         const equipment = namedEquipment(demo.equipment, name);
         if (equipment) renameSignatures(demo, [name], equipment.name);

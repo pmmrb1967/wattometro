@@ -77,12 +77,13 @@
  *                              the household's locality, passed on unread (pvgis.ts,
  *                              docs/pvgis.md); 409 no_location, 502 unavailable
  *   GET  /v1/appliances        → {appliances: [{id, label, powerW, statesW, pulsing,
- *                              minDurationS, maxDurationS, heats, createdAt}]}
+ *                              minDurationS, maxDurationS, heats, periodS, equipmentId,
+ *                              createdAt}]}
  *   POST /v1/appliances        {label, powerW, statesW, pulsing, minDurationS?, maxDurationS?,
- *                              heats?}
+ *                              heats?, periodS?}
  *                              → 201 {appliance}; 409 too_many. Named as an equipment, it is
  *                              linked to it (equipmentId) and takes its name
- *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}} → 204; 404; 409 linked (a
+ *   PATCH /v1/appliances/:id   {label?, durations?: {minS, maxS}, periodS?} → 204; 404; 409 linked (a
  *                              linked appliance has the equipment's name)
  *   DELETE /v1/appliances/:id  → 204
  *   GET  /v1/always-on         → {items: [{id, label, quantity, powerW, measured, createdAt}]}
@@ -370,6 +371,8 @@ const MissingQuery = z
 const ApplianceLabel = z.string().trim().min(1).max(60);
 /** Up to a day: longer than any cycle pairCycles finds (MAX_CYCLE_S). */
 const DurationS = z.number().int().min(1).max(86_400);
+/** A rhythm of pulses: at least a second, at most MAX_GAP_S plus a pulse (src/nilm/periodic.ts). */
+const PeriodS = z.number().int().min(1).max(600);
 const Durations = z
   .object({ minS: DurationS, maxS: DurationS })
   .refine(({ minS, maxS }) => minS <= maxS);
@@ -382,6 +385,7 @@ const ApplianceBody = z
     minDurationS: DurationS.nullable().default(null),
     maxDurationS: DurationS.nullable().default(null),
     heats: z.number().int().min(1).max(20).nullable().default(null),
+    periodS: PeriodS.nullable().default(null),
   })
   .refine(
     ({ minDurationS, maxDurationS }) =>
@@ -389,8 +393,15 @@ const ApplianceBody = z
       (minDurationS === null || minDurationS <= (maxDurationS as number)),
   );
 const ApplianceChange = z
-  .object({ label: ApplianceLabel.optional(), durations: Durations.optional() })
-  .refine(({ label, durations }) => label !== undefined || durations !== undefined);
+  .object({
+    label: ApplianceLabel.optional(),
+    durations: Durations.optional(),
+    periodS: PeriodS.optional(),
+  })
+  .refine(
+    ({ label, durations, periodS }) =>
+      label !== undefined || durations !== undefined || periodS !== undefined,
+  );
 const AlwaysOnBody = z
   .object({
     label: ApplianceLabel,
@@ -1128,7 +1139,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   app.patch('/v1/appliances/:id', requireUser, async (c) => {
     const parsed = await body(c, ApplianceChange);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
-    const { label, durations } = parsed.data;
+    const { label, durations, periodS } = parsed.data;
     const outcome = await updateAppliance(
       config.sql,
       c.get('user').householdId,
@@ -1136,6 +1147,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       {
         ...(label !== undefined ? { label } : {}),
         ...(durations !== undefined ? { durations } : {}),
+        ...(periodS !== undefined ? { periodS } : {}),
       },
     );
     if (outcome === 'linked') return c.json({ error: 'linked' }, 409);

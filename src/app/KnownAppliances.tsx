@@ -20,7 +20,9 @@ function describeAppliance(appliance: Appliance): string {
     appliance.statesW.length > 1
       ? appliance.statesW.map((watts) => formatPower(watts)).join(' → ')
       : appliance.pulsing
-        ? t.dayEvents.pulsing(formatPower(appliance.powerW))
+        ? appliance.periodS !== null
+          ? texts.rhythm(formatPower(appliance.powerW), appliance.periodS)
+          : t.dayEvents.pulsing(formatPower(appliance.powerW))
         : appliance.heats !== null
           ? t.dayEvents.programme(formatPower(appliance.powerW), appliance.heats)
           : formatPower(appliance.powerW);
@@ -72,6 +74,9 @@ function Row({ appliance }: { appliance: Appliance }) {
           </label>
         )}
         <span className="hint">{describeAppliance(appliance)}</span>
+        {appliance.pulsing && appliance.periodS === null && (
+          <span className="hint">{texts.noRhythm}</span>
+        )}
         {error && <span className="error">{error}</span>}
       </div>
       {!linked && (

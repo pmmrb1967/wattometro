@@ -90,8 +90,12 @@ export interface Cycle {
   energyWh: number;
   /** One per state, in order (one for an appliance that only switches on and off). */
   states: CycleState[];
-  /** A run of pulses made one (periodic.ts): how many, and the seconds they were on. */
-  pulses?: { count: number; onS: number };
+  /**
+   * A run of pulses made one (periodic.ts): how many, the seconds they were on,
+   * and its rhythm, the typical seconds from one pulse's start to the next
+   * (a hob's regulator 44 s, an airfryer's thermostat 60 s).
+   */
+  pulses?: { count: number; onS: number; periodS: number };
   /** A whole programme made one (programmes.ts): its heatings, and the seconds they were on. */
   heats?: { count: number; onS: number };
 }

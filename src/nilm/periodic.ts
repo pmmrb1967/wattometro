@@ -122,6 +122,12 @@ function merge(run: readonly Cycle[], series?: SecondsSeries): Cycle {
   const pulses = sorted.filter(isPulse);
   const powerW = median(pulses.map((cycle) => cycle.powerW));
   const beat = beatOf(sorted);
+  const starts = pulses.map((cycle) => cycle.start);
+  const periodS = beat
+    ? beat.periodS
+    : starts.length < 2
+      ? 0
+      : median(starts.slice(1).map((start, index) => start - (starts[index] as number)));
   const periods = beat ? Math.round((end - first.start) / beat.periodS) : sorted.length;
   const onS = beat
     ? periods * beat.pulseS
@@ -141,7 +147,7 @@ function merge(run: readonly Cycle[], series?: SecondsSeries): Cycle {
     nonActiveVar: median(pulses.map((cycle) => cycle.nonActiveVar)),
     energyWh: Math.round(Math.min(pairedWh, drawnWh)),
     states: [{ from: first.start, powerW }],
-    pulses: { count: periods, onS },
+    pulses: { count: periods, onS, periodS },
   };
 }
 

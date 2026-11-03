@@ -1358,6 +1358,9 @@ export const t = {
     failed: 'Não foi possível ler ou guardar um dos dias. Tenta outra vez mais tarde.',
   },
   knownAppliances: {
+    rhythm: (power: string, seconds: number) => `${power} aos pulsos, a cada ${seconds} s`,
+    noRhythm:
+      'Ainda sem ritmo: para o aprender, carrega em "Mudar o nome" num uso certo deste aparelho, no cartão "Ao segundo", e escreve o mesmo nome. Com o ritmo, a app separa aparelhos de potência parecida (o fogão pulsa a cada 44 s, uma airfryer a cada 60 s).',
     seeEquipment: 'Ver equipamento',
     linkedHint: 'O nome muda-se no equipamento.',
     title: 'Aparelhos que a app reconhece',

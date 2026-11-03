@@ -40,7 +40,15 @@ export interface ApplianceDescriptor {
   maxDurationS: number | null;
   /** Heatings of a whole programme (programmes.ts); null for any other cycle. */
   heats: number | null;
+  /**
+   * A pulsing appliance's rhythm (Cycle.pulses.periodS), s; null or missing
+   * when not known yet (named before rhythms were kept).
+   */
+  periodS?: number | null;
 }
+
+/** A rhythm fits within this share of the appliance's (44 s and 60 s are 36 % apart). */
+export const PERIOD_TOLERANCE = 0.2;
 
 export interface Appliance extends ApplianceDescriptor {
   id: string;
@@ -66,9 +74,19 @@ export function durationRange(durationsS: readonly number[]): { minS: number; ma
   };
 }
 
+/** The median rhythm of pulsing cycles; null without one. */
+function rhythmOf(cycles: readonly Cycle[]): number | null {
+  const periods = cycles
+    .map((cycle) => cycle.pulses?.periodS ?? 0)
+    .filter((period) => period > 0)
+    .sort((a, b) => a - b);
+  return periods.length === 0 ? null : (periods[periods.length >> 1] as number);
+}
+
 export function describeGroup(group: CycleGroup): ApplianceDescriptor {
   const { minS, maxS } = durationRange(group.cycles.map((cycle) => cycle.durationS));
   return {
+    periodS: rhythmOf(group.cycles),
     powerW: group.powerW,
     statesW: group.statesW,
     pulsing: group.pulsing,
@@ -81,6 +99,7 @@ export function describeGroup(group: CycleGroup): ApplianceDescriptor {
 export function describeCycle(cycle: Cycle): ApplianceDescriptor {
   const { minS, maxS } = durationRange([cycle.durationS]);
   return {
+    periodS: rhythmOf([cycle]),
     powerW: cycle.powerW230,
     statesW: cycle.states.map((state) => state.powerW),
     pulsing: cycle.pulses !== undefined,
@@ -128,7 +147,13 @@ export function nameAppliance(
   descriptor: ApplianceDescriptor,
   appliances: readonly Appliance[],
 ):
-  | { kind: 'widen'; appliance: Appliance; durations: { minS: number; maxS: number } }
+  | {
+      kind: 'widen';
+      appliance: Appliance;
+      durations: { minS: number; maxS: number };
+      /** The rhythm to keep: the appliance's, or the one seen now when it had none. */
+      periodS: number | null;
+    }
   | { kind: 'create' } {
   const same = appliances.find(
     (appliance) => sameLabel(appliance.label, label) && sameShape(appliance, descriptor),
@@ -146,6 +171,7 @@ export function nameAppliance(
     kind: 'widen',
     appliance: same,
     durations: { minS: Math.min(...all), maxS: Math.max(...all) },
+    periodS: same.periodS ?? descriptor.periodS ?? null,
   };
 }
 
@@ -166,6 +192,18 @@ function distance(cycle: Cycle, appliance: ApplianceDescriptor): number | null {
   return gap <= matchToleranceW(appliance.powerW) ? gap : null;
 }
 
+/**
+ * How a pulsing cycle's rhythm sits with an appliance's: 0 it fits, 1 one of
+ * them is not known, 2 it does not fit. The rhythm orders, never excludes: two
+ * plates pulsing at once blur it, and then the power decides as before.
+ */
+function rhythmRank(cycle: Cycle, appliance: ApplianceDescriptor): number {
+  const seen = cycle.pulses?.periodS ?? 0;
+  const known = appliance.periodS ?? null;
+  if (seen <= 0 || known === null) return 1;
+  return Math.abs(seen - known) <= known * PERIOD_TOLERANCE ? 0 : 2;
+}
+
 /** The appliance each cycle is, by its start; cycles that fit none are left out. */
 export function classify(
   cycles: readonly Cycle[],
@@ -175,12 +213,16 @@ export function classify(
   for (const cycle of cycles) {
     let best: Appliance | null = null;
     let bestGap = Infinity;
+    let bestRank = Infinity;
     for (const appliance of appliances) {
       const gap = distance(cycle, appliance);
+      if (gap === null) continue;
+      const rank = rhythmRank(cycle, appliance);
       const later = (appliance.createdAt ?? 0) > (best?.createdAt ?? 0);
-      if (gap !== null && (gap < bestGap || (gap === bestGap && later))) {
+      if (rank < bestRank || (rank === bestRank && (gap < bestGap || (gap === bestGap && later)))) {
         best = appliance;
         bestGap = gap;
+        bestRank = rank;
       }
     }
     if (best) named.set(cycle.start, best);

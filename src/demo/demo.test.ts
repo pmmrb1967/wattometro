@@ -234,4 +234,30 @@ describe('demo API, through the app calculations', () => {
     expect(signatures.map((signature) => signature.label)).toEqual(['MÁQUINA DA LOIÇA']);
     resetDemo();
   });
+
+  it('keeps and learns the rhythm of a pulsing appliance', async () => {
+    const airfryer = {
+      label: 'Airfryer',
+      powerW: 2084,
+      statesW: [2084],
+      pulsing: true,
+      minDurationS: 400,
+      maxDurationS: 1700,
+      heats: null,
+    };
+    expect(demoResponse('POST', '/v1/appliances', { ...airfryer, periodS: 60 }).status).toBe(201);
+    const created = demoResponse('POST', '/v1/appliances', { ...airfryer, label: 'Fogão' });
+    const { appliance } = (await created.json()) as { appliance: { id: string } };
+    expect(demoResponse('PATCH', `/v1/appliances/${appliance.id}`, { periodS: 44 }).status).toBe(
+      204,
+    );
+    const { appliances } = (await get('/v1/appliances')) as {
+      appliances: { label: string; periodS: number | null }[];
+    };
+    expect(appliances.map(({ label, periodS }) => [label, periodS])).toEqual([
+      ['Airfryer', 60],
+      ['Fogão', 44],
+    ]);
+    resetDemo();
+  });
 });

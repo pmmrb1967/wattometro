@@ -57,6 +57,14 @@ describe('stored NILM days', () => {
     expect(data.length).toBeLessThan(20_000);
   });
 
+  it('keeps the rhythm of a run of pulses', async () => {
+    const analysis = await demoDay();
+    const first = analysis.cycles[0]!;
+    const pulsing = { ...first, pulses: { count: 20, onS: 600, periodS: 44 } };
+    const back = await decodeDay(await encodeDay({ ...analysis, cycles: [pulsing] }));
+    expect(back?.cycles[0]?.pulses).toEqual({ count: 20, onS: 600, periodS: 44 });
+  });
+
   it('refuses another version and what cannot be read', async () => {
     const empty = {
       day: '2026-10-27',

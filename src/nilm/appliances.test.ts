@@ -52,6 +52,26 @@ const appliance = (
 });
 
 describe('classify', () => {
+  it('puts first the appliance whose rhythm fits, then those of unknown rhythm', () => {
+    // Real: the airfryer (2084 W, every 60 s) at 2150 W was taken for the hob (2158 W, every 44 s).
+    const airfryerUse = cyclesOf([
+      ...flat(60, 160),
+      ...pulses(10, 30, 30, 2150, 160),
+      ...flat(90, 160),
+    ]);
+    const hobUse = cyclesOf([...flat(60, 160), ...pulses(10, 14, 30, 2150, 160), ...flat(60, 160)]);
+    const airfryer = appliance('a', 'Airfryer', 2084, { pulsing: true, periodS: 60 });
+    const hob = appliance('h', 'Fogão', 2158, { pulsing: true });
+    expect(classify(airfryerUse, [airfryer, hob]).get(airfryerUse[0]!.start)?.label).toBe(
+      'Airfryer',
+    );
+    expect(classify(hobUse, [airfryer, hob]).get(hobUse[0]!.start)?.label).toBe('Fogão');
+    // Neither rhythm fits (two plates at once): the closest power, as without rhythms.
+    const both = { ...hob, periodS: 44 };
+    const mixed = [{ ...hobUse[0]!, pulses: { ...hobUse[0]!.pulses!, periodS: 23 } }];
+    expect(classify(mixed, [airfryer, both]).get(mixed[0]!.start)?.label).toBe('Fogão');
+  });
+
   it('names the cycles that fit, the closest power winning', () => {
     // Fridge 100 W (twice), kettle 2000 W, water heater 1800 W, something of 600 W.
     const cycles = cyclesOf([
@@ -103,6 +123,7 @@ describe('classify', () => {
     ]);
     // 1200 s: half to twice.
     expect(describeCycle(cycles[2]!)).toEqual({
+      periodS: null,
       powerW: 2000,
       statesW: [2000, 400],
       pulsing: false,
@@ -165,6 +186,21 @@ describe('classify', () => {
 });
 
 describe('durations', () => {
+  it('learns the rhythm of a pulsing appliance when one of its uses is named again', () => {
+    const use = cyclesOf([...flat(60, 160), ...pulses(10, 30, 30, 2150, 160), ...flat(90, 160)]);
+    const descriptor = describeCycle(use[0]!);
+    expect(descriptor.periodS).toBe(60);
+    const airfryer = appliance('a', 'Airfryer', 2084, {
+      pulsing: true,
+      minDurationS: 400,
+      maxDurationS: 1700,
+    });
+    expect(nameAppliance('Airfryer', descriptor, [airfryer])).toMatchObject({
+      kind: 'widen',
+      periodS: 60,
+    });
+  });
+
   // A kettle of 2000 W for 3 min and a washing machine heating at 2000 W for 11 min.
   const day = [
     ...flat(30, 160),
@@ -200,6 +236,7 @@ describe('durations', () => {
       kind: 'widen',
       appliance: washer,
       durations: { minS: 337, maxS: 3600 },
+      periodS: null,
     });
     // Another name, or another shape, is another appliance.
     expect(nameAppliance('Chaleira', long, [washer])).toEqual({ kind: 'create' });

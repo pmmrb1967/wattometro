@@ -30,6 +30,18 @@ const cyclesOf = (power: number[]) => {
 };
 
 describe('mergePulses', () => {
+  it('keeps the rhythm of a run: the time between the starts of its pulses', () => {
+    // The hob of 02/11 pulses every 44 s; the airfryer every 60 s.
+    const hob = cyclesOf([...flat(60, 160), ...pulses(10, 14, 30, 2000, 160), ...flat(60, 160)]);
+    expect(hob[0]?.pulses?.periodS).toBe(44);
+    const airfryer = cyclesOf([
+      ...flat(60, 160),
+      ...pulses(10, 30, 30, 2000, 160),
+      ...flat(90, 160),
+    ]);
+    expect(airfryer[0]?.pulses?.periodS).toBe(60);
+  });
+
   it('makes an induction hob pulsing one use', () => {
     // 12 pulses of 2000 W, 10 s on and 10 s off: 2000 × 120 / 3600 = 66,7 Wh.
     const cycles = cyclesOf([...flat(60, 160), ...pulses(12, 10, 10, 2000, 160), ...flat(60, 160)]);
@@ -99,7 +111,7 @@ describe('mergePulses', () => {
     expect(cycles).toHaveLength(1);
     // 1200 W × (360 + 15 × 12) s = 648 000 J = 180 Wh.
     expect(cycles[0]).toMatchObject({ start: 1_790_000_060, powerW: 1200, energyWh: 180 });
-    expect(cycles[0]!.pulses).toEqual({ count: 16, onS: 540 });
+    expect(cycles[0]!.pulses).toEqual({ count: 16, onS: 540, periodS: 20 });
   });
 
   it('makes one use of a plate pulsing, another heating meanwhile, then both', () => {

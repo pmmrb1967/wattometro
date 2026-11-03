@@ -49,7 +49,7 @@ describe('boundCycleEnergy', () => {
   });
 
   it('leaves pulsing uses alone (two plates draw twice one)', () => {
-    const pulsing = { ...cycle, energyWh: 25, pulses: { count: 3, onS: 900 } };
+    const pulsing = { ...cycle, energyWh: 25, pulses: { count: 3, onS: 900, periodS: 300 } };
     expect(boundCycleEnergy([pulsing], day)[0]!.energyWh).toBe(25);
   });
 });
