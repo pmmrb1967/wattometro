@@ -80,7 +80,7 @@ export function AnomalyCard({ energy }: { energy: HouseholdEnergy }) {
   const latest = anomalies?.[0];
   if (!latest || latest.date !== yesterday) return null;
   return (
-    <section className="card">
+    <section className="card home-note">
       <h2>{texts.yesterdayTitle}</h2>
       <p>
         <Sentence anomaly={latest} when={texts.yesterday} />

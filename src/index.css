@@ -1040,6 +1040,19 @@ a.action:hover {
   font-size: var(--fs-sm);
 }
 
+/* A card of Início among the boxes ("Ontem, fora do habitual"): their type, a title
+   and a quiet line, not a page's heading and running text. */
+.home-note h2 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.home-note p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
 .card {
   display: grid;
   gap: 12px;

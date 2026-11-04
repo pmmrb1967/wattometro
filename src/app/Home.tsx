@@ -359,10 +359,11 @@ export function Home() {
               <TodayBoxes meter={now.meters[0]!} tariff={todayTariff} />
             )}
           </div>
-          {/* Every amount in euros here (actions, forecast, today's cost) includes VAT. */}
-          {todayTariff && <p className="hint home-vat">{t.home.vatNote}</p>}
         </div>
       </div>
+      {/* Every amount in euros here (actions, forecast, today's cost) includes VAT. Below both
+          columns, so that their last cards end level. */}
+      {todayTariff && <p className="hint home-vat">{t.home.vatNote}</p>}
     </>
   );
 }
