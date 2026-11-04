@@ -67,8 +67,10 @@ export const equipmentTexts = {
   equipmentPhotos: {
     title: 'Ler de fotografias',
     intro: (max: number) =>
-      `Com a tua chave de IA: escolhe até ${max} fotografias da chapa, da etiqueta energética ou da tabela de programas do manual. Vão diretamente para a IA, mais pequenas e sem a localização, e não ficam guardadas. Confirmas cada valor antes de o usar.`,
+      `Com a tua chave de IA: escolhe ou tira até ${max} fotografias da chapa, da etiqueta energética ou da tabela de programas do manual. Vão diretamente para a IA, mais pequenas e sem a localização, e não ficam guardadas. Confirmas cada valor antes de o usar.`,
     choose: 'Escolher fotografias',
+    take: 'Tirar fotografia',
+    takeAnother: 'Tirar outra fotografia',
     tooMany: (max: number) => `Escolhe no máximo ${max} fotografias.`,
     unreadable: 'Não consegui abrir uma das fotografias. Experimenta uma em JPEG ou PNG.',
     preparing: 'A preparar as fotografias…',

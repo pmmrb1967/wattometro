@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * "Ler de fotografias" in the equipment form: up to three photos of a plate,
- * an energy label or a manual's table, made small in the browser, sent with
+ * an energy label or a manual's table (chosen, or taken with the camera on a
+ * phone, one after the other: photo-batch.ts), made small in the browser, sent with
  * the user's own key after showing the cost (always: this sends photos), and
  * kept nowhere. What was read is offered value by value (photo-choices.ts);
  * the form is saved as usual. Nothing is shown without a key.
@@ -17,6 +18,7 @@ import type { EquipmentReading } from '../domain/equipment-reading';
 import { t } from '../i18n/pt-PT';
 import { shrinkPhoto } from '../lib/image';
 import { useAiSettings } from './ai-sync';
+import { hasCamera, nextPhotos, type PhotoSource } from './photo-batch';
 import { aiErrorText } from './ai-errors';
 import {
   applyChoices,
@@ -81,11 +83,12 @@ export function EquipmentPhotos({
   const [state, setState] = useState<State>({ kind: 'idle', note: null });
   if (!provider) return null;
 
-  async function onFiles(event: ChangeEvent<HTMLInputElement>) {
+  async function onFiles(event: ChangeEvent<HTMLInputElement>, source: PhotoSource) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (!provider || files.length === 0) return;
-    if (files.length > MAX_EQUIPMENT_PHOTOS) {
+    const taken = state.kind === 'confirm' ? state.photos : [];
+    if (nextPhotos<unknown>(taken, files, source, MAX_EQUIPMENT_PHOTOS) === null) {
       setState({ kind: 'error', text: texts.tooMany(MAX_EQUIPMENT_PHOTOS) });
       return;
     }
@@ -95,7 +98,7 @@ export function EquipmentPhotos({
       setState({ kind: 'error', text: texts.unreadable });
       return;
     }
-    const ready = photos as AiImage[];
+    const ready = nextPhotos(taken, photos as AiImage[], source, MAX_EQUIPMENT_PHOTOS) ?? [];
     const estimate = estimateEquipmentPhotos(provider.model, ready.length);
     setState({ kind: 'confirm', photos: ready, cost: formatMicroUsd(estimate.costMicroUsd) });
   }
@@ -113,17 +116,27 @@ export function EquipmentPhotos({
     }
   }
 
-  const picker = (
-    <label>
-      {texts.choose}
+  const camera = hasCamera();
+  /** A file field behind one of the app's buttons; the camera one opens the rear camera. */
+  const pick = (source: PhotoSource, label: string) => (
+    <label className="file-pick" key={source}>
       <input
         type="file"
         accept="image/*"
-        multiple
+        {...(source === 'camera' ? { capture: 'environment' as const } : { multiple: true })}
         disabled={disabled}
-        onChange={(event) => void onFiles(event)}
+        onChange={(event) => void onFiles(event, source)}
       />
+      <span className="file-row">
+        <span className="secondary">{label}</span>
+      </span>
     </label>
+  );
+  const picker = (
+    <div className="actions">
+      {camera && pick('camera', texts.take)}
+      {pick('choose', texts.choose)}
+    </div>
   );
 
   if (state.kind === 'review') {
@@ -233,6 +246,9 @@ export function EquipmentPhotos({
           <button type="button" className="primary" onClick={() => void send(state.photos)}>
             {texts.send}
           </button>
+          {camera &&
+            state.photos.length < MAX_EQUIPMENT_PHOTOS &&
+            pick('camera', texts.takeAnother)}
           <button
             type="button"
             className="secondary"
