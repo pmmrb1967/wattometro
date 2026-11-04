@@ -4,6 +4,7 @@
  * would keep for an E-Redes-only house, kept in this browser instead. Also the
  * format of the backup file, so it is validated when read back.
  */
+import { MAX_LOCATION_NAME } from '../domain/location';
 import { z } from 'zod';
 import { alwaysOnItemSchema } from '../domain/always-on';
 import { budgetSchema } from '../domain/budget';
@@ -32,7 +33,13 @@ export const localDataSchema = z.object({
   tariffs: z.array(tariffInputSchema.and(z.object({ id: z.string() }))),
   zone: z.enum(['A', 'B', 'C']).nullable(),
   location: z
-    .object({ name: z.string().min(1).max(100), latitudeCdeg: int, longitudeCdeg: int })
+    // Up to what PUT /v1/household/location takes (domain/location.ts); no range on the
+    // coordinates, so that no copy kept before that rule stops opening.
+    .object({
+      name: z.string().min(1).max(MAX_LOCATION_NAME),
+      latitudeCdeg: int,
+      longitudeCdeg: int,
+    })
     .nullable(),
   budget: budgetSchema.nullable(),
   installation: installationSchema,

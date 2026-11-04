@@ -72,6 +72,26 @@ interface Item {
   estimate: unknown;
 }
 
+/** A contract starting far ahead, so that it never meets one a server already has. */
+const TARIFF = {
+  validFrom: '2030-01-01',
+  supplier: 'Teste',
+  powerVa: 6900,
+  option: 'simple',
+  cycle: 'daily',
+  periodsMap: 'pre-2027',
+  fixedPerDay: 400_000,
+  energy: { simple: 160_000 },
+  iecPerKwh: 1000,
+  cavPerMonth: 2_850_000,
+  dgegPerMonth: 70_000,
+  largeFamily: false,
+  energyDiscountBp: 0,
+  socialEnergyPerKwh: 0,
+  socialPowerPerDay: 0,
+  socialFinancingPerKwh: 0,
+};
+
 const KETTLE = {
   name: 'Chaleira de teste',
   kind: 'kettle',
@@ -141,5 +161,52 @@ describe.each(SERVERS)('%s', (_name, start) => {
     expect((await api('PUT', '/v1/household/budget', { budget: { cents: 1 } })).status).toBe(400);
     expect((await api('PUT', '/v1/household/budget', { budget: null })).status).toBe(204);
     expect(await json(await api('GET', '/v1/household/budget'))).toEqual({ budget: null });
+  });
+
+  it('keeps the tariffs by the same rules: one contract a start date', async () => {
+    const created = await api('POST', '/v1/tariffs', TARIFF);
+    expect(created.status).toBe(201);
+    // The same start date replaces that contract (a correction), it does not add one.
+    const corrected = { ...TARIFF, energy: { simple: 150_000 } };
+    expect((await api('POST', '/v1/tariffs', corrected)).status).toBe(201);
+    const listed = await json<{ tariffs: { id: string; validFrom: string; energy: unknown }[] }>(
+      await api('GET', '/v1/tariffs'),
+    );
+    const mine = listed.tariffs.filter((tariff) => tariff.validFrom === TARIFF.validFrom);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]?.energy).toEqual({ simple: 150_000 });
+    expect((await api('POST', '/v1/tariffs', { ...TARIFF, powerVa: 100 })).status).toBe(400);
+
+    expect((await api('DELETE', `/v1/tariffs/${mine[0]?.id}`)).status).toBe(204);
+    const after = await json<{ tariffs: { validFrom: string }[] }>(await api('GET', '/v1/tariffs'));
+    expect(after.tariffs.some((tariff) => tariff.validFrom === TARIFF.validFrom)).toBe(false);
+  });
+
+  it('keeps the locality by the same rules', async () => {
+    const location = { name: 'Évora', latitudeCdeg: 3857, longitudeCdeg: -791 };
+    expect((await api('PUT', '/v1/household/location', { location })).status).toBe(204);
+    expect(await json(await api('GET', '/v1/household/location'))).toEqual({ location });
+    const outside = { location: { ...location, latitudeCdeg: 9001 } };
+    expect((await api('PUT', '/v1/household/location', outside)).status).toBe(400);
+    expect((await api('PUT', '/v1/household/location', { location: null })).status).toBe(204);
+    expect(await json(await api('GET', '/v1/household/location'))).toEqual({ location: null });
+  });
+
+  it('keeps the installation by the same rules', async () => {
+    const installation = {
+      heating: ['electric-heaters', 'gas-boiler'],
+      airConditioning: true,
+      waterHeating: 'gas',
+      hob: 'electric',
+      solarPanels: false,
+      electricCar: null,
+    };
+    expect((await api('PUT', '/v1/household/installation', { installation })).status).toBe(204);
+    // Heating kept in the list's order, whatever order it came in.
+    expect(await json(await api('GET', '/v1/household/installation'))).toEqual({
+      installation: { ...installation, heating: ['gas-boiler', 'electric-heaters'] },
+    });
+    const none = { installation: { ...installation, heating: ['none', 'wood'] } };
+    expect((await api('PUT', '/v1/household/installation', none)).status).toBe(400);
   });
 });

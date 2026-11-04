@@ -15,6 +15,7 @@ import { alwaysOnInputSchema, type AlwaysOnItem } from '../domain/always-on';
 import { addDays } from '../domain/consumption';
 import { budgetSchema, type Budget } from '../domain/budget';
 import { equipmentInputSchema, nameKey, sendsEstimate, type Equipment } from '../domain/equipment';
+import { locationBodySchema, type HouseholdLocation } from '../domain/location';
 import {
   addEquipment,
   changeEquipment,
@@ -127,11 +128,7 @@ interface DemoSignature {
   createdAt: number;
 }
 
-interface DemoLocation {
-  name: string;
-  latitudeCdeg: number;
-  longitudeCdeg: number;
-}
+type DemoLocation = HouseholdLocation;
 
 const DEMO_LOCATION: DemoLocation = { name: 'Lisboa', latitudeCdeg: 3872, longitudeCdeg: -914 };
 
@@ -578,17 +575,6 @@ const numberParam = (url: URL, name: string) => {
   return Number.isInteger(value) ? value : null;
 };
 
-function isDemoLocation(value: unknown): value is DemoLocation {
-  if (typeof value !== 'object' || value === null) return false;
-  const { name, latitudeCdeg, longitudeCdeg } = value as Record<string, unknown>;
-  return (
-    typeof name === 'string' &&
-    name.trim() !== '' &&
-    Number.isInteger(latitudeCdeg) &&
-    Number.isInteger(longitudeCdeg)
-  );
-}
-
 /**
  * Invented market prices for today and tomorrow (GET /v1/omie), € per MWh for
  * each Lisbon hour: cheap at midday (sun), dear in the evening. Not OMIE's.
@@ -729,10 +715,9 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     case 'GET /v1/household/location':
       return json({ location: demo.location });
     case 'PUT /v1/household/location': {
-      const location = (body as { location?: unknown } | undefined)?.location;
-      if (location === null) demo.location = null;
-      else if (isDemoLocation(location)) demo.location = location;
-      else return invalid();
+      const parsed = locationBodySchema.safeParse(body);
+      if (!parsed.success) return invalid();
+      demo.location = parsed.data.location;
       return empty();
     }
     case 'POST /v1/visit':

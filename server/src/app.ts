@@ -150,6 +150,7 @@ import {
 } from './repo/devices';
 import { databaseState } from './repo/health';
 import { budgetSchema } from '../../src/domain/budget';
+import { locationBodySchema } from '../../src/domain/location';
 import { VISIT_PAGES } from '../../src/lib/pages';
 import { accountTotals, recordVisit, visitsSince } from './repo/admin';
 import { installationSchema } from '../../src/domain/installation';
@@ -314,16 +315,7 @@ const PasswordBody = z.object({
 export const MAX_HOUSEHOLD_NAME = 60;
 const HouseholdBody = z.object({ name: z.string().trim().min(1).max(MAX_HOUSEHOLD_NAME) });
 
-export const MAX_LOCATION_NAME = 120;
-const LocationBody = z.object({
-  location: z
-    .object({
-      name: z.string().trim().min(1).max(MAX_LOCATION_NAME),
-      latitudeCdeg: z.number().int().min(-9000).max(9000),
-      longitudeCdeg: z.number().int().min(-18000).max(18000),
-    })
-    .nullable(),
-});
+const LocationBody = locationBodySchema;
 
 const InstallationBody = z.object({ installation: installationSchema });
 

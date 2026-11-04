@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { alwaysOnInputSchema, MAX_ALWAYS_ON } from '../domain/always-on';
 import { budgetSchema } from '../domain/budget';
 import { equipmentInputSchema, sendsEstimate } from '../domain/equipment';
+import { locationBodySchema } from '../domain/location';
 import { addEquipment, changeEquipment, sortedEquipment } from '../domain/equipment-list';
 import { installationSchema } from '../domain/installation';
 import { tariffInputSchema } from '../domain/tariff';
@@ -52,15 +53,7 @@ const ImportBody = z.object({
     .max(MAX_IMPORT_QUARTERS),
 });
 
-const LocationBody = z.object({
-  location: z
-    .object({
-      name: z.string().trim().min(1).max(100),
-      latitudeCdeg: z.number().int(),
-      longitudeCdeg: z.number().int(),
-    })
-    .nullable(),
-});
+const LocationBody = locationBodySchema;
 
 const numberParam = (url: URL, name: string) => {
   const value = Number(url.searchParams.get(name));
