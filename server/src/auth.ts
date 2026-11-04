@@ -22,14 +22,24 @@ import {
   lockedFor,
   recordLoginFailure,
   setPasswordHash,
+  type LoginLimits,
   type User,
 } from './repo/users';
 
 export const SESSION_COOKIE = 'wm_session';
 export const SESSION_SECONDS = 30 * 24 * 3600;
 export const RENEW_AFTER_SECONDS = 24 * 3600;
+/** Failures of one email from one address before it is locked (from there only). */
 export const MAX_LOGIN_FAILURES = 5;
+/** Failures from one address, whatever the emails, before the address is locked. */
+export const MAX_ADDRESS_FAILURES = 20;
+/** How long a lock lasts, and how long a failure counts. */
 export const LOCK_SECONDS = 15 * 60;
+export const LOGIN_LIMITS: LoginLimits = {
+  maxFailures: MAX_LOGIN_FAILURES,
+  maxAddressFailures: MAX_ADDRESS_FAILURES,
+  lockSeconds: LOCK_SECONDS,
+};
 export const MIN_SECRET_LENGTH = 32;
 
 const encoder = new TextEncoder();
@@ -45,6 +55,19 @@ async function hmacKey(secret: string): Promise<CryptoKey> {
     false,
     ['sign', 'verify'],
   );
+}
+
+/**
+ * The caller's address as it is kept for the login limits: an HMAC with
+ * SESSION_SECRET, so the database never holds it, nor a hash anyone could
+ * reverse by trying every IPv4 address. `ip` is CF-Connecting-IP, which
+ * Cloudflare sets (the API is reached only through the app's Worker,
+ * gateway.ts); without it (tests, local development) every caller is one.
+ */
+export async function addressKey(ip: string | undefined, secret: string): Promise<string> {
+  const data = encoder.encode(`login-address:${ip ?? 'unknown'}`);
+  const signature = await crypto.subtle.sign('HMAC', await hmacKey(secret), data);
+  return toBase64Url(new Uint8Array(signature).slice(0, 16));
 }
 
 export async function signSession(user: User, secret: string, now: number): Promise<string> {
@@ -106,24 +129,29 @@ export type LoginResult =
   | { ok: false; reason: 'invalid' }
   | { ok: false; reason: 'locked'; retryAfter: number };
 
-/** Checks email and password, locking the email after repeated failures. */
+/**
+ * Checks email and password. Repeated failures lock the email from that
+ * address (`address`: addressKey), and many lock the address itself, so
+ * whoever knows an email cannot lock its owner out.
+ */
 export async function login(
   sql: Sql,
   email: string,
   password: string,
+  address: string,
   now: number,
 ): Promise<LoginResult> {
-  const wait = await lockedFor(sql, email, now);
+  const wait = await lockedFor(sql, email, address, now);
   if (wait > 0) return { ok: false, reason: 'locked', retryAfter: wait };
 
   const user = await findUserByEmail(sql, email);
   const matches = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
   if (user && matches) {
-    await clearLoginFailures(sql, email);
+    await clearLoginFailures(sql, email, address);
     const { id, householdId, email: userEmail, sessionVersion } = user;
     return { ok: true, user: { id, householdId, email: userEmail, sessionVersion } };
   }
-  await recordLoginFailure(sql, email, now, MAX_LOGIN_FAILURES, LOCK_SECONDS);
+  await recordLoginFailure(sql, email, address, now, LOGIN_LIMITS);
   return { ok: false, reason: 'invalid' };
 }
 
@@ -141,9 +169,10 @@ export async function changePassword(
   user: User,
   currentPassword: string,
   newPassword: string,
+  address: string,
   now: number,
 ): Promise<PasswordChangeResult> {
-  const check = await login(sql, user.email, currentPassword, now);
+  const check = await login(sql, user.email, currentPassword, address, now);
   if (!check.ok) return check;
   const updated = await setPasswordHash(sql, user.id, await hashPassword(newPassword));
   return updated ? { ok: true, user: updated } : { ok: false, reason: 'invalid' };

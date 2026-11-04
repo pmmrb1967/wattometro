@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memorySql } from '../test/sqlite';
 import { UNKNOWN_INSTALLATION } from '../../src/domain/installation';
 import { createApp } from './app';
-import { LOCK_SECONDS, MAX_LOGIN_FAILURES, RENEW_AFTER_SECONDS, SESSION_SECONDS } from './auth';
+import {
+  LOCK_SECONDS,
+  MAX_ADDRESS_FAILURES,
+  MAX_LOGIN_FAILURES,
+  RENEW_AFTER_SECONDS,
+  SESSION_SECONDS,
+} from './auth';
 import type { Sql } from './db';
 import { allowedOrigins } from './env';
 import { hashPassword } from './password';
@@ -174,6 +180,56 @@ describe('login', () => {
     expect((await loginAs()).status).toBe(200);
     expect((await loginAs('errada')).status).toBe(401);
     expect((await loginAs()).status).toBe(200);
+  });
+
+  /** A request as Cloudflare passes it on: the caller's address in CF-Connecting-IP. */
+  const from = (ip: string) => ({ 'CF-Connecting-IP': ip });
+  const ATTACKER = '203.0.113.9';
+  const OWNER = '198.51.100.7';
+
+  it('locks the email only for the address the failures came from', async () => {
+    for (let i = 0; i < MAX_LOGIN_FAILURES; i++) await loginAs('errada', EMAIL, from(ATTACKER));
+    expect((await loginAs(PASSWORD, EMAIL, from(ATTACKER))).status).toBe(429);
+    // Whoever knows the email cannot lock its owner out.
+    expect((await loginAs(PASSWORD, EMAIL, from(OWNER))).status).toBe(200);
+  });
+
+  it(`locks an address after ${MAX_ADDRESS_FAILURES} failures, whatever the emails`, async () => {
+    for (let i = 0; i < MAX_ADDRESS_FAILURES; i++) {
+      const response = await loginAs('errada', `pessoa${i}@example.pt`, from(ATTACKER));
+      expect(response.status).toBe(401);
+    }
+    const locked = await loginAs(PASSWORD, EMAIL, from(ATTACKER));
+    expect(locked.status).toBe(429);
+    expect(locked.headers.get('Retry-After')).toBe(String(LOCK_SECONDS));
+    expect((await loginAs(PASSWORD, EMAIL, from(OWNER))).status).toBe(200);
+
+    clock += LOCK_SECONDS;
+    expect((await loginAs(PASSWORD, EMAIL, from(ATTACKER))).status).toBe(200);
+  });
+
+  it('counts only the failures of the last 15 minutes', async () => {
+    for (let i = 0; i < MAX_LOGIN_FAILURES - 1; i++) await loginAs('errada');
+    clock += LOCK_SECONDS + 1;
+    await loginAs('errada');
+    expect((await loginAs()).status).toBe(200);
+  });
+
+  it('keeps the address only as a keyed hash, and forgets it after 15 minutes', async () => {
+    await loginAs('errada', EMAIL, from(ATTACKER));
+    const stored = () =>
+      JSON.stringify([
+        db.prepare('SELECT * FROM login_attempts').all(),
+        db.prepare('SELECT * FROM login_addresses').all(),
+      ]);
+    expect(stored()).toContain('"failures":1');
+    expect(stored()).not.toContain(ATTACKER);
+
+    clock += LOCK_SECONDS + 1;
+    await loginAs('errada', 'outra@example.pt', from(OWNER));
+    const rows = db.prepare('SELECT email FROM login_attempts').all();
+    expect(rows).toEqual([{ email: 'outra@example.pt' }]);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM login_addresses').get()).toEqual({ n: 1 });
   });
 
   it('refuses requests from other origins or without one', async () => {

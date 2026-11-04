@@ -19,6 +19,8 @@ import {
 import type { Sql } from './db';
 import { listHouseholdIds } from './repo/households';
 import { purgeVisits } from './repo/admin';
+import { purgeLoginFailures } from './repo/users';
+import { LOCK_SECONDS } from './auth';
 import { purgeRowsRead, utcDay } from './repo/usage';
 import {
   firstMinute,
@@ -97,6 +99,9 @@ export async function runMaintenance(
     await purgeVisits(sql, lisbonDate(now - VISITS_DAYS * DAY));
     await setState(sql, STATE.purgedAt, now);
   }
+
+  // Failed logins keep the caller's address (an HMAC) for 15 minutes at most.
+  await purgeLoginFailures(sql, now, LOCK_SECONDS);
 
   const size = sql.sizeBytes ? await sql.sizeBytes() : null;
   if (size !== null) await setState(sql, STATE.databaseBytes, size);

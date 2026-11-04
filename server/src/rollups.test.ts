@@ -7,6 +7,8 @@ import { createDevice } from './repo/devices';
 import { createHousehold } from './repo/households';
 import { minuteStatements } from './repo/readings';
 import { getState } from './repo/rollups';
+import { recordLoginFailure } from './repo/users';
+import { LOCK_SECONDS, LOGIN_LIMITS } from './auth';
 import { LATE_SECONDS, MAX_SPAN_SECONDS, runMaintenance, STATE } from './rollups';
 
 const at = (iso: string) => Date.parse(iso) / 1000;
@@ -335,5 +337,21 @@ describe('rows read', () => {
     expect(quarterSearches.length).toBeGreaterThan(0);
     for (const detail of quarterSearches) expect(detail).toContain('ts>?');
     expect(days()).toMatchObject([{ day: '2026-10-24', energy_wh: 1 }]);
+  });
+});
+
+describe('failed logins', () => {
+  it('forgets them 15 minutes after the last one, even when nobody fails again', async () => {
+    const now = 1_792_000_000;
+    await recordLoginFailure(sql, 'ana@example.pt', 'endereco-a', now, LOGIN_LIMITS);
+    await recordLoginFailure(sql, 'rui@example.pt', 'endereco-b', now + 600, LOGIN_LIMITS);
+
+    await runMaintenance(sql, now + LOCK_SECONDS + 1);
+    expect(db.prepare('SELECT email FROM login_attempts').all()).toEqual([
+      { email: 'rui@example.pt' },
+    ]);
+    expect(db.prepare('SELECT address FROM login_addresses').all()).toEqual([
+      { address: 'endereco-b' },
+    ]);
   });
 });

@@ -55,7 +55,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 - **PDF:** gerado no browser
 - **Testes:** Vitest (unitários, incluindo servidor com SQLite em memória), Playwright (e2e mínimo)
 - **Gestor de pacotes:** pnpm
-- **Autenticação:** login próprio em `server/src/auth.ts` (o Zero Trust pede cartão de crédito mesmo no plano Free). Email + password (PBKDF2-SHA256, `server/src/password.ts`); sessão deslizante (renova-se com o uso; termina ao fim de 30 dias sem uso) em cookie `__Host-wm_session` HttpOnly/Secure/SameSite=Strict assinado com HMAC (`SESSION_SECRET`); escritas exigem `Origin` da própria app; 5 falhas → bloqueio de 15 min. **Sem registo público:** as contas criam-se com `pnpm user:create --remote`; a password e o nome da casa mudam-se em Definições (`/definicoes`). `/v1/ingest` autentica-se por **token por dispositivo** (guardado só como hash)
+- **Autenticação:** login próprio em `server/src/auth.ts` (o Zero Trust pede cartão de crédito mesmo no plano Free). Email + password (PBKDF2-SHA256, `server/src/password.ts`); sessão deslizante (renova-se com o uso; termina ao fim de 30 dias sem uso) em cookie `__Host-wm_session` HttpOnly/Secure/SameSite=Strict assinado com HMAC (`SESSION_SECRET`); escritas exigem `Origin` da própria app; 5 falhas de um email a partir do mesmo endereço bloqueiam esse email só a partir dali, e 20 falhas de um endereço bloqueiam o endereço, por 15 min (o endereço vem de `CF-Connecting-IP` e guarda-se só como HMAC, esquecido 15 min depois). **Sem registo público:** as contas criam-se com `pnpm user:create --remote`; a password e o nome da casa mudam-se em Definições (`/definicoes`). `/v1/ingest` autentica-se por **token por dispositivo** (guardado só como hash)
 
 ## Estrutura
 
@@ -137,7 +137,7 @@ Copiar (e adaptar, mantendo a fonte) em vez de reescrever:
 |---|---|
 | Família (agora) | Plano gratuito; login próprio, contas criadas por script |
 | Amigos / primeiros utilizadores | Workers Paid (mudança de plano); limites por variáveis em `wrangler.toml` |
-| Grande público | Registo público, recuperação de password e limites por IP em `auth.ts`; dados por casa (uma base D1 por casa/grupo, ou Durable Objects) atrás de `repo/`; política de privacidade e RGPD |
+| Grande público | Registo público e recuperação de password em `auth.ts` (os limites por IP já existem); dados por casa (uma base D1 por casa/grupo, ou Durable Objects) atrás de `repo/`; política de privacidade e RGPD |
 | Sair da Cloudflare | Hono corre em Node; `repo/` passa a falar com PostgreSQL |
 
 Se uma decisão tornar alguma destas passagens mais difícil, parar e assinalar.

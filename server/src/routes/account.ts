@@ -8,11 +8,14 @@
  *   GET  /v1/auth/me           → Me, or 401 unauthenticated
  *   POST /v1/account/password  {currentPassword, newPassword} → 204 + new cookie;
  *                              403 wrong_password, 429 locked; other devices are signed out
+ *
+ * Failures lock the email from the caller's address, and many lock the address
+ * (auth.ts, login): whoever knows an email cannot lock its owner out.
  */
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
-import { changePassword, login, SESSION_COOKIE } from '../auth';
+import { addressKey, changePassword, login, SESSION_COOKIE } from '../auth';
 import { MIN_PASSWORD_LENGTH } from '../password';
 import { COOKIE_OPTIONS, type AppEnv, type RouteContext } from './context';
 
@@ -30,12 +33,17 @@ export function accountRoutes(
   app: Hono<AppEnv>,
   { config, now, requireUser, body, trustedOrigin, startSession, me }: RouteContext,
 ): void {
+  /** The caller's address, as the login limits keep it (an HMAC: auth.ts, addressKey). */
+  const address = (c: Context) =>
+    addressKey(c.req.header('CF-Connecting-IP'), config.sessionSecret);
+
   app.post('/v1/auth/login', async (c) => {
     if (!trustedOrigin(c)) return c.json({ error: 'forbidden_origin' }, 403);
     const parsed = await body(c, LoginBody);
     if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
 
-    const result = await login(config.sql, parsed.data.email, parsed.data.password, now());
+    const { email, password } = parsed.data;
+    const result = await login(config.sql, email, password, await address(c), now());
     if (!result.ok) {
       if (result.reason === 'locked') {
         c.header('Retry-After', String(result.retryAfter));
@@ -63,6 +71,7 @@ export function accountRoutes(
       c.get('user'),
       parsed.data.currentPassword,
       parsed.data.newPassword,
+      await address(c),
       now(),
     );
     if (!result.ok) {

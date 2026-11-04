@@ -69,7 +69,7 @@ O Hono corre em Node e os testes do servidor já usam SQLite em memória (`serve
 A mais fácil para quem usa (só se regista), mas não é gratuita e exige:
 
 - Workers Paid (5 USD/mês até ~30 casas com Shelly; depois ~1,6 USD por casa e por mês, ou menos se se reduzirem as linhas escritas);
-- registo público, recuperação de password (implica um serviço de email, a autorizar pela regra 1) e limites por IP;
+- registo público, recuperação de password (implica um serviço de email, a autorizar pela regra 1) (os limites de login por IP já existem: `server/src/auth.ts`);
 - política de privacidade, exportação e eliminação de dados (RGPD);
 - o dono passa a ser responsável pelos dados de outras pessoas.
 
