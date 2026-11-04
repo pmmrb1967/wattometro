@@ -191,6 +191,8 @@ export async function updateEquipment(
   householdId: string,
   id: string,
   input: EquipmentInput,
+  /** False for a request without an estimate (sendsEstimate): the stored one stays. */
+  withEstimate = true,
 ): Promise<'ok' | 'not_found' | 'name_taken'> {
   const owner = await sql.first<{ name: string }>(
     'SELECT name FROM equipment WHERE id = ? AND household_id = ?',
@@ -207,7 +209,7 @@ export async function updateEquipment(
     {
       query: `UPDATE equipment SET name = ?, name_key = ?, kind = ?, brand = ?, model = ?,
                 room = ?, rated_power_w = ?, energy_class = ?, notes = ?, programmes = ?,
-                estimate = ?
+                estimate = CASE WHEN ? = 1 THEN ? ELSE estimate END
               WHERE id = ? AND household_id = ?`,
       params: [
         input.name,
@@ -220,6 +222,7 @@ export async function updateEquipment(
         input.energyClass,
         input.notes,
         JSON.stringify(input.programmes),
+        withEstimate ? 1 : 0,
         input.estimate === null ? null : JSON.stringify(input.estimate),
         id,
         householdId,

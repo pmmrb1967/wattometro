@@ -172,7 +172,7 @@ import {
   listEquipment,
   updateEquipment,
 } from './repo/equipment';
-import { equipmentInputSchema } from '../../src/domain/equipment';
+import { equipmentInputSchema, sendsEstimate } from '../../src/domain/equipment';
 import {
   deleteSubscription,
   findSubscription,
@@ -1210,6 +1210,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
       c.get('user').householdId,
       c.req.param('id'),
       parsed.data,
+      sendsEstimate(await c.req.json<unknown>()),
     );
     if (outcome === 'name_taken') return c.json({ error: outcome }, 409);
     return outcome === 'ok' ? c.body(null, 204) : c.json({ error: 'not_found' }, 404);

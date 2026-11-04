@@ -9,7 +9,7 @@ import { MAX_PROGRAMMES, nameKey, type EquipmentKind } from '../domain/equipment
 import type { EquipmentReading } from '../domain/equipment-reading';
 import type { EstimateBasis } from '../domain/equipment-estimate';
 import { formatKwhField } from '../lib/units';
-import type { EstimateFields } from './estimate-fields';
+import { estimateOf, type EstimateFields } from './estimate-fields';
 import { rowOf, type ProgrammeRow } from './programme-row';
 
 /** The form's fields as it holds them (text until saved). */
@@ -110,7 +110,11 @@ export function photoChoices(
     const held = now[key].trim();
     if (value === null || value === held) return [];
     const decided = decisions.fields[key];
-    const checked = decided && decided.current === held ? decided.checked : held === '';
+    // An optional estimate must never block "Guardar": per 100 cycles needs the cycles a week.
+    const usable =
+      key !== 'label' ||
+      estimateOf({ ...current.estimate, ...splitLabelField(value) }) !== 'invalid';
+    const checked = decided && decided.current === held ? decided.checked : held === '' && usable;
     return [{ key, read: value, current: held, checked }];
   });
   const names = new Set(current.rows.map((row) => nameKey(row.name)));

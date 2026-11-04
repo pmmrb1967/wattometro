@@ -4,6 +4,7 @@ import {
   consumptionEstimate,
   estimateSchema,
   estimateWh,
+  coldAverage,
   labelAverageW,
   recentMeasured,
   type EstimatedEquipment,
@@ -52,28 +53,43 @@ describe('consumptionEstimate', () => {
     {
       id: 'f',
       name: 'Frigorífico',
+      kind: 'fridge',
       ratedPowerW: null,
       estimate: { basis: 'year', labelWh: 250_000 },
     },
     {
       id: 'w',
       name: 'Máquina da roupa',
+      kind: 'washer',
       ratedPowerW: 2100,
       estimate: { basis: 'cycles100', labelWh: 58_000, cyclesPerWeek: 4 },
     },
     {
       id: 'k',
       name: 'Chaleira',
+      kind: 'kettle',
       ratedPowerW: 2200,
       estimate: { basis: 'plate', minutesPerDay: 10 },
     },
-    { id: 'o', name: 'Forno', ratedPowerW: null, estimate: { basis: 'plate', minutesPerDay: 20 } },
-    { id: 't', name: 'Tostadeira', ratedPowerW: 800, estimate: null },
+    {
+      id: 'o',
+      name: 'Forno',
+      kind: 'oven',
+      ratedPowerW: null,
+      estimate: { basis: 'plate', minutesPerDay: 20 },
+    },
+    { id: 't', name: 'Tostadeira', kind: null, ratedPowerW: 800, estimate: null },
   ];
 
   it('sets each estimate against what the E-Redes measured, the largest first', () => {
     // 300 kWh measured in 30 days; 9 000 cents of energy (power term apart).
-    const result = consumptionEstimate(items, { measuredWh: 300_000, days: 30, energyCents: 9000 });
+    const result = consumptionEstimate(items, {
+      measuredWh: 300_000,
+      days: 30,
+      from: '2026-10-01',
+      to: '2026-10-30',
+      energyCents: 9000,
+    });
     expect(result.rows).toEqual(
       [
         { id: 'k', name: 'Chaleira', wh: 11_000, cents: 330, pct: 4 },
@@ -88,7 +104,13 @@ describe('consumptionEstimate', () => {
   });
 
   it('says when the estimates pass what was measured', () => {
-    const result = consumptionEstimate(items, { measuredWh: 30_000, days: 30, energyCents: 900 });
+    const result = consumptionEstimate(items, {
+      measuredWh: 30_000,
+      days: 30,
+      from: '2026-10-01',
+      to: '2026-10-30',
+      energyCents: 900,
+    });
     expect(result.restWh).toBe(-11_491);
     expect(result.explainedPct).toBe(138);
   });
@@ -131,6 +153,8 @@ describe('recentMeasured', () => {
     expect(recentMeasured(quarters, tariff)).toEqual({
       measuredWh: 288_000,
       days: 30,
+      from: '2026-09-11',
+      to: '2026-10-10',
       energyCents: 7085,
     });
   });
@@ -141,5 +165,43 @@ describe('recentMeasured', () => {
       energyCents: null,
     });
     expect(recentMeasured([], tariff)).toBeNull();
+  });
+});
+
+describe('recentMeasured across the October change of hour', () => {
+  it('counts the 25-hour day with its 100 quarters', () => {
+    const quarters = [];
+    for (let ts = startOfLisbonDay('2026-10-01'); ts < startOfLisbonDay('2026-11-03'); ts += 900) {
+      quarters.push({ ts, energyWh: 100 });
+    }
+    // 4 Oct to 2 Nov: 29 days of 96 quarters and 25 Oct with 100: 2884 × 100 Wh.
+    expect(recentMeasured(quarters, null)).toEqual({
+      measuredWh: 288_400,
+      days: 30,
+      from: '2026-10-04',
+      to: '2026-11-02',
+      energyCents: null,
+    });
+  });
+});
+
+describe('coldAverage', () => {
+  it('sums only fridges and freezers with a yearly label, by name', () => {
+    const item = (name: string, kind: EstimatedEquipment['kind'], labelWh: number) => ({
+      id: name,
+      name,
+      kind,
+      ratedPowerW: null,
+      estimate: { basis: 'year' as const, labelWh },
+    });
+    // 250 kWh/ano → 29 W; 175 kWh/ano → 20 W. An old washer's kWh/ano is not on at night.
+    expect(
+      coldAverage([
+        item('Frigorífico', 'fridge', 250_000),
+        item('Arca', 'freezer', 175_000),
+        item('Máquina antiga', 'washer', 200_000),
+      ]),
+    ).toEqual({ watts: 49, names: ['Arca', 'Frigorífico'] });
+    expect(coldAverage([item('Máquina antiga', 'washer', 200_000)])).toBeNull();
   });
 });

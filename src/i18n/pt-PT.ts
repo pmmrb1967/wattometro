@@ -1170,12 +1170,12 @@ export const t = {
   equipmentEstimate: {
     card: {
       title: 'Onde vai o consumo (estimativa)',
-      intro: (days: number, measured: string) =>
-        `Nos últimos ${days} dias, a E-Redes mediu ${measured}. Cada equipamento conta com o que indicaste em "Para a estimativa": a etiqueta energética, ou a chapa, e o uso.`,
+      intro: (from: string, to: string, days: number, measured: string) =>
+        `De ${from} a ${to} (os últimos ${days} dias com dados da E-Redes), a casa gastou ${measured}. Cada equipamento conta com o que indicaste em "Para a estimativa do consumo": a etiqueta energética, ou a chapa, e o uso.`,
       noData:
         'Ainda não há consumos da E-Redes. Importa o ficheiro do Balcão Digital para comparar as estimativas com o que gastaste.',
       empty:
-        'Nenhum equipamento tem estimativa. Edita um e preenche "Para a estimativa" com a etiqueta energética, ou a chapa, e o uso.',
+        'Nenhum equipamento tem estimativa. Edita um e preenche "Para a estimativa do consumo" com a etiqueta energética, ou a chapa, e o uso.',
       equipment: 'Equipamento',
       energy: 'Energia',
       cost: 'Custo',
@@ -1185,8 +1185,10 @@ export const t = {
         `Os equipamentos com estimativa explicam ${pct} % dos ${measured} medidos. Os outros ${rest} são do que não registaste, ou de um uso maior do que indicaste.`,
       overshoot: (over: string) =>
         `As estimativas passam o que foi medido em ${over}: algum uso indicado é maior do que o real, ou a chapa está muito acima do que o aparelho gasta.`,
-      fridgeAgainstBase: (fridge: string, base: string) =>
-        `Pelas etiquetas, o frigorífico e a arca gastam em média ${fridge}; o consumo base medido de noite é ${base}. O resto do consumo base é do que fica sempre ligado (ver o cartão "Consumo base" em Consumo).`,
+      coldWithinBase: (names: string, cold: string, base: string) =>
+        `Pela etiqueta, ${names}: em média ${cold}. O consumo base medido de noite é ${base}; o resto é do que fica sempre ligado (ver o cartão "Consumo base" em Consumo).`,
+      coldAboveBase: (names: string, cold: string, base: string) =>
+        `Pela etiqueta, ${names}: em média ${cold}, mais do que o consumo base medido de noite (${base}). A etiqueta é de ensaio: na casa podem gastar menos, ou o valor indicado não é o da etiqueta.`,
       missing: (names: string) => `Sem estimativa: ${names}.`,
       caveat:
         'É uma ordem de grandeza, não uma medição: a etiqueta é medida em condições de ensaio e o uso é o que indicaste. O custo é ao preço médio da energia nestes dias, sem a potência contratada.',

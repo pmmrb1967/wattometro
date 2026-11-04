@@ -87,7 +87,9 @@ export function EstimateFieldset({
       )}
       {fields.basis === 'plate' && !hasPlate && <p className="hint">{texts.needsPlate}</p>}
       {fields.basis === 'plate' && hasPlate && <p className="hint">{texts.plateCeiling}</p>}
-      {invalid && <p className="hint">{texts.invalid}</p>}
+      <p className="hint" role="status">
+        {invalid ? texts.invalid : ''}
+      </p>
     </fieldset>
   );
 }

@@ -39,8 +39,14 @@ export function changeEquipment(
   items: readonly Equipment[],
   id: string,
   input: EquipmentInput,
+  /** False for a request without an estimate (sendsEstimate): the stored one stays. */
+  withEstimate = true,
 ): Equipment[] | 'not_found' | 'name_taken' {
   if (!items.some((item) => item.id === id)) return 'not_found';
   if (namedEquipment(items, input.name, id)) return 'name_taken';
-  return items.map((item) => (item.id === id ? { ...item, ...input } : item));
+  return items.map((item) =>
+    item.id === id
+      ? { ...item, ...input, estimate: withEstimate ? input.estimate : item.estimate }
+      : item,
+  );
 }

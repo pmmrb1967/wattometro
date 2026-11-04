@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { alwaysOnInputSchema, type AlwaysOnItem } from '../domain/always-on';
 import { addDays } from '../domain/consumption';
 import { budgetSchema, type Budget } from '../domain/budget';
-import { equipmentInputSchema, nameKey, type Equipment } from '../domain/equipment';
+import { equipmentInputSchema, nameKey, sendsEstimate, type Equipment } from '../domain/equipment';
 import {
   addEquipment,
   changeEquipment,
@@ -912,7 +912,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
     if (method === 'PUT' && !equipment[2]) {
       const parsed = equipmentInputSchema.safeParse(body);
       if (!parsed.success) return invalid();
-      const changed = changeEquipment(demo.equipment, id, parsed.data);
+      const changed = changeEquipment(demo.equipment, id, parsed.data, sendsEstimate(body));
       if (changed === 'not_found') return json({ error: changed }, 404);
       if (changed === 'name_taken') return json({ error: changed }, 409);
       const key = nameKey(parsed.data.name);

@@ -14,9 +14,10 @@
 import { z } from 'zod';
 import type { Cents } from '../lib/money';
 import { addDays } from './consumption';
-import { lisbonDate, startOfLisbonDay, type EpochSeconds } from '../lib/time';
+import { lisbonDate, startOfLisbonDay, type EpochSeconds, type LocalDate } from '../lib/time';
 import type { Watts, Wh } from '../lib/units';
 import { electricityCost, energyByPeriod } from './electricity-cost';
+import type { EquipmentKind } from './equipment';
 import type { TariffInput } from './tariff';
 
 export const ESTIMATE_BASES = ['year', 'cycles100', 'hours1000', 'plate'] as const;
@@ -65,8 +66,28 @@ export function labelAverageW(estimate: Estimate): Watts | null {
 export interface EstimatedEquipment {
   id: string;
   name: string;
+  kind: EquipmentKind | null;
   ratedPowerW: Watts | null;
   estimate: Estimate | null;
+}
+
+/** What is on day and night: a fridge or a freezer (an old washer's label also said kWh/ano). */
+const COLD: readonly (EquipmentKind | null)[] = ['fridge', 'freezer'];
+
+/** The fridges' and freezers' yearly labels as one average power, to set against the baseload; null without one. */
+export function coldAverage(
+  items: readonly EstimatedEquipment[],
+): { watts: Watts; names: string[] } | null {
+  const cold = items.filter((item) => COLD.includes(item.kind) && item.estimate?.basis === 'year');
+  if (cold.length === 0) return null;
+  const labelWh = cold.reduce(
+    (sum, item) => sum + (item.estimate?.basis === 'year' ? item.estimate.labelWh : 0),
+    0,
+  );
+  return {
+    watts: Math.round(labelWh / HOURS_PER_YEAR),
+    names: cold.map((item) => item.name).sort((a, b) => a.localeCompare(b, 'pt')),
+  };
 }
 
 export interface EstimateRow {
@@ -132,6 +153,9 @@ export interface Measured {
   measuredWh: Wh;
   /** Lisbon days with data. */
   days: number;
+  /** The first and last of those days. */
+  from: LocalDate;
+  to: LocalDate;
   /** The cost of that energy with the household's tariff, without the power term; null without one. */
   energyCents: Cents | null;
 }
@@ -148,12 +172,19 @@ export function recentMeasured(
   if (!last) return null;
   const since = startOfLisbonDay(addDays(lisbonDate(last.ts), -(RECENT_DAYS - 1)));
   const recent = quarters.filter((quarter) => quarter.ts >= since);
-  const days = new Set(recent.map((quarter) => lisbonDate(quarter.ts))).size;
+  const dates = new Set(recent.map((quarter) => lisbonDate(quarter.ts)));
+  const days = dates.size;
   const measuredWh = recent.reduce((sum, quarter) => sum + quarter.energyWh, 0);
   const energyCents =
     tariff === null
       ? null
       : electricityCost(energyByPeriod(recent, tariff), days, tariff).totalCents -
         electricityCost({}, days, tariff).totalCents;
-  return { measuredWh, days, energyCents };
+  return {
+    measuredWh,
+    days,
+    from: lisbonDate((recent[0] ?? last).ts),
+    to: lisbonDate(last.ts),
+    energyCents,
+  };
 }

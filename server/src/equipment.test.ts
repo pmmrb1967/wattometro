@@ -188,14 +188,17 @@ describe('/v1/equipment', () => {
     expect(await listEquipment(ana)).toEqual([]);
   });
 
-  it('keeps the estimate of an equipment (migration 0028), and an older client sends none', async () => {
+  it('keeps the estimate of an equipment (migration 0028), also through an older client', async () => {
     const ana = await signIn(0);
     const estimate = { basis: 'cycles100' as const, labelWh: 58_000, cyclesPerWeek: 4 };
     const created = await request(ana, 'POST', '/v1/equipment', { ...WASHER, estimate });
     expect(created.status).toBe(201);
     const { item } = (await created.json()) as { item: Item };
     const older = Object.fromEntries(Object.entries(WASHER).filter(([key]) => key !== 'estimate'));
+    // An app from before 0028 sends no estimate: what is stored stays.
     expect((await request(ana, 'PUT', `/v1/equipment/${item.id}`, older)).status).toBe(204);
+    expect((await listEquipment(ana))[0]?.estimate).toEqual(estimate);
+    await request(ana, 'PUT', `/v1/equipment/${item.id}`, { ...WASHER, estimate: null });
     expect((await listEquipment(ana))[0]?.estimate).toBeNull();
     const plate = { basis: 'plate' as const, minutesPerDay: 30 };
     await request(ana, 'PUT', `/v1/equipment/${item.id}`, { ...WASHER, estimate: plate });

@@ -8,9 +8,10 @@
 import { useMemo } from 'react';
 import { nightlyBaseload, recentBaseload } from '../domain/baseload';
 import type { Equipment } from '../domain/equipment';
-import { consumptionEstimate, labelAverageW, recentMeasured } from '../domain/equipment-estimate';
+import { coldAverage, consumptionEstimate, recentMeasured } from '../domain/equipment-estimate';
 import { t } from '../i18n/pt-PT';
 import { formatCents } from '../lib/money';
+import { formatLocalDate } from '../lib/time';
 import { formatKwh, formatPower } from '../lib/units';
 import { useHouseholdEnergy } from './household-energy';
 
@@ -38,15 +39,19 @@ export function ConsumptionEstimateCard({ items }: { items: readonly Equipment[]
     );
   }
   const result = consumptionEstimate(items, measured);
-  const fridgeW = items
-    .flatMap((item) => (item.estimate ? [labelAverageW(item.estimate)] : []))
-    .filter((watts): watts is number => watts !== null)
-    .reduce((sum, watts) => sum + watts, 0);
+  const cold = coldAverage(items);
 
   return (
     <section className="card consumption-estimate">
       <h2>{texts.title}</h2>
-      <p className="hint">{texts.intro(measured.days, formatKwh(measured.measuredWh, 0))}</p>
+      <p className="hint">
+        {texts.intro(
+          formatLocalDate(measured.from),
+          formatLocalDate(measured.to),
+          measured.days,
+          formatKwh(measured.measuredWh, 0),
+        )}
+      </p>
       {result.rows.length === 0 ? (
         <p>{texts.empty}</p>
       ) : (
@@ -94,8 +99,14 @@ export function ConsumptionEstimateCard({ items }: { items: readonly Equipment[]
           </p>
         </>
       )}
-      {fridgeW > 0 && base !== null && (
-        <p>{texts.fridgeAgainstBase(formatPower(fridgeW), formatPower(base.watts))}</p>
+      {cold !== null && base !== null && (
+        <p>
+          {(cold.watts <= base.watts ? texts.coldWithinBase : texts.coldAboveBase)(
+            cold.names.join(', '),
+            formatPower(cold.watts),
+            formatPower(base.watts),
+          )}
+        </p>
       )}
       {result.missing.length > 0 && (
         <p className="hint">{texts.missing(result.missing.join(', '))}</p>

@@ -212,6 +212,16 @@ describe('local server', () => {
       (await api.respond('PUT', path, { ...kettle, name: 'Forno', room: 'Sala' })).status,
     ).toBe(204);
     expect((await api.respond('PUT', '/v1/equipment/nope', kettle)).status).toBe(404);
+    // An app from before the estimate sends none: what is stored stays.
+    const estimate = { basis: 'plate', minutesPerDay: 20 };
+    await api.respond('PUT', path, { ...kettle, name: 'Forno', room: 'Sala', estimate });
+    await api.respond('PUT', path, { ...kettle, name: 'Forno', room: 'Sala' });
+    expect(await body(await api.respond('GET', '/v1/equipment'))).toMatchObject({
+      items: [
+        { name: 'Chaleira', estimate: null },
+        { name: 'Forno', estimate },
+      ],
+    });
     expect((await api.respond('POST', `${path}/link`, { labels: ['Forno'] })).status).toBe(204);
     expect(await body(await api.respond('GET', '/v1/equipment'))).toMatchObject({
       items: [{ name: 'Chaleira' }, { name: 'Forno', room: 'Sala' }],

@@ -10,7 +10,7 @@
 import { z } from 'zod';
 import { alwaysOnInputSchema, MAX_ALWAYS_ON } from '../domain/always-on';
 import { budgetSchema } from '../domain/budget';
-import { equipmentInputSchema } from '../domain/equipment';
+import { equipmentInputSchema, sendsEstimate } from '../domain/equipment';
 import { addEquipment, changeEquipment, sortedEquipment } from '../domain/equipment-list';
 import { installationSchema } from '../domain/installation';
 import { tariffInputSchema } from '../domain/tariff';
@@ -338,7 +338,7 @@ export function createLocalServer(
       if (method === 'PUT') {
         const parsed = equipmentInputSchema.safeParse(body);
         if (!parsed.success) return invalid();
-        const changed = changeEquipment(house.equipment, id, parsed.data);
+        const changed = changeEquipment(house.equipment, id, parsed.data, sendsEstimate(body));
         if (changed === 'not_found') return json({ error: changed }, 404);
         if (changed === 'name_taken') return json({ error: changed }, 409);
         return keep({ ...house, equipment: changed });

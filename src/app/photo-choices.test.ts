@@ -88,6 +88,19 @@ describe('the user’s choices over a form that changed', () => {
 });
 
 describe('the energy label', () => {
+  it('is ticked only when applying it leaves an estimate that can be saved', () => {
+    const washer = { ...READING, label: { basis: 'cycles100' as const, labelWh: 58_000 } };
+    const fridge = { ...READING, label: { basis: 'year' as const, labelWh: 250_000 } };
+    const label = (choices: ReturnType<typeof photoChoices>) =>
+      choices.fields.find((field) => field.key === 'label')?.checked;
+    // Per 100 cycles needs the cycles a week: without them it would block "Guardar".
+    expect(label(photoChoices(washer, EMPTY))).toBe(false);
+    const withUse: FormValues = { ...EMPTY, estimate: { basis: '', label: '', use: '4' } };
+    expect(label(photoChoices(washer, withUse))).toBe(true);
+    // Per year needs nothing else.
+    expect(label(photoChoices(fridge, EMPTY))).toBe(true);
+  });
+
   it('fills the estimate’s basis and label, keeping the use typed', () => {
     const reading = { ...READING, label: { basis: 'cycles100' as const, labelWh: 58_000 } };
     const current: FormValues = { ...EMPTY, estimate: { basis: 'plate', label: '', use: '4' } };

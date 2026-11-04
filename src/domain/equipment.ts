@@ -82,6 +82,14 @@ export const equipmentInputSchema = z
   );
 export type EquipmentInput = z.infer<typeof equipmentInputSchema>;
 
+/**
+ * Whether a request carries an estimate: an app from before migration 0028
+ * sends none, and changing an equipment then keeps the one stored.
+ */
+export function sendsEstimate(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'estimate' in body;
+}
+
 export const equipmentSchema = equipmentInputSchema.and(
   z.object({ id: z.string(), createdAt: z.number().int() }),
 );
