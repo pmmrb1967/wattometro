@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { apiProxy } from './dev-proxy.ts';
 import { headersFile } from './security-headers.ts';
 
 /** dist/_headers: CSP and other security headers for Cloudflare (security-headers.ts). */
@@ -76,10 +77,10 @@ export default defineConfig(({ mode }) => ({
   // `pnpm dev:server` unless VITE_API_PROXY points elsewhere.
   server: {
     proxy: {
-      '/v1': {
-        target: loadEnv(mode, process.cwd(), 'VITE_').VITE_API_PROXY || 'http://localhost:8787',
-        changeOrigin: true,
-      },
+      // Writes go with the API's own origin (dev-proxy.ts).
+      '/v1': apiProxy(
+        loadEnv(mode, process.cwd(), 'VITE_').VITE_API_PROXY || 'http://localhost:8787',
+      ),
     },
   },
   test: {
