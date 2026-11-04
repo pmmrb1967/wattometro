@@ -197,6 +197,7 @@ export function EquipmentPhotos({
           {!nothing && (
             <button
               type="button"
+              className="primary"
               onClick={() => {
                 onApply(
                   applyChoices(values, {
@@ -229,7 +230,7 @@ export function EquipmentPhotos({
       {state.kind === 'confirm' ? (
         <div className="actions">
           <span>{texts.confirm(state.photos.length, state.cost)}</span>
-          <button type="button" onClick={() => void send(state.photos)}>
+          <button type="button" className="primary" onClick={() => void send(state.photos)}>
             {texts.send}
           </button>
           <button

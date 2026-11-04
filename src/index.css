@@ -2140,6 +2140,21 @@ a.button-link {
   font-size: var(--fs-sm);
 }
 
+/* A card's opening words say what the card is: as quiet as the hints, as in most cards;
+   the figures and conclusions below keep the full size. A page's own lead stays. */
+.card > .lead {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* A checkbox in a table row (Qualidade: "Contar esta falha"): big enough to tap. */
+.table input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 /* Footer */
 .footer {
   display: grid;

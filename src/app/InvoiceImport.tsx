@@ -93,7 +93,7 @@ export function InvoiceImport({ onRead }: { onRead: (fill: InvoiceFill) => void 
             <input name="password" type="password" autoComplete="off" required />
             <span className="hint">{texts.passwordHint}</span>
           </label>
-          <button type="submit" disabled={status.kind === 'busy'}>
+          <button type="submit" className="primary" disabled={status.kind === 'busy'}>
             {texts.open}
           </button>
         </form>

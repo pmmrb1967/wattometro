@@ -244,6 +244,7 @@ export function SolarPanels({
       <p className="hint">{isDemo() ? texts.demo : texts.privacy}</p>
       <button
         type="button"
+        className="primary"
         disabled={!valid || busy || year !== null}
         onClick={() => void calculate()}
       >

@@ -82,7 +82,7 @@ function TripRuleSection({ contractVa }: { contractVa: number | null }) {
   return (
     <section className="card">
       <h2>{rule.title}</h2>
-      <p>{rule.intro(RATIO.format(SINGLE_PHASE.k), String(SINGLE_PHASE.q))}</p>
+      <p className="lead">{rule.intro(RATIO.format(SINGLE_PHASE.k), String(SINGLE_PHASE.q))}</p>
       <p>{contractVa === null ? rule.example(formatKva(va)) : rule.forContract(formatKva(va))}</p>
       <table className="table">
         <thead>
