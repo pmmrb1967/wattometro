@@ -318,7 +318,7 @@ export const t = {
   alerts: {
     staleTitle: 'O Shelly deixou de enviar',
     staleBody: (device: string, time: string) =>
-      `Sem medições de «${device}» desde as ${time}. O Shelly guarda os minutos até 10 dias: quando voltar a enviar, são recuperados.`,
+      `Sem medições de «${device}» desde as ${time}. O Shelly guarda os minutos cerca de 7 dias: quando voltar a enviar, são recuperados.`,
     backTitle: 'O Shelly voltou a enviar',
     backBody: (device: string, time: string) =>
       `«${device}» voltou a enviar às ${time}. Os minutos em falta vêm do registo do próprio Shelly.`,

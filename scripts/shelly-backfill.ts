@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Fills the minutes the server missed (D1 unavailable, the Shelly offline for
- * longer than its queue) from the Shelly's own minute log, which keeps at least
- * 10 days (docs/shelly.md, "Registo interno"). From this computer, on the same
+ * longer than its queue) from the Shelly's own minute log, which keeps about
+ * 7 days (measured; the maker says 10: docs/shelly.md, "Registo interno"). From this computer, on the same
  * network as the Shelly:
  *
  *   pnpm shelly:backfill [--days 10] [--channel 0] [--dry]

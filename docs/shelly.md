@@ -55,10 +55,10 @@ Visto no aparelho a 2026-10-25 (firmware 2.1.0):
 - ☑ Não tem os valores ao segundo nem o fator de potência; o Wattómetro estima-o com `P / (V × I)` médios.
 - ☑ Cada `GetData` devolve ~28 minutos: 10 dias são ~500 pedidos.
 - ☑ Os minutos em que o relógio do Shelly estava errado (noite de 24 para 25/10) também faltam no registo.
-- ☐ Quantos dias cabem de facto: confirmar ao fim de 10 dias com `GetRecords` (o registo mais antigo).
+- ☑ Quantos dias cabem de facto: **~7 dias**, não os 10 anunciados. A 2026-11-04 às 11:30 UTC, `GetRecords` dava um só bloco por canal, de 28/10 às 06:00 UTC (10 410 minutos, 7,2 dias), com o Shelly instalado desde 24/10: os minutos mais antigos já tinham sido apagados, à hora certa.
 
-Uso, sem valores ao segundo e com o pico aparente em `sx`; cobre falhas do D1 ou da internet até ~10 dias (a fila em RAM do script só cobre ~30 min):
-- **O script (0.4.0+)** preenche sozinho: depois do arranque, de uma falha de envio e de hora a hora, pede ao servidor a lacuna mais antiga desde onde já verificou (`GET /v1/ingest/missing?limit=1`; lê poucas linhas, salvo a primeira depois do arranque, que olha 10 dias para trás) e, só com a fila vazia e ≥ 15 KB livres, lê o registo (`EM1Data.GetData`) e envia 10 minutos por pedido. Minutos que nem o registo tem são saltados. Com o relógio do Shelly corrigido pelo do servidor (`clockOffset`), não preenche: o registo usa a hora do aparelho.
+Uso, sem valores ao segundo e com o pico aparente em `sx`; cobre falhas do D1 ou da internet até ~7 dias (a fila em RAM do script só cobre ~30 min):
+- **O script (0.4.0+)** preenche sozinho: depois do arranque, de uma falha de envio e de hora a hora, pede ao servidor a lacuna mais antiga desde onde já verificou (`GET /v1/ingest/missing?limit=1`; lê poucas linhas, salvo a primeira depois do arranque, que olha 10 dias para trás, mais do que o registo guarda) e, só com a fila vazia e ≥ 15 KB livres, lê o registo (`EM1Data.GetData`) e envia 10 minutos por pedido. Minutos que nem o registo tem são saltados. Com o relógio do Shelly corrigido pelo do servidor (`clockOffset`), não preenche: o registo usa a hora do aparelho.
 - **`pnpm shelly:backfill`** (`scripts/shelly-backfill.ts`) faz o mesmo a partir do PC em casa, de uma vez (útil com um script anterior a 0.4.0).
 - ☐ Memória ao ler o registo no aparelho real: confirmar na consola (`Script.GetStatus`, `mem_peak`) no primeiro preenchimento.
 
