@@ -146,6 +146,7 @@ Se uma decisão tornar alguma destas passagens mais difícil, parar e assinalar.
 pnpm dev                 # PWA em desenvolvimento; /v1 vai para pnpm dev:server (ou VITE_API_PROXY)
 pnpm dev:server          # API local (wrangler dev, D1 local)
 pnpm test                # vitest (app + servidor, SQLite em memória)
+pnpm test:coverage       # o mesmo, com a cobertura por ficheiro (coverage/index.html)
 pnpm typecheck
 pnpm lint
 pnpm build

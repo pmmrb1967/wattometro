@@ -95,5 +95,12 @@ export default defineConfig(({ mode }) => ({
       'shelly/**/*.test.ts',
       'scripts/**/*.test.ts',
     ],
+    // pnpm test:coverage: what the tests run, by file (coverage/index.html; not committed).
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}', 'server/src/**/*.ts', 'shelly/**/*.ts'],
+      exclude: ['**/*.test.{ts,tsx}', 'src/i18n/**'],
+      reporter: ['text-summary', 'html'],
+    },
   },
 }));
