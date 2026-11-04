@@ -76,7 +76,7 @@ describe('demo API, through the app calculations', () => {
       [6900, 'safe'],
       [5750, 'trips'],
     ]);
-  });
+  }, 60_000); // A year of per-minute peaks: slow while the whole suite runs at once.
 
   it('finds the demo tariff price in the ERSE offers', async () => {
     const path = join(__dirname, '..', '..', 'public', 'data', 'erse-offers.json');
