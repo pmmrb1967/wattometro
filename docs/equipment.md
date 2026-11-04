@@ -120,8 +120,13 @@ A conta, em Wh inteiros, para os últimos 30 dias de dados:
 - chapa: `W × minutos por dia × dias / 60`. A chapa é um teto (a medida costuma
   ficar abaixo), por isso fica por cima.
 
-O custo de cada um é a sua parte do custo da energia desses dias com o tarifário
-da casa (energia, IEC e IVA; sem o termo de potência), ao preço médio. O
+Os dias são o tempo que os quartos de hora cobrem (quartos / 96): um dia com
+dados só até ao meio-dia conta meio dia, e o dia de 25 h conta 25/24. Um
+equipamento pela chapa sem a potência da chapa fica de fora e é dito à parte.
+
+O custo de cada um é a sua parte do custo da energia desses dias (energia, IEC e
+IVA; sem o termo de potência), ao preço médio, com o tarifário em vigor em cada
+dia; os dias antes do primeiro tarifário levam o preço médio dos outros. O
 frigorífico e a arca (etiqueta por ano) mostram-se também em potência média
 (`kWh/ano / 8760 h`) ao lado do consumo base medido de noite (`baseload.ts`).
 

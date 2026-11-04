@@ -18,7 +18,7 @@ import { lisbonDate, startOfLisbonDay, type EpochSeconds, type LocalDate } from 
 import type { Watts, Wh } from '../lib/units';
 import { electricityCost, energyByPeriod } from './electricity-cost';
 import type { EquipmentKind } from './equipment';
-import type { TariffInput } from './tariff';
+import { tariffOn, type TariffInput } from './tariff';
 
 export const ESTIMATE_BASES = ['year', 'cycles100', 'hours1000', 'plate'] as const;
 export type EstimateBasis = (typeof ESTIMATE_BASES)[number];
@@ -106,22 +106,25 @@ export interface ConsumptionEstimate {
   explainedPct: number;
   /** Measured minus estimated: negative when the estimates pass what was measured. */
   restWh: Wh;
-  /** Equipment without an estimate that can be worked out, by name. */
+  /** Equipment without an estimate, by name. */
   missing: string[];
+  /** Equipment estimated by the plate but without a plate power, by name. */
+  noPlate: string[];
 }
 
 export function consumptionEstimate(
   items: readonly EstimatedEquipment[],
   measured: Measured,
 ): ConsumptionEstimate {
-  const { measuredWh, days, energyCents } = measured;
+  const { measuredWh, coveredDays, energyCents } = measured;
   const share = (wh: number) => (measuredWh > 0 ? Math.round((wh * 100) / measuredWh) : 0);
   const rows: EstimateRow[] = [];
   const missing: string[] = [];
+  const noPlate: string[] = [];
   for (const item of items) {
-    const wh = item.estimate ? estimateWh(item.estimate, item.ratedPowerW, days) : null;
+    const wh = item.estimate ? estimateWh(item.estimate, item.ratedPowerW, coveredDays) : null;
     if (wh === null) {
-      missing.push(item.name);
+      (item.estimate ? noPlate : missing).push(item.name);
       continue;
     }
     rows.push({
@@ -145,6 +148,7 @@ export function consumptionEstimate(
     explainedPct: share(explainedWh),
     restWh: measuredWh - explainedWh,
     missing: missing.sort((a, b) => a.localeCompare(b, 'pt')),
+    noPlate: noPlate.sort((a, b) => a.localeCompare(b, 'pt')),
   };
 }
 
@@ -153,12 +157,19 @@ export interface Measured {
   measuredWh: Wh;
   /** Lisbon days with data. */
   days: number;
+  /** The time the quarters cover, in days: a part of a day counts as that part. */
+  coveredDays: number;
   /** The first and last of those days. */
   from: LocalDate;
   to: LocalDate;
-  /** The cost of that energy with the household's tariff, without the power term; null without one. */
+  /**
+   * The cost of that energy, each day at the tariff in force on it, without the power term.
+   * Days before any tariff take the average price of the others; null when no day has one.
+   */
   energyCents: Cents | null;
 }
+
+const QUARTERS_PER_DAY = 96;
 
 /** The estimate is set against the last 30 days of data. */
 export const RECENT_DAYS = 30;
@@ -166,7 +177,7 @@ export const RECENT_DAYS = 30;
 /** The last RECENT_DAYS Lisbon days of data, up to the last quarter hour; null without data. */
 export function recentMeasured(
   quarters: readonly { ts: EpochSeconds; energyWh: Wh }[],
-  tariff: TariffInput | null,
+  tariffs: readonly TariffInput[] | null,
 ): Measured | null {
   const last = quarters.at(-1);
   if (!last) return null;
@@ -175,16 +186,38 @@ export function recentMeasured(
   const dates = new Set(recent.map((quarter) => lisbonDate(quarter.ts)));
   const days = dates.size;
   const measuredWh = recent.reduce((sum, quarter) => sum + quarter.energyWh, 0);
-  const energyCents =
-    tariff === null
-      ? null
-      : electricityCost(energyByPeriod(recent, tariff), days, tariff).totalCents -
-        electricityCost({}, days, tariff).totalCents;
+  const energyCents = energyCost(recent, measuredWh, tariffs ?? []);
   return {
     measuredWh,
     days,
+    coveredDays: recent.length / QUARTERS_PER_DAY,
     from: lisbonDate((recent[0] ?? last).ts),
     to: lisbonDate(last.ts),
     energyCents,
   };
+}
+
+/** Each day's energy at its own tariff, without the power term; see Measured.energyCents. */
+function energyCost(
+  quarters: readonly { ts: EpochSeconds; energyWh: Wh }[],
+  measuredWh: Wh,
+  tariffs: readonly TariffInput[],
+): Cents | null {
+  const byTariff = new Map<TariffInput, { ts: EpochSeconds; energyWh: Wh }[]>();
+  for (const quarter of quarters) {
+    const tariff = tariffOn(tariffs, lisbonDate(quarter.ts));
+    if (tariff) byTariff.set(tariff, [...(byTariff.get(tariff) ?? []), quarter]);
+  }
+  if (byTariff.size === 0) return null;
+  let cents = 0;
+  let pricedWh = 0;
+  for (const [tariff, own] of byTariff) {
+    const days = new Set(own.map((quarter) => lisbonDate(quarter.ts))).size;
+    cents +=
+      electricityCost(energyByPeriod(own, tariff), days, tariff).totalCents -
+      electricityCost({}, days, tariff).totalCents;
+    pricedWh += own.reduce((sum, quarter) => sum + quarter.energyWh, 0);
+  }
+  if (pricedWh === measuredWh) return cents;
+  return pricedWh > 0 ? Math.round((cents * measuredWh) / pricedWh) : 0;
 }

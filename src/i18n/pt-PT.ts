@@ -1190,8 +1190,10 @@ export const t = {
       coldAboveBase: (names: string, cold: string, base: string) =>
         `Pela etiqueta, ${names}: em média ${cold}, mais do que o consumo base medido de noite (${base}). A etiqueta é de ensaio: na casa podem gastar menos, ou o valor indicado não é o da etiqueta.`,
       missing: (names: string) => `Sem estimativa: ${names}.`,
+      noPlate: (names: string) =>
+        `Com base na chapa, mas sem a potência da chapa escrita (fica de fora da conta): ${names}.`,
       caveat:
-        'É uma ordem de grandeza, não uma medição: a etiqueta é medida em condições de ensaio e o uso é o que indicaste. O custo é ao preço médio da energia nestes dias, sem a potência contratada.',
+        'É uma ordem de grandeza, não uma medição: a etiqueta é medida em condições de ensaio e o uso é o que indicaste. O custo é ao preço médio da energia nestes dias, com o tarifário de cada dia e sem a potência contratada.',
     },
     fields: {
       title: 'Para a estimativa do consumo',

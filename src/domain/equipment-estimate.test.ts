@@ -86,6 +86,7 @@ describe('consumptionEstimate', () => {
     const result = consumptionEstimate(items, {
       measuredWh: 300_000,
       days: 30,
+      coveredDays: 30,
       from: '2026-10-01',
       to: '2026-10-30',
       energyCents: 9000,
@@ -99,14 +100,16 @@ describe('consumptionEstimate', () => {
     );
     // 41 491 of 300 000 Wh = 13,8 %; the rest 258 509 Wh.
     expect(result).toMatchObject({ explainedWh: 41_491, explainedPct: 14, restWh: 258_509 });
-    // The oven has no plate; the toaster no estimate.
-    expect(result.missing).toEqual(['Forno', 'Tostadeira']);
+    // The toaster has no estimate; the oven has one by the plate, but no plate power.
+    expect(result.missing).toEqual(['Tostadeira']);
+    expect(result.noPlate).toEqual(['Forno']);
   });
 
   it('says when the estimates pass what was measured', () => {
     const result = consumptionEstimate(items, {
       measuredWh: 30_000,
       days: 30,
+      coveredDays: 30,
       from: '2026-10-01',
       to: '2026-10-30',
       energyCents: 900,
@@ -150,9 +153,10 @@ describe('recentMeasured', () => {
 
   it('takes the last 30 days measured and the cost of their energy, not the power term', () => {
     // 30 × 9,6 = 288 kWh; 288 × 0,20 € × 1,23 = 70,85 €.
-    expect(recentMeasured(quarters, tariff)).toEqual({
+    expect(recentMeasured(quarters, [tariff])).toEqual({
       measuredWh: 288_000,
       days: 30,
+      coveredDays: 30,
       from: '2026-09-11',
       to: '2026-10-10',
       energyCents: 7085,
@@ -164,7 +168,41 @@ describe('recentMeasured', () => {
       measuredWh: 288_000,
       energyCents: null,
     });
-    expect(recentMeasured([], tariff)).toBeNull();
+    expect(recentMeasured([], [tariff])).toBeNull();
+  });
+
+  it('takes each day at the tariff in force on it', () => {
+    // From 1 Oct, 0,10 €/kWh. 11 Sep–30 Sep: 20 × 9,6 = 192 kWh × 0,20 € × 1,23 = 47,23 €;
+    // 1–10 Oct: 96 kWh × 0,10 € × 1,23 = 11,81 €. Together 59,04 €.
+    const cheaper = { ...tariff, validFrom: '2026-10-01', energy: { simple: 100_000 } };
+    expect(recentMeasured(quarters, [cheaper, tariff])?.energyCents).toBe(5904);
+  });
+
+  it('prices the days before any tariff at the average of the days that have one', () => {
+    // Only 1–10 Oct have a tariff: 96 kWh for 11,81 €; 288 kWh at that price: 35,43 €.
+    const late = { ...tariff, validFrom: '2026-10-01', energy: { simple: 100_000 } };
+    expect(recentMeasured(quarters, [late])?.energyCents).toBe(3543);
+    const future = { ...tariff, validFrom: '2027-01-01' };
+    expect(recentMeasured(quarters, [future])?.energyCents).toBeNull();
+  });
+
+  it('counts a part of a day as that part, not a whole day', () => {
+    // Data until noon on 10 Oct: 29,5 days of quarters in 30 dates.
+    const noon = startOfLisbonDay('2026-10-10') + 12 * 3600;
+    const measured = recentMeasured(
+      quarters.filter((quarter) => quarter.ts < noon),
+      null,
+    );
+    expect(measured).toMatchObject({ days: 30, coveredDays: 29.5 });
+    // A fridge of 365 kWh a year (1 kWh a day) over 29,5 days: 29,5 kWh.
+    const fridge = {
+      id: 'f',
+      name: 'Frigorífico',
+      kind: 'fridge' as const,
+      ratedPowerW: null,
+      estimate: { basis: 'year' as const, labelWh: 365_000 },
+    };
+    expect(measured && consumptionEstimate([fridge], measured).rows[0]?.wh).toBe(29_500);
   });
 });
 
@@ -178,6 +216,7 @@ describe('recentMeasured across the October change of hour', () => {
     expect(recentMeasured(quarters, null)).toEqual({
       measuredWh: 288_400,
       days: 30,
+      coveredDays: 2884 / 96,
       from: '2026-10-04',
       to: '2026-11-02',
       energyCents: null,

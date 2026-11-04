@@ -8,7 +8,7 @@
 import { MAX_PROGRAMMES, nameKey, type EquipmentKind } from '../domain/equipment';
 import type { EquipmentReading } from '../domain/equipment-reading';
 import type { EstimateBasis } from '../domain/equipment-estimate';
-import { formatKwhField } from '../lib/units';
+import { formatKwhField, parseKwhToWh } from '../lib/units';
 import { estimateOf, type EstimateFields } from './estimate-fields';
 import { rowOf, type ProgrammeRow } from './programme-row';
 
@@ -84,6 +84,22 @@ export function decisionsOf(choices: PhotoChoices): Decisions {
   };
 }
 
+/**
+ * The form's label as photoChoices compares it: empty when the read basis is
+ * chosen without a label, and equal to the reading when it is the same
+ * energy written otherwise ("58" and "58,000").
+ */
+function heldLabel(reading: EquipmentReading, current: FormValues): string {
+  const { basis, label } = current.estimate;
+  const held = labelField(basis, label.trim());
+  // Another basis chosen (the plate, say) is the user's: the label would replace it.
+  if (!reading.label || basis !== reading.label.basis) return held;
+  if (label.trim() === '') return '';
+  return parseKwhToWh(label) === reading.label.labelWh
+    ? labelField(reading.label.basis, formatKwhField(reading.label.labelWh))
+    : held;
+}
+
 export function photoChoices(
   reading: EquipmentReading,
   current: FormValues,
@@ -103,7 +119,7 @@ export function photoChoices(
     model: current.model,
     power: current.power,
     energyClass: current.energyClass,
-    label: labelField(current.estimate.basis, current.estimate.label.trim()),
+    label: heldLabel(reading, current),
   };
   const fields = (Object.keys(read) as FieldKey[]).flatMap((key): FieldChoice[] => {
     const value = read[key];

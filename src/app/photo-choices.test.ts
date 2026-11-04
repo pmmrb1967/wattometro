@@ -88,6 +88,23 @@ describe('the user’s choices over a form that changed', () => {
 });
 
 describe('the energy label', () => {
+  it('is not offered again when the form has the same value written otherwise', () => {
+    const washer = { ...READING, label: { basis: 'cycles100' as const, labelWh: 58_000 } };
+    const typed: FormValues = { ...EMPTY, estimate: { basis: 'cycles100', label: '58', use: '4' } };
+    expect(photoChoices(washer, typed).fields.map((field) => field.key)).not.toContain('label');
+  });
+
+  it('counts a basis chosen without a label as empty, and ticks it', () => {
+    const washer = { ...READING, label: { basis: 'cycles100' as const, labelWh: 58_000 } };
+    const chosen: FormValues = { ...EMPTY, estimate: { basis: 'cycles100', label: '', use: '4' } };
+    expect(photoChoices(washer, chosen).fields.find((field) => field.key === 'label')).toEqual({
+      key: 'label',
+      read: 'cycles100:58,000',
+      current: '',
+      checked: true,
+    });
+  });
+
   it('is ticked only when applying it leaves an estimate that can be saved', () => {
     const washer = { ...READING, label: { basis: 'cycles100' as const, labelWh: 58_000 } };
     const fridge = { ...READING, label: { basis: 'year' as const, labelWh: 250_000 } };

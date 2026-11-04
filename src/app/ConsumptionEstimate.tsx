@@ -19,10 +19,10 @@ const texts = t.equipmentEstimate.card;
 
 export function ConsumptionEstimateCard({ items }: { items: readonly Equipment[] }) {
   const energy = useHouseholdEnergy();
-  const { quarters, tariff, houseShelly } = energy;
+  const { quarters, tariff, tariffs, houseShelly } = energy;
   const measured = useMemo(
-    () => (quarters ? recentMeasured(quarters, tariff ?? null) : null),
-    [quarters, tariff],
+    () => (quarters ? recentMeasured(quarters, tariffs) : null),
+    [quarters, tariffs],
   );
   const base = useMemo(
     () => (quarters ? recentBaseload(nightlyBaseload(quarters)) : null),
@@ -107,6 +107,9 @@ export function ConsumptionEstimateCard({ items }: { items: readonly Equipment[]
             formatPower(base.watts),
           )}
         </p>
+      )}
+      {result.noPlate.length > 0 && (
+        <p className="hint">{texts.noPlate(result.noPlate.join(', '))}</p>
       )}
       {result.missing.length > 0 && (
         <p className="hint">{texts.missing(result.missing.join(', '))}</p>
