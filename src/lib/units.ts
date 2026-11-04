@@ -171,6 +171,25 @@ export function parsePrintedEnergyWh(text: string): Wh | null {
     : scaledDecimal(whole, fraction, 3);
 }
 
+/**
+ * The energy of an energy label in its own unit, as Wh of that unit:
+ * "250 kWh/annum" or "kWh/ano" (a year), "58 kWh/100 ciclos" (100 cycles),
+ * "70 kWh/1000h" (1000 hours). Null for an energy without one of these.
+ */
+export function parsePrintedLabelEnergy(
+  text: string,
+): { basis: 'year' | 'cycles100' | 'hours1000'; labelWh: Wh } | null {
+  const match = /(\d+(?:[.,]\d+)?)\s*kWh\s*\/\s*(annum|ano|year|100(?!0)|1\s?000\s*h)/i.exec(
+    joinThousands(text),
+  );
+  if (!match) return null;
+  const [whole = '0', fraction = ''] = (match[1] as string).split(/[.,]/);
+  const unit = (match[2] as string).toLowerCase();
+  const basis = unit === '100' ? 'cycles100' : unit.endsWith('h') ? 'hours1000' : 'year';
+  const labelWh = scaledDecimal(whole, fraction, 3);
+  return labelWh > 0 ? { basis, labelWh } : null;
+}
+
 /** A power held for one hour (PVGIS's hourly PV power, docs/pvgis.md) as whole Wh. */
 export function hourWh(watts: number): Wh {
   return Math.max(0, Math.round(watts));

@@ -9,6 +9,7 @@ const READING: EquipmentReading = {
   model: 'WX-100',
   ratedPowerW: 2100,
   energyClass: null,
+  label: null,
   programmes: [
     { name: 'Mix', durationS: 4860, energyWh: 460, temperatureC: 40, loadKg: 8 },
     { name: 'Eco 40-60', durationS: 13_680, energyWh: 1011, temperatureC: null, loadKg: 4.5 },
@@ -16,7 +17,15 @@ const READING: EquipmentReading = {
   refused: [],
 };
 
-const EMPTY: FormValues = { kind: '', brand: '', model: '', power: '', energyClass: '', rows: [] };
+const EMPTY: FormValues = {
+  kind: '',
+  brand: '',
+  model: '',
+  power: '',
+  energyClass: '',
+  rows: [],
+  estimate: { basis: '', label: '', use: '' },
+};
 
 describe('photoChoices', () => {
   it('offers what was read, ticked where the form is empty and not where it would replace', () => {
@@ -78,6 +87,29 @@ describe('the user’s choices over a form that changed', () => {
   });
 });
 
+describe('the energy label', () => {
+  it('fills the estimate’s basis and label, keeping the use typed', () => {
+    const reading = { ...READING, label: { basis: 'cycles100' as const, labelWh: 58_000 } };
+    const current: FormValues = { ...EMPTY, estimate: { basis: 'plate', label: '', use: '4' } };
+    const choices = photoChoices(reading, current);
+    expect(choices.fields.find((field) => field.key === 'label')).toEqual({
+      key: 'label',
+      read: 'cycles100:58,000',
+      current: 'plate:',
+      checked: false,
+    });
+    const ticked = {
+      ...choices,
+      fields: choices.fields.map((field) => ({ ...field, checked: true })),
+    };
+    expect(applyChoices(current, ticked).estimate).toEqual({
+      basis: 'cycles100',
+      label: '58,000',
+      use: '4',
+    });
+  });
+});
+
 describe('applyChoices', () => {
   it('fills only what was ticked: a programme of the same name is replaced, a new one added', () => {
     const current: FormValues = {
@@ -100,6 +132,7 @@ describe('applyChoices', () => {
         { name: 'Mix', duration: '1:21', energy: '0,460', temperature: '40', load: '8' },
         { name: 'Eco 40-60', duration: '3:48', energy: '1,011', temperature: '', load: '4,5' },
       ],
+      estimate: { basis: '', label: '', use: '' },
     });
   });
 });

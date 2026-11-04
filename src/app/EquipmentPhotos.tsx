@@ -23,6 +23,7 @@ import {
   decisionsOf,
   NO_DECISIONS,
   photoChoices,
+  splitLabelField,
   type Decisions,
   type FieldChoice,
   type FormValues,
@@ -49,12 +50,19 @@ function fieldLabel(key: FieldChoice['key']): string {
   if (key === 'brand') return fieldTexts.brand;
   if (key === 'model') return fieldTexts.model;
   if (key === 'power') return fieldTexts.ratedPower;
+  if (key === 'label') return t.equipmentEstimate.fields.labelRead;
   return fieldTexts.energyClass;
 }
 
 function fieldValue(choice: FieldChoice, value: string): string {
   if (value === '') return value;
   if (choice.key === 'kind') return t.equipment.kinds[value as EquipmentKind];
+  if (choice.key === 'label') {
+    const { basis, label } = splitLabelField(value);
+    return basis === 'plate' || label === ''
+      ? t.equipmentEstimate.fields.bases[basis]
+      : t.equipmentEstimate.fields.labelValue[basis](label);
+  }
   return value;
 }
 

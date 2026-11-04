@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  parsePrintedLabelEnergy,
   parsePrintedEnergyWh,
   parsePrintedPowerW,
   formatKwhField,
@@ -155,5 +156,26 @@ describe('values printed on a plate or a manual', () => {
     expect(parsePrintedEnergyWh('15 kWh / 100')).toBeNull();
     expect(parsePrintedEnergyWh('152 kWh/ano')).toBeNull();
     expect(parsePrintedEnergyWh('1,011 kWh/ciclo')).toBe(1011);
+  });
+});
+
+describe('parsePrintedLabelEnergy', () => {
+  it('reads the energy label in its own unit', () => {
+    expect(parsePrintedLabelEnergy('250 kWh/annum')).toEqual({ basis: 'year', labelWh: 250_000 });
+    expect(parsePrintedLabelEnergy('152 kWh/ano')).toEqual({ basis: 'year', labelWh: 152_000 });
+    expect(parsePrintedLabelEnergy('58 kWh/100 ciclos')).toEqual({
+      basis: 'cycles100',
+      labelWh: 58_000,
+    });
+    expect(parsePrintedLabelEnergy('0,95 kWh / 100')).toEqual({ basis: 'cycles100', labelWh: 950 });
+    expect(parsePrintedLabelEnergy('70 kWh/1000h')).toEqual({
+      basis: 'hours1000',
+      labelWh: 70_000,
+    });
+  });
+
+  it('gives null for an energy without the label’s unit', () => {
+    expect(parsePrintedLabelEnergy('0,46 kWh')).toBeNull();
+    expect(parsePrintedLabelEnergy('A')).toBeNull();
   });
 });

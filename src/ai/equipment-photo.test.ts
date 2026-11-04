@@ -10,6 +10,7 @@ const PRINTED = {
   model: 'WX-100',
   ratedPower: '2100 W',
   energyClass: 'A',
+  labelEnergy: null,
   programmes: [
     { name: 'Mix', duration: '1:21', energy: '0,46 kWh', temperature: '40', load: '8 kg' },
   ],
@@ -34,7 +35,7 @@ describe('readEquipmentPhotos', () => {
       programmes: [{ name: 'Mix', durationS: 4860, energyWh: 460 }],
     });
     expect(result.usage).toMatchObject([
-      { task: 'read_equipment', promptVersion: 'equipment-photo-2' },
+      { task: 'read_equipment', promptVersion: 'equipment-photo-3' },
     ]);
     const messages = api.requests[0]?.body.messages as { content: { type: string }[] }[];
     const content = messages[0]!.content;

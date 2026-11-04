@@ -197,7 +197,8 @@ describe('local server', () => {
     const created = await api.respond('POST', '/v1/equipment', kettle);
     expect(created.status).toBe(201);
     const { item } = (await created.json()) as { item: { id: string } };
-    expect(item).toEqual({ ...kettle, id: item.id, createdAt: NOW });
+    // A request without an estimate (an older app) is kept with none.
+    expect(item).toEqual({ ...kettle, estimate: null, id: item.id, createdAt: NOW });
     expect((await kept(store))?.equipment).toEqual([item]);
 
     const again = await api.respond('POST', '/v1/equipment', { ...kettle, name: ' CHALEIRA ' });

@@ -8,6 +8,7 @@ const PRINTED: PrintedEquipment = {
   model: 'WX-100',
   ratedPower: '2100 W',
   energyClass: 'a',
+  labelEnergy: '58 kWh/100 ciclos',
   programmes: [
     { name: 'Mix', duration: '1:21', energy: '0,46 kWh', temperature: '40 °C', load: '8 kg' },
     {
@@ -29,6 +30,7 @@ describe('fromPrinted', () => {
       model: 'WX-100',
       ratedPowerW: 2100,
       energyClass: 'A',
+      label: { basis: 'cycles100', labelWh: 58_000 },
       programmes: [
         { name: 'Mix', durationS: 4860, energyWh: 460, temperatureC: 40, loadKg: 8 },
         { name: 'Eco 40-60', durationS: 13_680, energyWh: 1011, temperatureC: null, loadKg: 4.5 },
@@ -66,6 +68,7 @@ describe('fromPrinted', () => {
       model: null,
       ratedPower: '220-240 V',
       energyClass: 'A+++',
+      labelEnergy: '0,46 kWh',
       programmes: [
         { name: 'Frio', duration: '0:30', energy: '0,2', temperature: 'Frio', load: null },
       ],
@@ -76,6 +79,7 @@ describe('fromPrinted', () => {
       model: null,
       ratedPowerW: null,
       energyClass: null,
+      label: null,
       programmes: [{ name: 'Frio', temperatureC: null }],
       refused: [],
     });

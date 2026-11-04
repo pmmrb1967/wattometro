@@ -15,6 +15,7 @@ import {
   type Equipment,
   type EquipmentInput,
 } from '../../../src/domain/equipment';
+import { estimateSchema } from '../../../src/domain/equipment-estimate';
 import type { Sql, Statement } from '../db';
 
 interface Row {
@@ -28,12 +29,14 @@ interface Row {
   energy_class: string | null;
   notes: string | null;
   programmes: string;
+  estimate: string | null;
   created_at: number;
 }
 
 const Kind = z.enum(EQUIPMENT_KINDS).nullable();
 const EnergyClass = z.enum(ENERGY_CLASSES).nullable();
 const Programmes = z.array(programmeSchema);
+const StoredEstimate = estimateSchema.nullable();
 
 const fromRow = (row: Row): Equipment => ({
   id: row.id,
@@ -46,13 +49,14 @@ const fromRow = (row: Row): Equipment => ({
   energyClass: EnergyClass.parse(row.energy_class),
   notes: row.notes,
   programmes: Programmes.parse(JSON.parse(row.programmes)),
+  estimate: StoredEstimate.parse(row.estimate === null ? null : JSON.parse(row.estimate)),
   createdAt: row.created_at,
 });
 
 export async function listEquipment(sql: Sql, householdId: string): Promise<Equipment[]> {
   const rows = await sql.all<Row>(
     `SELECT id, name, kind, brand, model, room, rated_power_w, energy_class, notes, programmes,
-       created_at
+       estimate, created_at
      FROM equipment WHERE household_id = ?`,
     householdId,
   );
@@ -87,8 +91,8 @@ export async function createEquipment(
   const id = crypto.randomUUID();
   await sql.run(
     `INSERT INTO equipment (id, household_id, name, name_key, kind, brand, model, room,
-       rated_power_w, energy_class, notes, programmes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       rated_power_w, energy_class, notes, programmes, estimate, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     householdId,
     input.name,
@@ -101,6 +105,7 @@ export async function createEquipment(
     input.energyClass,
     input.notes,
     JSON.stringify(input.programmes),
+    input.estimate === null ? null : JSON.stringify(input.estimate),
     now,
   );
   return { ...input, id, createdAt: now };
@@ -201,7 +206,8 @@ export async function updateEquipment(
   await sql.batch([
     {
       query: `UPDATE equipment SET name = ?, name_key = ?, kind = ?, brand = ?, model = ?,
-                room = ?, rated_power_w = ?, energy_class = ?, notes = ?, programmes = ?
+                room = ?, rated_power_w = ?, energy_class = ?, notes = ?, programmes = ?,
+                estimate = ?
               WHERE id = ? AND household_id = ?`,
       params: [
         input.name,
@@ -214,6 +220,7 @@ export async function updateEquipment(
         input.energyClass,
         input.notes,
         JSON.stringify(input.programmes),
+        input.estimate === null ? null : JSON.stringify(input.estimate),
         id,
         householdId,
       ],

@@ -14,6 +14,7 @@ const item = (id: string, name: string, ratedPowerW: number | null): Equipment =
   energyClass: null,
   notes: null,
   programmes: [],
+  estimate: null,
   createdAt: 0,
 });
 

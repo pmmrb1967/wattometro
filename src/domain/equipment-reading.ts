@@ -7,7 +7,7 @@
  * (docs/equipment.md).
  */
 import { parsePrintedDurationS } from '../lib/time';
-import { parsePrintedEnergyWh, parsePrintedPowerW } from '../lib/units';
+import { parsePrintedEnergyWh, parsePrintedLabelEnergy, parsePrintedPowerW } from '../lib/units';
 import {
   ENERGY_CLASSES,
   EQUIPMENT_KINDS,
@@ -32,6 +32,8 @@ export interface PrintedEquipment {
   model: string | null;
   ratedPower: string | null;
   energyClass: string | null;
+  /** The energy label's consumption with its unit ("58 kWh/100 ciclos"). */
+  labelEnergy: string | null;
   programmes: PrintedProgramme[];
 }
 
@@ -41,6 +43,8 @@ export interface EquipmentReading {
   model: string | null;
   ratedPowerW: number | null;
   energyClass: EquipmentInput['energyClass'];
+  /** The label's energy and its unit, for the estimate. */
+  label: { basis: 'year' | 'cycles100' | 'hours1000'; labelWh: number } | null;
   programmes: Programme[];
   /** Names of the programmes whose duration or energy could not be read. */
   refused: string[];
@@ -72,6 +76,12 @@ const loadOf = (value: string | null): number | null => {
   const exact = decimals.slice(1).replace(/0/g, '') === '';
   const tenths = Number(match[1]) * 10 + Number(decimals.slice(0, 1) || '0');
   return exact && tenths % 5 === 0 && tenths <= 200 ? tenths / 10 : null;
+};
+
+/** Within the estimate's limits (up to 999,999 kWh). */
+const labelOf = (text: string) => {
+  const label = parsePrintedLabelEnergy(text);
+  return label && label.labelWh <= 999_999 ? label : null;
 };
 
 function programmeOf(printed: PrintedProgramme): Programme | null {
@@ -106,6 +116,7 @@ export function fromPrinted(printed: PrintedEquipment): EquipmentReading {
     model: text(printed.model),
     ratedPowerW: power !== null && power <= MAX_POWER_W ? power : null,
     energyClass,
+    label: printed.labelEnergy === null ? null : labelOf(printed.labelEnergy),
     programmes,
     refused,
   };

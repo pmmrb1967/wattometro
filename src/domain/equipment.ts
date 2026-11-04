@@ -10,6 +10,7 @@
  * can (a hob uses one plate).
  */
 import { z } from 'zod';
+import { estimateSchema } from './equipment-estimate';
 
 export const EQUIPMENT_KINDS = [
   'washer',
@@ -72,6 +73,8 @@ export const equipmentInputSchema = z
     energyClass: z.enum(ENERGY_CLASSES).nullable(),
     notes: optionalText(500),
     programmes: z.array(programmeSchema).max(MAX_PROGRAMMES),
+    // For "Onde vai o consumo"; missing from a client before migration 0028.
+    estimate: estimateSchema.nullable().default(null),
   })
   .refine(
     ({ kind, programmes }) =>

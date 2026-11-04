@@ -1167,6 +1167,63 @@ export const t = {
     noShelly: 'Só com um Shelly no quadro: os aparelhos reconhecem-se pelos valores ao segundo.',
     equipmentLink: 'Os teus equipamentos',
   },
+  equipmentEstimate: {
+    card: {
+      title: 'Onde vai o consumo (estimativa)',
+      intro: (days: number, measured: string) =>
+        `Nos últimos ${days} dias, a E-Redes mediu ${measured}. Cada equipamento conta com o que indicaste em "Para a estimativa": a etiqueta energética, ou a chapa, e o uso.`,
+      noData:
+        'Ainda não há consumos da E-Redes. Importa o ficheiro do Balcão Digital para comparar as estimativas com o que gastaste.',
+      empty:
+        'Nenhum equipamento tem estimativa. Edita um e preenche "Para a estimativa" com a etiqueta energética, ou a chapa, e o uso.',
+      equipment: 'Equipamento',
+      energy: 'Energia',
+      cost: 'Custo',
+      share: 'Do total',
+      pct: (pct: number) => `${pct} %`,
+      explained: (pct: number, measured: string, rest: string) =>
+        `Os equipamentos com estimativa explicam ${pct} % dos ${measured} medidos. Os outros ${rest} são do que não registaste, ou de um uso maior do que indicaste.`,
+      overshoot: (over: string) =>
+        `As estimativas passam o que foi medido em ${over}: algum uso indicado é maior do que o real, ou a chapa está muito acima do que o aparelho gasta.`,
+      fridgeAgainstBase: (fridge: string, base: string) =>
+        `Pelas etiquetas, o frigorífico e a arca gastam em média ${fridge}; o consumo base medido de noite é ${base}. O resto do consumo base é do que fica sempre ligado (ver o cartão "Consumo base" em Consumo).`,
+      missing: (names: string) => `Sem estimativa: ${names}.`,
+      caveat:
+        'É uma ordem de grandeza, não uma medição: a etiqueta é medida em condições de ensaio e o uso é o que indicaste. O custo é ao preço médio da energia nestes dias, sem a potência contratada.',
+    },
+    fields: {
+      title: 'Para a estimativa do consumo',
+      intro:
+        'Opcional. Para quem só tem os dados da E-Redes: a app soma o que cada equipamento gasta segundo a etiqueta energética, ou a chapa, e o uso que indicas, e compara com o que a E-Redes mediu.',
+      basis: 'Com base em',
+      none: 'Sem estimativa',
+      suggested: (text: string) => `${text} (este tipo)`,
+      bases: {
+        year: 'Etiqueta, kWh/ano',
+        cycles100: 'Etiqueta, kWh/100 ciclos',
+        hours1000: 'Etiqueta, kWh/1000 h',
+        plate: 'Chapa e tempo de uso',
+      },
+      label: {
+        year: 'Energia da etiqueta (kWh/ano)',
+        cycles100: 'Energia da etiqueta (kWh/100 ciclos)',
+        hours1000: 'Energia da etiqueta (kWh/1000 h)',
+      },
+      labelRead: 'Energia da etiqueta',
+      labelValue: {
+        year: (kwh: string) => `${kwh} kWh/ano`,
+        cycles100: (kwh: string) => `${kwh} kWh/100 ciclos`,
+        hours1000: (kwh: string) => `${kwh} kWh/1000 h`,
+      },
+      cyclesPerWeek: 'Ciclos por semana',
+      timePerDay: 'Tempo de uso por dia (h:mm)',
+      needsPlate: 'Escreve acima a potência da chapa: é com ela que se faz a conta.',
+      plateCeiling:
+        'A chapa é um teto: o aparelho costuma gastar um pouco menos, por isso a estimativa fica por cima.',
+      invalid:
+        'Falta um valor ou não é válido: a energia em kWh com até 3 casas decimais, os ciclos de 1 a 50, o tempo em h:mm.',
+    },
+  },
   equipmentPhotos: {
     title: 'Ler de fotografias',
     intro: (max: number) =>

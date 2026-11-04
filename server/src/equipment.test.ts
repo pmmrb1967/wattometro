@@ -64,6 +64,7 @@ const equipment = (name: string, extra: Partial<EquipmentInput> = {}): Equipment
   energyClass: null,
   notes: null,
   programmes: [],
+  estimate: null,
   ...extra,
 });
 
@@ -88,6 +89,7 @@ const descriptor = (label: string, powerW: number) => ({
 interface Item {
   id: string;
   name: string;
+  estimate?: unknown;
 }
 interface ApplianceRow {
   id: string;
@@ -184,6 +186,24 @@ describe('/v1/equipment', () => {
     expect(await listEquipment(ana)).toHaveLength(1);
     expect((await request(ana, 'DELETE', `/v1/equipment/${item.id}`)).status).toBe(204);
     expect(await listEquipment(ana)).toEqual([]);
+  });
+
+  it('keeps the estimate of an equipment (migration 0028), and an older client sends none', async () => {
+    const ana = await signIn(0);
+    const estimate = { basis: 'cycles100' as const, labelWh: 58_000, cyclesPerWeek: 4 };
+    const created = await request(ana, 'POST', '/v1/equipment', { ...WASHER, estimate });
+    expect(created.status).toBe(201);
+    const { item } = (await created.json()) as { item: Item };
+    const older = Object.fromEntries(Object.entries(WASHER).filter(([key]) => key !== 'estimate'));
+    expect((await request(ana, 'PUT', `/v1/equipment/${item.id}`, older)).status).toBe(204);
+    expect((await listEquipment(ana))[0]?.estimate).toBeNull();
+    const plate = { basis: 'plate' as const, minutesPerDay: 30 };
+    await request(ana, 'PUT', `/v1/equipment/${item.id}`, { ...WASHER, estimate: plate });
+    expect((await listEquipment(ana))[0]?.estimate).toEqual(plate);
+    const bad = { ...WASHER, estimate: { basis: 'cycles100', labelWh: 58_000 } };
+    expect((await request(ana, 'POST', '/v1/equipment', { ...bad, name: 'Outra' })).status).toBe(
+      400,
+    );
   });
 
   it('refuses a name the house already has, whatever the case', async () => {

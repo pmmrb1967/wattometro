@@ -23,6 +23,9 @@ import { isLocal } from '../local/mode';
 import { formatPower } from '../lib/units';
 import type { Appliance } from './api';
 import { useAppliances } from './appliances-store';
+import { estimateOf, fieldsOf } from './estimate-fields';
+import { EstimateFieldset } from './EstimateFieldset';
+import { ConsumptionEstimateCard } from './ConsumptionEstimate';
 import { EquipmentPhotos } from './EquipmentPhotos';
 import { EquipmentUses } from './EquipmentUses';
 import { linkAppliances, removeEquipment, saveEquipment, useEquipment } from './equipment-store';
@@ -64,12 +67,14 @@ function EquipmentForm({
   const [energyClass, setEnergyClass] = useState(initial?.energyClass ?? '');
   const [notes, setNotes] = useState(text(initial?.notes ?? null));
   const [rows, setRows] = useState<ProgrammeRow[]>((initial?.programmes ?? []).map(rowOf));
+  const [estimateFields, setEstimateFields] = useState(() => fieldsOf(initial?.estimate ?? null));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const withProgrammes = kind !== '' && PROGRAMME_KINDS.includes(kind);
   const programmes = withProgrammes ? rows.map(programmeOf) : [];
   const rowsValid = programmes.every((programme) => programme !== null);
+  const estimate = estimateOf(estimateFields);
   const parsed = equipmentInputSchema.safeParse({
     name,
     kind: kind === '' ? null : kind,
@@ -80,11 +85,13 @@ function EquipmentForm({
     energyClass: energyClass === '' ? null : energyClass,
     notes: orNull(notes),
     programmes: programmes.filter((programme): programme is Programme => programme !== null),
+    estimate: estimate === 'invalid' ? null : estimate,
   });
+  const valid = parsed.success && rowsValid && estimate !== 'invalid';
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!parsed.success || !rowsValid) return;
+    if (!parsed.success || !valid) return;
     const input: EquipmentInput = parsed.data;
     setBusy(true);
     setError(null);
@@ -139,7 +146,7 @@ function EquipmentForm({
         />
       </label>
       <EquipmentPhotos
-        values={{ kind, brand, model, power, energyClass, rows }}
+        values={{ kind, brand, model, power, energyClass, rows, estimate: estimateFields }}
         disabled={busy}
         onApply={(next) => {
           setKind(next.kind);
@@ -148,6 +155,7 @@ function EquipmentForm({
           setPower(next.power);
           setEnergyClass(next.energyClass as typeof energyClass);
           setRows(next.rows);
+          setEstimateFields(next.estimate);
         }}
       />
       <div className="equipment-fields">
@@ -317,9 +325,17 @@ function EquipmentForm({
         </fieldset>
       )}
 
+      <EstimateFieldset
+        fields={estimateFields}
+        kind={kind}
+        hasPlate={power.trim() !== ''}
+        disabled={busy}
+        onChange={setEstimateFields}
+      />
+
       {error && <p className="error">{error}</p>}
       <div className="actions">
-        <button type="submit" className="primary" disabled={busy || !parsed.success || !rowsValid}>
+        <button type="submit" className="primary" disabled={busy || !valid}>
           {texts.save}
         </button>
         <button type="button" className="secondary" disabled={busy} onClick={onDone}>
@@ -526,6 +542,7 @@ export function EquipmentPage() {
           <EquipmentUses item={current} appliances={appliances} />
         </>
       )}
+      {editing === null && register.kind === 'ready' && <ConsumptionEstimateCard items={items} />}
     </>
   );
 }

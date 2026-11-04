@@ -7,6 +7,9 @@
  */
 import { MAX_PROGRAMMES, nameKey, type EquipmentKind } from '../domain/equipment';
 import type { EquipmentReading } from '../domain/equipment-reading';
+import type { EstimateBasis } from '../domain/equipment-estimate';
+import { formatKwhField } from '../lib/units';
+import type { EstimateFields } from './estimate-fields';
 import { rowOf, type ProgrammeRow } from './programme-row';
 
 /** The form's fields as it holds them (text until saved). */
@@ -17,9 +20,19 @@ export interface FormValues {
   power: string;
   energyClass: string;
   rows: ProgrammeRow[];
+  estimate: EstimateFields;
 }
 
-export type FieldKey = 'kind' | 'brand' | 'model' | 'power' | 'energyClass';
+export type FieldKey = 'kind' | 'brand' | 'model' | 'power' | 'energyClass' | 'label';
+
+/** The label's energy as one field: "basis:kWh" ("cycles100:58,000"); empty without a basis. */
+export const labelField = (basis: string, label: string) =>
+  basis === '' ? '' : `${basis}:${label}`;
+
+export function splitLabelField(value: string): { basis: EstimateBasis; label: string } {
+  const [basis = '', label = ''] = value.split(':');
+  return { basis: basis as EstimateBasis, label };
+}
 
 export interface FieldChoice {
   key: FieldKey;
@@ -82,14 +95,23 @@ export function photoChoices(
     model: reading.model,
     power: reading.ratedPowerW === null ? null : String(reading.ratedPowerW),
     energyClass: reading.energyClass,
+    label: reading.label && labelField(reading.label.basis, formatKwhField(reading.label.labelWh)),
+  };
+  const now: Record<FieldKey, string> = {
+    kind: current.kind,
+    brand: current.brand,
+    model: current.model,
+    power: current.power,
+    energyClass: current.energyClass,
+    label: labelField(current.estimate.basis, current.estimate.label.trim()),
   };
   const fields = (Object.keys(read) as FieldKey[]).flatMap((key): FieldChoice[] => {
     const value = read[key];
-    const now = current[key].trim();
-    if (value === null || value === now) return [];
+    const held = now[key].trim();
+    if (value === null || value === held) return [];
     const decided = decisions.fields[key];
-    const checked = decided && decided.current === now ? decided.checked : now === '';
-    return [{ key, read: value, current: now, checked }];
+    const checked = decided && decided.current === held ? decided.checked : held === '';
+    return [{ key, read: value, current: held, checked }];
   });
   const names = new Set(current.rows.map((row) => nameKey(row.name)));
   const programmes = reading.programmes.map((programme) => {
@@ -103,10 +125,16 @@ export function photoChoices(
 
 /** The form with the ticked values; programmes past the register's limit are left out. */
 export function applyChoices(current: FormValues, choices: PhotoChoices): FormValues {
-  const next: FormValues = { ...current, rows: [...current.rows] };
+  const next: FormValues = {
+    ...current,
+    rows: [...current.rows],
+    estimate: { ...current.estimate },
+  };
   for (const field of choices.fields) {
     if (!field.checked) continue;
     if (field.key === 'kind') next.kind = field.read as EquipmentKind;
+    else if (field.key === 'label')
+      next.estimate = { ...next.estimate, ...splitLabelField(field.read) };
     else next[field.key] = field.read;
   }
   for (const { row, checked } of choices.programmes) {

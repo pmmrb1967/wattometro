@@ -83,6 +83,53 @@ Só com a chave de IA do utilizador; sem ela o formulário é o mesmo
 Sem IA, um OCR no browser (Tesseract.js) poderia ler a chapa (potência, marca,
 modelo), mas não as colunas de uma tabela; fica como passo seguinte possível.
 
+## Onde vai o consumo (estimativa, só com a E-Redes)
+
+Numa casa sem Shelly, os quartos de hora da E-Redes só dão a soma da casa: a
+15 minutos, uma máquina de 2 kW durante 20 minutos parece uma de 700 W durante
+uma hora. A app não tenta reconhecer aparelhos nesses dados; faz a conta com o
+que o utilizador indica de cada equipamento e compara com o medido
+(`src/domain/equipment-estimate.ts`, cartão em `src/app/ConsumptionEstimate.tsx`).
+
+Sem valores típicos: só entram números do utilizador, da etiqueta energética do
+próprio equipamento ou da chapa, e o uso que ele indica. Um equipamento sem
+estimativa não conta e aparece como "sem estimativa"; o resto fica por explicar.
+
+Unidade do consumo na etiqueta energética (consultado em 2026-11-04):
+
+| Produtos | Regulamento delegado (UE) | Na etiqueta |
+|---|---|---|
+| Frigoríficos e arcas | 2019/2016 | kWh/ano |
+| Máquinas de lavar roupa | 2019/2014 | kWh/100 ciclos (programa eco 40-60) |
+| Máquinas de lavar loiça | 2019/2017 | kWh/100 ciclos (programa eco) |
+| Máquinas de secar roupa | 2023/2534 | kWh/100 ciclos (média ponderada) |
+| Televisões e monitores | 2019/2013 | kWh/1000 h (SDR e HDR) |
+
+Fontes: página da Comissão Europeia sobre a etiqueta das máquinas de lavar
+loiça (energy-efficient-products.ec.europa.eu, "energy consumption for 100
+cycles") e dos ecrãs ("energy consumption in SDR and HDR", Regulamento
+2019/2013); EUR-Lex, Regulamento Delegado (UE) 2023/2534 (máquinas de secar,
+consumo ponderado por 100 ciclos); Wikipédia, "European Union energy label"
+(frigoríficos, kWh por ano); Topten e fabricantes (TV, kWh/1000 h).
+
+A conta, em Wh inteiros, para os últimos 30 dias de dados:
+
+- etiqueta por ano: `kWh/ano × dias / 365`;
+- por 100 ciclos: `kWh/100 × ciclos por semana × dias / 700`;
+- por 1000 h: `kWh/1000 h × minutos por dia × dias / 60 000`;
+- chapa: `W × minutos por dia × dias / 60`. A chapa é um teto (a medida costuma
+  ficar abaixo), por isso fica por cima.
+
+O custo de cada um é a sua parte do custo da energia desses dias com o tarifário
+da casa (energia, IEC e IVA; sem o termo de potência), ao preço médio. O
+frigorífico e a arca (etiqueta por ano) mostram-se também em potência média
+(`kWh/ano / 8760 h`) ao lado do consumo base medido de noite (`baseload.ts`).
+
+O cartão aparece só numa casa sem Shelly; com Shelly, cada aparelho tem o que o
+Shelly mediu. A leitura de fotografias lê também a energia da etiqueta com a
+unidade ("58 kWh/100", `parsePrintedLabelEnergy` em `src/lib/units.ts`), que o
+utilizador confirma como os outros valores.
+
 ## Fontes avaliadas e postas de lado
 
 - **EPREL** (base europeia de etiquetas energéticas): responde por número de

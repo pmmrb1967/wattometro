@@ -213,7 +213,14 @@ function demoAlwaysOn(): AlwaysOnItem[] {
 /** Invented too: no real model, the manual's values only an example. */
 function demoEquipment(): Equipment[] {
   const createdAt = Math.floor(Date.now() / 1000);
-  const none = { brand: null, model: null, energyClass: null, notes: null, programmes: [] };
+  const none = {
+    brand: null,
+    model: null,
+    energyClass: null,
+    notes: null,
+    programmes: [],
+    estimate: null,
+  };
   return [
     {
       ...none,
@@ -227,6 +234,7 @@ function demoEquipment(): Equipment[] {
         { name: 'Mix', durationS: 4860, energyWh: 458, temperatureC: 40, loadKg: 4 },
         { name: 'Eco 40-60', durationS: 13_680, energyWh: 1011, temperatureC: 40, loadKg: 9 },
       ],
+      estimate: { basis: 'cycles100', labelWh: 58_000, cyclesPerWeek: 4 },
       createdAt,
     },
     {
@@ -237,6 +245,7 @@ function demoEquipment(): Equipment[] {
       room: 'Cozinha',
       ratedPowerW: null,
       energyClass: 'E',
+      estimate: { basis: 'year', labelWh: 250_000 },
       createdAt,
     },
     {
@@ -246,6 +255,7 @@ function demoEquipment(): Equipment[] {
       kind: 'kettle',
       room: 'Cozinha',
       ratedPowerW: 2200,
+      estimate: { basis: 'plate', minutesPerDay: 10 },
       createdAt,
     },
   ];
