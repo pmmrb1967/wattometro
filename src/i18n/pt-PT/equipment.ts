@@ -68,9 +68,10 @@ export const equipmentTexts = {
     title: 'Ler de fotografias',
     intro: (max: number) =>
       `Com a tua chave de IA: escolhe ou tira até ${max} fotografias da chapa, da etiqueta energética ou da tabela de programas do manual. Vão diretamente para a IA, mais pequenas e sem a localização, e não ficam guardadas. Confirmas cada valor antes de o usar.`,
-    choose: 'Escolher fotografias',
-    take: 'Tirar fotografia',
-    takeAnother: 'Tirar outra fotografia',
+    // Short: on a phone the two buttons share one line, even 360 px wide.
+    choose: 'Escolher fotos',
+    take: 'Tirar foto',
+    takeAnother: 'Tirar outra foto',
     tooMany: (max: number) => `Escolhe no máximo ${max} fotografias.`,
     unreadable: 'Não consegui abrir uma das fotografias. Experimenta uma em JPEG ou PNG.',
     preparing: 'A preparar as fotografias…',

@@ -3078,6 +3078,25 @@ h3,
   align-items: center;
 }
 
+/* "Tirar foto" and "Escolher fotos" on a phone: one line, as wide as each other. */
+.form .actions.photo-picks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 24rem;
+}
+
+.photo-picks .file-row {
+  height: 100%;
+}
+
+.photo-picks .file-row .secondary {
+  flex: 1;
+  align-self: stretch;
+  justify-content: center;
+  padding-inline: 12px;
+  text-align: center;
+}
+
 .file-pick input[type='file']:focus-visible + .file-row .secondary {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

@@ -133,7 +133,7 @@ export function EquipmentPhotos({
     </label>
   );
   const picker = (
-    <div className="actions">
+    <div className={camera ? 'actions photo-picks' : 'actions'}>
       {camera && pick('camera', texts.take)}
       {pick('choose', texts.choose)}
     </div>
