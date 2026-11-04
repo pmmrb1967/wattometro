@@ -4,21 +4,12 @@
  * in scripts/create-user.ts). Adapted from poderebeleza (worker/auth.ts).
  * The iteration count is stored with each hash, so it can change later.
  */
+import { fromBase64Url, toBase64Url } from '../../src/lib/base64url';
+
 export const PASSWORD_ITERATIONS = 100_000; // the most Web Crypto accepts in Workers
 export const MIN_PASSWORD_LENGTH = 12;
 
 const encoder = new TextEncoder();
-
-export function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-export function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
 
 /** Constant-time comparison. */
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {

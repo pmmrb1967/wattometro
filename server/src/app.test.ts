@@ -71,6 +71,17 @@ describe('GET /v1/health', () => {
     expect(await response.json()).toEqual({ status: 'ok', database: true });
   });
 
+  it('every API answer, an error too, says its type is not to be guessed', async () => {
+    // Only the static files get dist/_headers; the API sets its own.
+    for (const response of [
+      await app.request('/v1/health'),
+      await me(),
+      await app.request('/v1/nope'),
+    ]) {
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    }
+  });
+
   it('answers 503 when the database is down', async () => {
     const broken: Sql = {
       first: () => Promise.reject(new Error('down')),

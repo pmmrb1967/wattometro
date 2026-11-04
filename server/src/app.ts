@@ -554,6 +554,8 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   app.use('/v1/*', async (c, next) => {
     await next();
     c.header('Cache-Control', 'no-store');
+    // The static files get dist/_headers (security-headers.ts); the API's answers set their own.
+    c.header('X-Content-Type-Options', 'nosniff');
   });
 
   app.get('/v1/health', async (c) => {

@@ -13,7 +13,8 @@
  */
 import { z } from 'zod';
 import type { Sql } from './db';
-import { DUMMY_HASH, fromBase64Url, hashPassword, toBase64Url, verifyPassword } from './password';
+import { fromBase64Url, toBase64Url } from '../../src/lib/base64url';
+import { DUMMY_HASH, hashPassword, verifyPassword } from './password';
 import {
   clearLoginFailures,
   findUserByEmail,
