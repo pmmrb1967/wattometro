@@ -147,6 +147,7 @@ pnpm dev                 # PWA em desenvolvimento; /v1 vai para pnpm dev:server 
 pnpm dev:server          # API local (wrangler dev, D1 local)
 pnpm test                # vitest (app + servidor, SQLite em memória)
 pnpm test:coverage       # o mesmo, com a cobertura por ficheiro (coverage/index.html)
+pnpm test:e2e            # Playwright: a demonstração página a página, telemóvel e PC (depois de pnpm build)
 pnpm typecheck
 pnpm lint
 pnpm build
