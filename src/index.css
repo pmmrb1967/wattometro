@@ -156,7 +156,29 @@ a {
 }
 
 .brand img {
+  flex: none;
   border-radius: 9px;
+}
+
+/* Name over the household: two short lines beside the 36 px icon, no taller bar. */
+.brand {
+  min-width: 0;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.brand-household {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
 }
 
 /* The purple tile would vanish into the dark bar. */

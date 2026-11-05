@@ -319,7 +319,8 @@ export function Home() {
 
   return (
     <>
-      <h1>{me.householdName}</h1>
+      {/* Shown in the top bar, under the app's name: here only for screen readers. */}
+      <h1 className="visually-hidden">{me.householdName}</h1>
 
       <div className="home-columns">
         <div className="home-column home-meters">

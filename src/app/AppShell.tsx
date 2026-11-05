@@ -162,7 +162,11 @@ export function AppShell() {
       <header className="topbar">
         <NavLink to="/" className="brand">
           <img src="/icon.svg" alt="" width={36} height={36} />
-          <span>{t.appName}</span>
+          {/* The household under the name, so Início needs no title line of its own. */}
+          <span className="brand-text">
+            <span>{t.appName}</span>
+            {context && <span className="brand-household">{context.me.householdName}</span>}
+          </span>
         </NavLink>
         <p className={`server server-${server}`} role="status" title={t.server[server]}>
           <span className="dot" aria-hidden="true" />
