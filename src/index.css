@@ -483,6 +483,29 @@ a {
     color: var(--muted);
     font-size: var(--fs-sm);
   }
+
+  /* The top bar stays put with the menu, at a fixed height the menu starts under; the
+     banners below it scroll away with the page. Phones keep it scrolling: little height,
+     and the tab bar is already fixed at the bottom. */
+  :root {
+    --topbar-height: 64px;
+    scroll-padding-top: calc(var(--topbar-height) + 8px);
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    flex-wrap: nowrap;
+    height: var(--topbar-height);
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .nav {
+    top: var(--topbar-height);
+    max-height: calc(100dvh - var(--topbar-height));
+  }
 }
 
 /* Content */
