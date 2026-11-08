@@ -21,7 +21,14 @@ import {
   type LocalDate,
 } from '../lib/time';
 import { formatKwh, formatPower } from '../lib/units';
-import { confusable, describeGroup, groupAppliance } from '../nilm/appliances';
+import {
+  confusable,
+  describeGroup,
+  fitsAppliance,
+  groupAppliance,
+  nameAppliance,
+  type ApplianceDescriptor,
+} from '../nilm/appliances';
 import { tariffOn, type TariffInput } from '../domain/tariff';
 import { GROUP_ORDERS, parseGroupOrder, sortGroups, type GroupOrder } from '../nilm/group-order';
 import { formatCents } from '../lib/money';
@@ -34,7 +41,7 @@ import {
 } from '../nilm/day';
 import type { Fridge } from '../nilm/fridge';
 import { decodeSecondsRecords } from '../nilm/series';
-import type { CycleGroup } from '../nilm/summary';
+import { buildGroup, splitByAppliance, type CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
 import { groupLoadKind } from '../nilm/load-kind';
 import { addAppliance, forgetAppliance, useAppliances } from './appliances-store';
@@ -123,6 +130,9 @@ function saveOrder(order: GroupOrder): void {
  * "Dar nome": names a group; the name then applies to every cycle that fits, on
  * any day. On a group already named (`current`), corrects it: the new name gets
  * this group's descriptor, and each cycle goes to the closest appliance.
+ * With more than one cycle, only the ones ticked are this appliance: the
+ * descriptor is theirs (the durations they span), and the others stay apart
+ * when their durations differ; when they do not, it says so.
  */
 function NameGroup({
   group,
@@ -137,8 +147,12 @@ function NameGroup({
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[] | null>(null);
+  const [chosen, setChosen] = useState<ReadonlySet<number>>(
+    () => new Set(group.cycles.map((cycle) => cycle.start)),
+  );
   const register = useEquipment(me.householdId);
+  const known = useAppliances(me.householdId);
   const listId = useId();
   const powerW230 = describeGroup(group).powerW;
   const suggestions = suggestEquipment(powerW230, register.kind === 'ready' ? register.items : []);
@@ -146,15 +160,32 @@ function NameGroup({
 
   async function save() {
     setBusy(true);
-    const descriptor = describeGroup(group);
+    const picked = group.cycles.filter((cycle) => chosen.has(cycle.start));
+    const left = group.cycles.filter((cycle) => !chosen.has(cycle.start));
+    const descriptor = describeGroup(picked.length === group.count ? group : buildGroup(picked));
     const correcting = current !== null && !sameName(current.label, label);
+    // What will be stored: another programme widens an appliance of the same name.
+    const plan = correcting
+      ? null
+      : nameAppliance(label.trim(), descriptor, known.kind === 'ready' ? known.appliances : []);
+    const stored: ApplianceDescriptor =
+      plan?.kind === 'widen'
+        ? {
+            ...plan.appliance,
+            minDurationS: plan.durations.minS,
+            maxDurationS: plan.durations.maxS,
+          }
+        : descriptor;
     const outcome = await addAppliance(label.trim(), descriptor, { separate: correcting });
     setBusy(false);
     if (outcome.ok) {
-      if (current && !sameName(current.label, label) && confusable(current, descriptor)) {
-        return setWarning(texts.confusable(label.trim(), current.label));
+      const notes: string[] = [];
+      const leftFit = left.filter((cycle) => fitsAppliance(cycle, stored)).length;
+      if (leftFit > 0) notes.push(texts.leftOutFit(leftFit, label.trim()));
+      if (current && correcting && confusable(current, descriptor)) {
+        notes.push(texts.confusable(label.trim(), current.label));
       }
-      return onDone();
+      return notes.length > 0 ? setWarnings(notes) : onDone();
     }
     const text = failureText(outcome, texts.tooMany);
     if (text === null) return signOut();
@@ -172,10 +203,14 @@ function NameGroup({
     setError(text);
   }
 
-  if (warning) {
+  if (warnings) {
     return (
       <div className="name-group">
-        <p className="warning">{warning}</p>
+        {warnings.map((warning) => (
+          <p key={warning} className="warning">
+            {warning}
+          </p>
+        ))}
         <div className="actions">
           <button type="button" className="secondary" onClick={onDone}>
             {texts.close}
@@ -190,7 +225,7 @@ function NameGroup({
       className="name-group"
       onSubmit={(event) => {
         event.preventDefault();
-        if (label.trim() !== '') void save();
+        if (label.trim() !== '' && chosen.size > 0) void save();
       }}
     >
       <label>
@@ -225,9 +260,37 @@ function NameGroup({
           )}
         </p>
       )}
+      {group.count > 1 && (
+        <fieldset className="name-cycles">
+          <legend>{texts.whichTimes}</legend>
+          <p className="hint">{texts.whichTimesHint}</p>
+          {group.cycles.map((cycle) => (
+            <label key={cycle.start} className="checkbox">
+              <input
+                type="checkbox"
+                checked={chosen.has(cycle.start)}
+                onChange={(event) => {
+                  const next = new Set(chosen);
+                  if (event.target.checked) next.add(cycle.start);
+                  else next.delete(cycle.start);
+                  setChosen(next);
+                }}
+              />
+              <span>
+                {texts.once(formatLisbonTime(cycle.start), formatDuration(cycle.durationS))}
+                {` · ${formatKwh(cycle.energyWh, 2)}`}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       {error && <p className="error">{error}</p>}
       <div className="actions">
-        <button type="submit" className="primary" disabled={busy || label.trim() === ''}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={busy || label.trim() === '' || chosen.size === 0}
+        >
           {texts.name}
         </button>
         <button type="button" className="secondary" disabled={busy} onClick={onDone}>
@@ -307,14 +370,16 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
 
   const groups = useMemo(() => {
     if (!result) return [];
+    // Two appliances of the same power (told apart by their durations): a line each.
+    const split = named ? splitByAppliance(result.groups, named.byCycle) : result.groups;
     return sortGroups(
-      result.groups.map((group) => ({
+      split.map((group) => ({
         group,
         costCents: tariff ? groupCostCents(group, result, tariff) : null,
       })),
       order,
     );
-  }, [result, tariff, order]);
+  }, [result, named, tariff, order]);
 
   if (!meter || days.length === 0) return null;
   const pending = !loaded || loaded.day !== day;
@@ -408,7 +473,8 @@ export function DayEvents({ energy }: { energy: HouseholdEnergy }) {
                     ? texts.once(formatLisbonTime(first), formatDuration(group.durationS))
                     : texts.times(group.count, formatDuration(group.durationS));
                 return (
-                  <li key={`${group.powerW}-${first}`} className="offer">
+                  // By its first cycle only: naming splits a group, and the part with that cycle keeps the form.
+                  <li key={first} className="offer">
                     <div className="offer-head">
                       <div>
                         <strong>{appliance ? appliance.label : groupPower(group)}</strong>

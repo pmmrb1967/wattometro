@@ -7,6 +7,7 @@ import {
   describeCycle,
   describeGroup,
   durationRange,
+  fitsAppliance,
   groupAppliance,
   nameAppliance,
   seriesEnergyWh,
@@ -16,7 +17,7 @@ import { pairCycles } from './cycles';
 import { detectEvents } from './events';
 import { mergePulses } from './periodic';
 import { MISSING, type SecondsSeries } from './series';
-import { groupCycles } from './summary';
+import { buildGroup, groupCycles, splitByAppliance } from './summary';
 
 const START = 1_790_000_000;
 
@@ -326,5 +327,49 @@ describe('applianceTotals', () => {
 
   it('counts missing seconds as nothing', () => {
     expect(seriesEnergyWh(series([3600, MISSING, 3600]))).toBe(2);
+  });
+});
+
+describe('naming some of the cycles of a group', () => {
+  // 100 W four times for 30 to 45 s, and once for an hour: one group by power.
+  const cycles = cyclesOf([
+    ...flat(30, 160),
+    ...[30, 40, 35, 45].flatMap((seconds, index) => [
+      ...flat(seconds, 260),
+      ...flat(300 + index * 170, 160),
+    ]),
+    ...flat(3600, 260),
+    ...flat(60, 160),
+  ]);
+  const [group] = groupCycles(cycles);
+  const short = group!.cycles.filter((cycle) => cycle.durationS < 60);
+  const long = group!.cycles.filter((cycle) => cycle.durationS >= 60);
+
+  it('keeps the long cycle out of the appliance of the short ones', () => {
+    expect(group!.count).toBe(5);
+    const lamp = { id: 'l', label: 'Candeeiro', ...describeGroup(buildGroup(short)) };
+    // 30 to 45 s: 15 to 90 s.
+    expect(lamp).toMatchObject({ minDurationS: 15, maxDurationS: 90 });
+    expect(long.some((cycle) => fitsAppliance(cycle, lamp))).toBe(false);
+    const named = classify(cycles, [lamp]);
+    const parts = splitByAppliance([group!], named);
+    expect(parts.map((part) => part.count).sort()).toEqual([1, 4]);
+    const shortPart = parts.find((part) => part.count === 4)!;
+    expect(groupAppliance(shortPart, named)).toBe(lamp);
+    expect(
+      groupAppliance(
+        parts.find((part) => part.count === 1)!,
+        named,
+      ),
+    ).toBeNull();
+  });
+
+  it('says when a cycle left out still fits', () => {
+    const lamp = { id: 'l', label: 'Candeeiro', ...describeGroup(buildGroup(short.slice(1))) };
+    expect(fitsAppliance(short[0]!, lamp)).toBe(true);
+  });
+
+  it('leaves a group whole when its cycles are one appliance, or none', () => {
+    expect(splitByAppliance([group!], new Map())).toEqual([group]);
   });
 });

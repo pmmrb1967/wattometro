@@ -70,16 +70,41 @@ export function groupCycles(cycles: readonly Cycle[]): CycleGroup[] {
       groups.push([cycle]);
     }
   }
+  return groups.map(buildGroup).sort((a, b) => b.energyWh - a.energyWh);
+}
+
+/** A group from its cycles (of one kind, as groupCycles joins them). */
+export function buildGroup(list: readonly Cycle[]): CycleGroup {
+  const powerW = median(list.map((item) => item.powerW230));
+  return {
+    powerW,
+    count: list.length,
+    durationS: median(list.map((item) => item.durationS)),
+    energyWh: overlapCappedWh(list, powerW),
+    cycles: [...list].sort((a, b) => a.start - b.start),
+    statesW: (list[0] as Cycle).states.map((state) => state.powerW),
+    pulsing: (list[0] as Cycle).pulses !== undefined,
+    heats: (list[0] as Cycle).heats?.count ?? null,
+  };
+}
+
+/**
+ * Each group split by the appliance each of its cycles is (`named`, by start),
+ * the cycles without one together: two appliances of the same power, told
+ * apart by their durations, become two lines. The most energy first.
+ */
+export function splitByAppliance(
+  groups: readonly CycleGroup[],
+  named: ReadonlyMap<number, { id: string }>,
+): CycleGroup[] {
   return groups
-    .map((list) => ({
-      powerW: median(list.map((item) => item.powerW230)),
-      count: list.length,
-      durationS: median(list.map((item) => item.durationS)),
-      energyWh: overlapCappedWh(list, median(list.map((item) => item.powerW230))),
-      cycles: list.sort((a, b) => a.start - b.start),
-      statesW: (list[0] as Cycle).states.map((state) => state.powerW),
-      pulsing: (list[0] as Cycle).pulses !== undefined,
-      heats: (list[0] as Cycle).heats?.count ?? null,
-    }))
+    .flatMap((group) => {
+      const parts = new Map<string, Cycle[]>();
+      for (const cycle of group.cycles) {
+        const key = named.get(cycle.start)?.id ?? '';
+        parts.set(key, [...(parts.get(key) ?? []), cycle]);
+      }
+      return parts.size === 1 ? [group] : [...parts.values()].map(buildGroup);
+    })
     .sort((a, b) => b.energyWh - a.energyWh);
 }

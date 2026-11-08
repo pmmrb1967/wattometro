@@ -36,6 +36,11 @@ export const appliancesTexts = {
     confusable: (label: string, other: string) =>
       `Guardado. Atenção: "${label}" e "${other}" têm ciclos quase iguais (mesma potência e duração parecida). A app fica com o mais próximo, mas pode trocá-los.`,
     close: 'Fechar',
+    whichTimes: 'Quais destas vezes são este aparelho?',
+    whichTimesHint:
+      'Desmarca as que são outro aparelho com a mesma potência: a app separa-os pela duração.',
+    leftOutFit: (count: number, label: string) =>
+      `Guardado. Atenção: ${count === 1 ? 'uma das vezes que deixaste de fora tem' : `${count} das vezes que deixaste de fora têm`} a mesma potência e uma duração parecida com as que escolheste. A app não as consegue separar e pode contá-las também como "${label}".`,
     unreliable: 'pouco fiável',
     loadKinds: { resistive: 'tipo resistência', motor: 'tipo motor' },
     loadKindNote:

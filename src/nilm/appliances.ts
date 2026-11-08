@@ -202,6 +202,11 @@ function distance(cycle: Cycle, appliance: ApplianceDescriptor): number | null {
   return gap <= matchToleranceW(appliance.powerW) ? gap : null;
 }
 
+/** Whether a cycle fits an appliance: the power, the shape and the durations it allows. */
+export function fitsAppliance(cycle: Cycle, appliance: ApplianceDescriptor): boolean {
+  return distance(cycle, appliance) !== null;
+}
+
 /**
  * 0 when a pulsing cycle's rhythm fits the appliance's, 1 otherwise (not
  * known, or another). The rhythm only promotes: two plates pulsing at once

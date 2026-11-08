@@ -2796,6 +2796,29 @@ a.button-link {
   text-align: left;
 }
 
+/* "Dar nome": which of the group's cycles are the appliance. */
+.form .name-cycles {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.form .name-cycles legend {
+  padding: 0;
+}
+
+.name-cycles .hint {
+  margin: 0;
+}
+
+.name-cycles .checkbox {
+  min-height: 36px;
+  padding-top: 6px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .name-group .warning {
   margin: 0;
   font-weight: 600;
