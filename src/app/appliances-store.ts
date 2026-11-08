@@ -108,6 +108,25 @@ export async function renameKnownAppliance(
   return outcome;
 }
 
+/** Durations narrowed ("Mudar o nome" with some cycles left out): this range replaces the old one. */
+export async function narrowAppliance(
+  id: string,
+  durations: { minS: number; maxS: number },
+): Promise<{ ok: true } | Failure> {
+  const outcome = await updateAppliance(id, { durations });
+  if (outcome.ok) {
+    set({
+      kind: 'ready',
+      appliances: ready().map((item) =>
+        item.id === id
+          ? { ...item, minDurationS: durations.minS, maxDurationS: durations.maxS }
+          : item,
+      ),
+    });
+  }
+  return outcome;
+}
+
 export async function forgetAppliance(id: string): Promise<{ ok: true } | Failure> {
   const outcome = await deleteAppliance(id);
   if (outcome.ok) set({ kind: 'ready', appliances: ready().filter((item) => item.id !== id) });

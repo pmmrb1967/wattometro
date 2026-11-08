@@ -27,6 +27,7 @@ import {
   fitsAppliance,
   groupAppliance,
   nameAppliance,
+  separateDurations,
   type ApplianceDescriptor,
 } from '../nilm/appliances';
 import { tariffOn, type TariffInput } from '../domain/tariff';
@@ -44,7 +45,7 @@ import { decodeSecondsRecords } from '../nilm/series';
 import { buildGroup, splitByAppliance, type CycleGroup } from '../nilm/summary';
 import type { Appliance } from '../nilm/appliances';
 import { groupLoadKind } from '../nilm/load-kind';
-import { addAppliance, forgetAppliance, useAppliances } from './appliances-store';
+import { addAppliance, forgetAppliance, narrowAppliance, useAppliances } from './appliances-store';
 import { nameKey } from '../domain/equipment';
 import { suggestEquipment } from '../domain/equipment-suggest';
 import { programmeUses } from '../domain/equipment-programmes';
@@ -131,8 +132,10 @@ function saveOrder(order: GroupOrder): void {
  * any day. On a group already named (`current`), corrects it: the new name gets
  * this group's descriptor, and each cycle goes to the closest appliance.
  * With more than one cycle, only the ones ticked are this appliance: the
- * descriptor is theirs (the durations they span), and the others stay apart
- * when their durations differ; when they do not, it says so.
+ * descriptor is theirs (the durations they span, cut short of the others),
+ * and the others stay apart when their durations differ; when they do not, it
+ * says so. On a named group, the same name with cycles left out narrows the
+ * appliance's durations the same way.
  */
 function NameGroup({
   group,
@@ -162,21 +165,46 @@ function NameGroup({
     setBusy(true);
     const picked = group.cycles.filter((cycle) => chosen.has(cycle.start));
     const left = group.cycles.filter((cycle) => !chosen.has(cycle.start));
-    const descriptor = describeGroup(picked.length === group.count ? group : buildGroup(picked));
+    const chosenS = picked.map((cycle) => cycle.durationS);
+    const leftS = left.map((cycle) => cycle.durationS);
+    const whole = describeGroup(picked.length === group.count ? group : buildGroup(picked));
+    const range = separateDurations(
+      { minS: whole.minDurationS ?? 1, maxS: whole.maxDurationS ?? 1 },
+      chosenS,
+      leftS,
+    );
+    const descriptor = { ...whole, minDurationS: range.minS, maxDurationS: range.maxS };
     const correcting = current !== null && !sameName(current.label, label);
+    // The same name with cycles left out: the appliance's own range, cut short of them.
+    const narrowing = current !== null && !correcting && left.length > 0 ? current : null;
+    const narrowed = narrowing
+      ? separateDurations(
+          narrowing.minDurationS !== null && narrowing.maxDurationS !== null
+            ? { minS: narrowing.minDurationS, maxS: narrowing.maxDurationS }
+            : range,
+          chosenS,
+          leftS,
+        )
+      : null;
     // What will be stored: another programme widens an appliance of the same name.
-    const plan = correcting
-      ? null
-      : nameAppliance(label.trim(), descriptor, known.kind === 'ready' ? known.appliances : []);
+    const plan =
+      correcting || narrowing
+        ? null
+        : nameAppliance(label.trim(), descriptor, known.kind === 'ready' ? known.appliances : []);
     const stored: ApplianceDescriptor =
-      plan?.kind === 'widen'
-        ? {
-            ...plan.appliance,
-            minDurationS: plan.durations.minS,
-            maxDurationS: plan.durations.maxS,
-          }
-        : descriptor;
-    const outcome = await addAppliance(label.trim(), descriptor, { separate: correcting });
+      narrowing && narrowed
+        ? { ...narrowing, minDurationS: narrowed.minS, maxDurationS: narrowed.maxS }
+        : plan?.kind === 'widen'
+          ? {
+              ...plan.appliance,
+              minDurationS: plan.durations.minS,
+              maxDurationS: plan.durations.maxS,
+            }
+          : descriptor;
+    const outcome =
+      narrowing && narrowed
+        ? await narrowAppliance(narrowing.id, narrowed)
+        : await addAppliance(label.trim(), descriptor, { separate: correcting });
     setBusy(false);
     if (outcome.ok) {
       const notes: string[] = [];

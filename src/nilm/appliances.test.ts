@@ -8,6 +8,7 @@ import {
   describeGroup,
   durationRange,
   fitsAppliance,
+  separateDurations,
   groupAppliance,
   nameAppliance,
   seriesEnergyWh,
@@ -371,5 +372,28 @@ describe('naming some of the cycles of a group', () => {
 
   it('leaves a group whole when its cycles are one appliance, or none', () => {
     expect(splitByAppliance([group!], new Map())).toEqual([group]);
+  });
+});
+
+describe('separateDurations', () => {
+  it('cuts the range halfway to the cycles left out', () => {
+    // Real: the coffee machine at 19:31 (22 s) named, 19:19 (25 s), 1 min 45 s and 2 min 27 s not.
+    const range = durationRange([22]);
+    expect(range).toEqual({ minS: 11, maxS: 44 });
+    expect(separateDurations(range, [22], [105, 147, 25])).toEqual({ minS: 11, maxS: 23 });
+    // The other way round: 25 s named, 22 s left out.
+    expect(separateDurations(durationRange([25]), [25], [22])).toEqual({ minS: 24, maxS: 50 });
+  });
+
+  it('keeps every chosen duration, even next to one left out', () => {
+    expect(separateDurations({ minS: 10, maxS: 100 }, [30], [31])).toEqual({ minS: 10, maxS: 30 });
+    expect(separateDurations({ minS: 10, maxS: 100 }, [30], [29])).toEqual({ minS: 30, maxS: 100 });
+  });
+
+  it('cannot cut out a duration among the chosen ones', () => {
+    expect(separateDurations({ minS: 10, maxS: 100 }, [20, 40], [30])).toEqual({
+      minS: 10,
+      maxS: 100,
+    });
   });
 });

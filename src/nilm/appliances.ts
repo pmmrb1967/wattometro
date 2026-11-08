@@ -202,6 +202,27 @@ function distance(cycle: Cycle, appliance: ApplianceDescriptor): number | null {
   return gap <= matchToleranceW(appliance.powerW) ? gap : null;
 }
 
+/**
+ * A range of durations cut to leave out the cycles not chosen: each bound
+ * stops halfway to the nearest left-out duration beyond the chosen ones (22 s
+ * chosen, 25 s left out: up to 23 s). A left-out duration among the chosen
+ * ones cannot be cut out, and stays in.
+ */
+export function separateDurations(
+  range: { minS: number; maxS: number },
+  chosenS: readonly number[],
+  leftS: readonly number[],
+): { minS: number; maxS: number } {
+  const shortest = Math.min(...chosenS);
+  const longest = Math.max(...chosenS);
+  let { minS, maxS } = range;
+  for (const seconds of leftS) {
+    if (seconds > longest) maxS = Math.min(maxS, Math.floor((longest + seconds) / 2));
+    if (seconds < shortest) minS = Math.max(minS, Math.ceil((shortest + seconds) / 2));
+  }
+  return { minS: Math.min(minS, shortest), maxS: Math.max(maxS, longest) };
+}
+
 /** Whether a cycle fits an appliance: the power, the shape and the durations it allows. */
 export function fitsAppliance(cycle: Cycle, appliance: ApplianceDescriptor): boolean {
   return distance(cycle, appliance) !== null;

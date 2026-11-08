@@ -51,7 +51,7 @@ export const appliancesTexts = {
     cancel: 'Cancelar',
     forget: 'Esquecer este aparelho',
     forgetHint:
-      'Se o aparelho foi mal calibrado, esquece-o: os ciclos dele, em todos os dias, voltam a aparecer sem nome.',
+      'Esquece o aparelho todo: todas as vezes dele, em todos os dias, voltam a aparecer sem nome. Para tirar só algumas vezes, desmarca-as acima e guarda com o mesmo nome.',
     named: 'Aparelhos reconhecidos neste dia',
     namedRow: (count: number, energy: string, cost: string | null) =>
       `${count === 1 ? '1 vez' : `${count} vezes`}, ${energy}${cost === null ? '' : `, ${cost}`}`,
