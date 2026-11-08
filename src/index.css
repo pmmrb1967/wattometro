@@ -2652,6 +2652,11 @@ a.button-link {
   margin-bottom: 8px;
 }
 
+/* A field and its buttons under it: apart, not touching. */
+.adjust > label + .button-row {
+  margin-top: 12px;
+}
+
 /* A conclusion in a sentence: stands out without outweighing the amounts. */
 .verdict {
   margin: 4px 0;
