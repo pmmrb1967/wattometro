@@ -208,7 +208,7 @@ export const settingsTexts = {
       title: 'Localidade',
       intro:
         'Para a previsão da fatura ter em conta a temperatura. Indica só a localidade, nunca a morada: a app pede a temperatura dessa zona (~1 km) à Open-Meteo.',
-      current: (name: string) => `Localidade: ${name}`,
+      current: (name: string, lat: string, lon: string) => `Localidade: ${name} (${lat}; ${lon}).`,
       none: 'Ainda não indicaste a localidade. A previsão da fatura funciona sem ela, mas sem ter em conta a temperatura.',
       query: 'Procurar localidade',
       placeholder: 'Ex.: Coimbra',
@@ -239,6 +239,8 @@ export const settingsTexts = {
         `O dispositivo está perto de ${lat}; ${lon} (precisão de ${accuracy} m; guarda-se arredondada a ~1 km).`,
       map: 'Ver no mapa',
       confirm: 'Guardar esta localização',
+      nameLabel: 'Nome a mostrar (opcional)',
+      namePlaceholder: 'Ex.: Lavra',
       cancel: 'Cancelar',
     },
     installation: {

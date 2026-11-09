@@ -3,7 +3,9 @@
  * Settings → Location: the locality of the house, for the weather used by the
  * bill forecast (docs/open-meteo.md). Found by name, or from this device's
  * position after the browser's permission and the user's confirmation; either
- * way only ~1 km precision is kept, never an address.
+ * way only ~1 km precision is kept, never an address. The place kept is shown
+ * with its coordinates and a map link: a device position has no locality name
+ * (no reverse geocoding), only the one the user gives it, if any.
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import { t } from '../i18n/pt-PT';
@@ -28,6 +30,7 @@ export function LocationSection() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   /** A device position waiting for the user's confirmation. */
   const [found, setFound] = useState<(HouseholdLocation & { accuracyM: number }) | null>(null);
+  const [foundName, setFoundName] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -74,6 +77,7 @@ export function LocationSection() {
       setStatus({ kind: 'error', text: texts.deviceFailed[position.reason] });
       return;
     }
+    setFoundName('');
     setFound({
       name: texts.deviceName,
       latitudeCdeg: position.latitudeCdeg,
@@ -103,7 +107,23 @@ export function LocationSection() {
     <section className="card form">
       <h2>{texts.title}</h2>
       <p className="hint">{texts.intro}</p>
-      {location !== undefined && <p>{location ? texts.current(location.name) : texts.none}</p>}
+      {location === null && <p>{texts.none}</p>}
+      {location && (
+        <p>
+          {texts.current(
+            location.name,
+            coordinate(location.latitudeCdeg),
+            coordinate(location.longitudeCdeg),
+          )}{' '}
+          <a
+            href={mapLink(location.latitudeCdeg, location.longitudeCdeg)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {texts.map}
+          </a>
+        </p>
+      )}
       <form className="inline-form" onSubmit={search}>
         <label>
           {texts.query}
@@ -170,6 +190,16 @@ export function LocationSection() {
               {texts.map}
             </a>
           </p>
+          <label>
+            {texts.nameLabel}
+            <input
+              value={foundName}
+              maxLength={60}
+              placeholder={texts.namePlaceholder}
+              disabled={busy}
+              onChange={(event) => setFoundName(event.target.value)}
+            />
+          </label>
           <div className="actions">
             <button
               type="button"
@@ -177,7 +207,7 @@ export function LocationSection() {
               disabled={busy}
               onClick={() =>
                 void save({
-                  name: found.name,
+                  name: foundName.trim() === '' ? found.name : foundName.trim(),
                   latitudeCdeg: found.latitudeCdeg,
                   longitudeCdeg: found.longitudeCdeg,
                 })
