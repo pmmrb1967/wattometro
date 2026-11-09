@@ -14,6 +14,7 @@
  */
 import { z } from 'zod';
 import { alwaysOnInputSchema } from '../domain/always-on';
+import { linkByName, relinkAlwaysOn } from '../domain/always-on-links';
 import { budgetSchema } from '../domain/budget';
 import { equipmentInputSchema, nameKey, sendsEstimate } from '../domain/equipment';
 import { locationBodySchema } from '../domain/location';
@@ -299,17 +300,21 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       );
       if (typeof added === 'string') return json({ error: added }, 409);
       demo.equipment = added.items;
+      demo.alwaysOn = relinkAlwaysOn(demo.alwaysOn, demo.equipment);
       return json({ item: added.item }, 201);
     }
     case 'GET /v1/always-on':
       return json({
-        items: [...demo.alwaysOn].sort((a, b) => a.label.localeCompare(b.label, 'pt')),
+        items: relinkAlwaysOn(demo.alwaysOn, demo.equipment).sort((a, b) =>
+          a.label.localeCompare(b.label, 'pt'),
+        ),
       });
     case 'POST /v1/always-on': {
       const parsed = alwaysOnInputSchema.safeParse(body);
       if (!parsed.success) return invalid();
       const item = {
         ...parsed.data,
+        ...linkByName(parsed.data.label, demo.equipment),
         id: `demo-on-${demo.alwaysOn.length + 1}-${Date.now()}`,
         createdAt: Math.floor(Date.now() / 1000),
       };
@@ -337,7 +342,7 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
       if (!parsed.success) return invalid();
       const found = demo.alwaysOn.find((item) => item.id === id);
       if (!found) return json({ error: 'not_found' }, 404);
-      Object.assign(found, parsed.data);
+      Object.assign(found, parsed.data, linkByName(parsed.data.label, demo.equipment));
       return empty();
     }
   }
@@ -369,12 +374,19 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         if (item.equipmentId === null && nameKey(item.label) === key) item.equipmentId = id;
       }
       demo.equipment = changed;
+      demo.alwaysOn = relinkAlwaysOn(demo.alwaysOn, demo.equipment);
       renameLinked(demo, id, parsed.data.name, found ? [found.name] : []);
       return empty();
     }
     if (method === 'DELETE' && !equipment[2]) {
       for (const item of demo.appliances) if (item.equipmentId === id) item.equipmentId = null;
       demo.equipment = demo.equipment.filter((item) => item.id !== id);
+      demo.alwaysOn = relinkAlwaysOn(
+        demo.alwaysOn.map((item) =>
+          item.equipmentId === id ? { ...item, equipmentId: null } : item,
+        ),
+        demo.equipment,
+      );
       return empty();
     }
   }

@@ -3,7 +3,8 @@
  * The house's equipment (migration 0026, src/domain/equipment.ts) and the
  * appliances linked to it. The equipment's name governs: a linked appliance
  * takes it, and renaming the equipment renames, in one batch, its appliances
- * and the calibrations (signatures) named as they were.
+ * and the calibrations (signatures) named as they were. What stays on
+ * (always-on.ts) follows the same rule, brought in line after each change.
  */
 import { z } from 'zod';
 import {
@@ -17,6 +18,7 @@ import {
 } from '../../../src/domain/equipment';
 import { estimateSchema } from '../../../src/domain/equipment-estimate';
 import type { Sql, Statement } from '../db';
+import { relinkAlwaysOnItems } from './always-on';
 
 interface Row {
   id: string;
@@ -108,6 +110,7 @@ export async function createEquipment(
     input.estimate === null ? null : JSON.stringify(input.estimate),
     now,
   );
+  await relinkAlwaysOnItems(sql, householdId);
   return { ...input, id, createdAt: now };
 }
 
@@ -230,6 +233,7 @@ export async function updateEquipment(
     },
     ...linked,
   ]);
+  await relinkAlwaysOnItems(sql, householdId);
   return 'ok';
 }
 
@@ -276,6 +280,10 @@ export async function deleteEquipment(sql: Sql, householdId: string, id: string)
     {
       query:
         'UPDATE appliances SET equipment_id = NULL WHERE household_id = ? AND equipment_id = ?',
+      params: [householdId, id],
+    },
+    {
+      query: 'UPDATE always_on SET equipment_id = NULL WHERE household_id = ? AND equipment_id = ?',
       params: [householdId, id],
     },
     {

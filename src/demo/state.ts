@@ -179,13 +179,22 @@ export function current(): DemoState {
 function demoAlwaysOn(): AlwaysOnItem[] {
   const createdAt = Math.floor(Date.now() / 1000);
   return [
-    { id: 'demo-on-1', label: 'Router', quantity: 1, powerW: 12, measured: true, createdAt },
+    {
+      id: 'demo-on-1',
+      label: 'Router',
+      quantity: 1,
+      powerW: 12,
+      measured: true,
+      equipmentId: 'demo-eq-router',
+      createdAt,
+    },
     {
       id: 'demo-on-2',
       label: 'Televisões em espera',
       quantity: 2,
       powerW: null,
       measured: false,
+      equipmentId: null,
       createdAt,
     },
   ];
@@ -237,6 +246,16 @@ function demoEquipment(): Equipment[] {
       room: 'Cozinha',
       ratedPowerW: 2200,
       estimate: { basis: 'plate', minutesPerDay: 10 },
+      createdAt,
+    },
+    // Also in what stays on (demoAlwaysOn): linked by its name.
+    {
+      ...none,
+      id: 'demo-eq-router',
+      name: 'Router',
+      kind: 'other',
+      room: 'Sala',
+      ratedPowerW: 18,
       createdAt,
     },
   ];

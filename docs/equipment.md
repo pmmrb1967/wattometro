@@ -16,7 +16,7 @@ Shelly mede a equipamentos concretos. Desenho completo:
   IndexedDB), nada vindo da internet.
 
 Na conta, no D1 (`equipment`, com `household_id`); sem conta, no IndexedDB e na
-cópia em ficheiro (formato local versão 3); na demonstração, três exemplos
+cópia em ficheiro (formato local versão 3); na demonstração, quatro exemplos
 inventados.
 
 ## Ligação aos aparelhos reconhecidos

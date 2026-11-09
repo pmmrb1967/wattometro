@@ -43,6 +43,9 @@ export const consumptionTexts = {
       cancel: 'Cancelar',
       edit: 'Editar',
       remove: 'Retirar',
+      inRegister: 'Ver o equipamento',
+      linkNote:
+        'Com o nome de um equipamento registado, os dois ficam ligados: mudar o nome do equipamento muda-o aqui.',
       confirmRemove: (label: string) => `Retirar "${label}" da lista?`,
       failed: 'Não foi possível guardar. Tenta outra vez.',
       noPower: 'Sem potência indicada',

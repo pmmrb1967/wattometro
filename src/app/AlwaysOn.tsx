@@ -2,9 +2,12 @@
 /**
  * The card "Consumo base": what the household says stays on day and night, set
  * against the base measured (src/domain/always-on.ts). The watts are optional
- * and the user's; what is left is what the list does not explain.
+ * and the user's; what is left is what the list does not explain. An item
+ * named as a registered equipment is linked to it (src/domain/always-on-links.ts)
+ * and opens it in "Equipamentos".
  */
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useLocation } from 'react-router';
 import {
   alwaysOnBalance,
   alwaysOnInputSchema,
@@ -145,7 +148,8 @@ function Row({
   item: AlwaysOnItem;
   /** Its part of what the list costs in a year; null without a tariff or a power. */
   costCents: number | null;
-  onChanged: (item: AlwaysOnItem) => void;
+  /** Saved: the server may have given it an equipment's name, so the list is read again. */
+  onChanged: () => void;
   onRemoved: () => void;
 }) {
   const { busy, error, act } = useAct();
@@ -162,7 +166,7 @@ function Row({
             submit={async (input) => {
               const outcome = await updateAlwaysOn(item.id, input);
               if (outcome.ok) {
-                onChanged({ ...item, ...input });
+                onChanged();
                 setEditing(false);
               }
               return outcome;
@@ -189,6 +193,11 @@ function Row({
                 costCents === null ? null : formatCents(costCents),
               )}
         </span>
+        {item.equipmentId !== null && (
+          <Link to={`/equipamentos?ver=${encodeURIComponent(item.equipmentId)}`}>
+            {texts.inRegister}
+          </Link>
+        )}
         {error && <span className="error">{error}</span>}
       </div>
       <button type="button" className="secondary" disabled={busy} onClick={() => setEditing(true)}>
@@ -238,8 +247,11 @@ export function AlwaysOn({
   tariff: Tariff | null;
 }) {
   const { signOut } = useSession();
+  const { hash } = useLocation();
   const [items, setItems] = useState<AlwaysOnItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((value) => value + 1), []);
 
   useEffect(() => {
     let current = true;
@@ -253,7 +265,7 @@ export function AlwaysOn({
     return () => {
       current = false;
     };
-  }, [signOut]);
+  }, [signOut, version]);
 
   const listedW = alwaysOnBalance(items ?? [], baseW).listedW;
   // Once for the whole list: a year of quarter hours for each item would be slow.
@@ -263,9 +275,11 @@ export function AlwaysOn({
   );
 
   return (
-    <details className="adjust" id="sempre-ligado">
+    // Open when a link names it ("Equipamentos": "Mudar a lista…").
+    <details className="adjust" id="sempre-ligado" open={hash === '#sempre-ligado' || undefined}>
       <summary>{texts.title}</summary>
       <p className="hint">{texts.intro}</p>
+      <p className="hint">{texts.linkNote}</p>
       {error && <p className="error">{error}</p>}
       {!items && !error && <p className="hint">{t.loading}</p>}
       {items && (
@@ -285,11 +299,7 @@ export function AlwaysOn({
                           ? null
                           : shareOfCost(listCents, watts, listedW)
                       }
-                      onChanged={(next) =>
-                        setItems((list) =>
-                          (list ?? []).map((other) => (other.id === next.id ? next : other)),
-                        )
-                      }
+                      onChanged={reload}
                       onRemoved={() =>
                         setItems((list) => (list ?? []).filter((other) => other.id !== item.id))
                       }

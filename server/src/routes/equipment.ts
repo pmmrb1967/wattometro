@@ -2,7 +2,8 @@
 /**
  * What stays on, and the equipment register (docs/equipment.md).
  *
- *   GET  /v1/always-on         → {items: [{id, label, quantity, powerW, measured, createdAt}]}
+ *   GET  /v1/always-on         → {items: [{id, label, quantity, powerW, measured, equipmentId, createdAt}]}
+ *                                (an item named as an equipment, any case, is linked and takes its name)
  *   POST /v1/always-on         {label, quantity, powerW, measured} → 201 {item}; 409 too_many
  *   PUT  /v1/always-on/:id     {label, quantity, powerW, measured} → 204; 404
  *   DELETE /v1/always-on/:id   → 204

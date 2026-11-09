@@ -33,7 +33,15 @@ export const alwaysOnInputSchema = z
 export type AlwaysOnInput = z.infer<typeof alwaysOnInputSchema>;
 
 export const alwaysOnItemSchema = alwaysOnInputSchema.and(
-  z.object({ id: z.string(), createdAt: z.number().int() }),
+  z.object({
+    id: z.string(),
+    createdAt: z.number().int(),
+    /**
+     * The registered equipment it is (always-on-links.ts), whose name it takes;
+     * null when none. Missing in what was kept before the link: none.
+     */
+    equipmentId: z.string().nullable().default(null),
+  }),
 );
 export type AlwaysOnItem = z.infer<typeof alwaysOnItemSchema>;
 

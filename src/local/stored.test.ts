@@ -73,7 +73,8 @@ describe('readStored', () => {
     expect(read.kind === 'ok' && read.data).toEqual({
       ...STORED_V1,
       version: LOCAL_VERSION,
-      alwaysOn: [router],
+      // Kept before the link to the equipment: none.
+      alwaysOn: [{ ...router, equipmentId: null }],
       equipment: [],
     });
   });

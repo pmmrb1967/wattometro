@@ -1856,6 +1856,12 @@ a.action:hover {
   gap: 2px;
 }
 
+/* "Equipamentos": also in what stays on. */
+.signature-list .always-on-badge {
+  justify-self: start;
+  margin-top: 2px;
+}
+
 .signature-list .link-button {
   justify-self: start;
 }

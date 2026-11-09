@@ -113,6 +113,17 @@ export const equipmentTexts = {
     intro:
       'Opcional. Ajuda a app a reconhecer os aparelhos nas medições: o nome, a divisão e a potência da chapa já chegam.',
     listTitle: 'Os teus equipamentos',
+    alwaysOn: {
+      badge: (power: string | null) =>
+        power === null ? 'Sempre ligado' : `Sempre ligado · ${power}`,
+      linked: (power: string | null) =>
+        `Também está na lista do que fica sempre ligado${power === null ? ', sem potência indicada' : `, com ${power}`}. Esses watts são os da espera, não os da chapa.`,
+      title: 'Sempre ligados sem registo',
+      intro:
+        'Da lista do que fica sempre ligado (Consumo, Consumo base). Se registares um, fica ligado pelo nome e aparece acima com o selo "Sempre ligado".',
+      register: 'Registar',
+      editList: 'Mudar a lista do que está sempre ligado',
+    },
     empty:
       'Ainda não registaste nenhum equipamento. Começa pelos que mais gastam: máquinas, forno, aquecedores.',
     add: 'Registar um equipamento',

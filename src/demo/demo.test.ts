@@ -159,7 +159,12 @@ describe('demo API, through the app calculations', () => {
     const { items } = (await get('/v1/equipment')) as {
       items: { id: string; name: string; programmes: unknown[] }[];
     };
-    expect(items.map((item) => item.name)).toEqual(['Chaleira', 'Frigorífico', 'Máquina da roupa']);
+    expect(items.map((item) => item.name)).toEqual([
+      'Chaleira',
+      'Frigorífico',
+      'Máquina da roupa',
+      'Router',
+    ]);
     expect(items[2]!.programmes).toHaveLength(2);
     const bare = {
       kind: null,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memorySql } from '../test/sqlite';
+import type { Sql } from './db';
 import { createApp } from './app';
 import { hashPassword } from './password';
 import { MAX_ALWAYS_ON } from './repo/always-on';
@@ -13,9 +14,10 @@ const NOW = Date.parse('2026-11-02T12:00:00Z') / 1000;
 const EMAILS = ['ana@example.pt', 'rui@example.pt'];
 
 let app: ReturnType<typeof createApp>;
+let sql: Sql;
 
 beforeEach(async () => {
-  const { sql } = memorySql();
+  sql = memorySql().sql;
   app = createApp({ sql, sessionSecret: 's'.repeat(32), allowedOrigins: [], now: () => NOW });
   for (const email of EMAILS) {
     const id = (await createHousehold(sql, email, 0)).id;
@@ -57,7 +59,7 @@ describe('/v1/always-on', () => {
     const created = await request(ana, 'POST', '/v1/always-on', ROUTER);
     expect(created.status).toBe(201);
     const { item } = (await created.json()) as { item: { id: string } };
-    expect(item).toEqual({ ...ROUTER, id: item.id, createdAt: NOW });
+    expect(item).toEqual({ ...ROUTER, id: item.id, equipmentId: null, createdAt: NOW });
     expect(await list(ana)).toEqual([item]);
     expect(await list(rui)).toEqual([]);
 
@@ -68,7 +70,7 @@ describe('/v1/always-on', () => {
     expect(await list(ana)).toEqual([item]);
 
     expect((await request(ana, 'PUT', path, TVS)).status).toBe(204);
-    expect(await list(ana)).toEqual([{ ...TVS, id: item.id, createdAt: NOW }]);
+    expect(await list(ana)).toEqual([{ ...TVS, id: item.id, equipmentId: null, createdAt: NOW }]);
 
     expect((await request(ana, 'DELETE', path)).status).toBe(204);
     expect(await list(ana)).toEqual([]);
@@ -99,5 +101,76 @@ describe('/v1/always-on', () => {
 
   it('is only for a signed in user', async () => {
     expect((await app.request(`${ORIGIN}/v1/always-on`)).status).toBe(401);
+  });
+});
+
+describe('/v1/always-on and the register of equipment (migration 0030)', () => {
+  const equipment = (name: string) => ({
+    name,
+    kind: null,
+    brand: null,
+    model: null,
+    room: null,
+    ratedPowerW: null,
+    energyClass: null,
+    notes: null,
+    programmes: [],
+    estimate: null,
+  });
+  const listed = async (cookie: string) =>
+    (await list(cookie)) as { id: string; label: string; equipmentId: string | null }[];
+
+  it('links an item named as an equipment, which then governs its name', async () => {
+    const ana = await signIn();
+    const created = await request(ana, 'POST', '/v1/equipment', equipment('Router'));
+    const { item: router } = (await created.json()) as { item: { id: string } };
+    const added = await request(ana, 'POST', '/v1/always-on', { ...ROUTER, label: ' router ' });
+    expect(await added.json()).toMatchObject({ item: { label: 'Router', equipmentId: router.id } });
+
+    // Renaming the equipment renames the item.
+    await request(ana, 'PUT', `/v1/equipment/${router.id}`, equipment('Router da fibra'));
+    expect(await listed(ana)).toMatchObject([{ label: 'Router da fibra', equipmentId: router.id }]);
+
+    // Renaming the item to another name unlinks it; back to the equipment's links it again.
+    const [item] = await listed(ana);
+    const path = `/v1/always-on/${item!.id}`;
+    await request(ana, 'PUT', path, { ...ROUTER, label: 'Router velho' });
+    expect(await listed(ana)).toMatchObject([{ label: 'Router velho', equipmentId: null }]);
+    await request(ana, 'PUT', path, { ...ROUTER, label: 'ROUTER DA FIBRA' });
+    expect(await listed(ana)).toMatchObject([{ label: 'Router da fibra', equipmentId: router.id }]);
+
+    // Removing the equipment leaves the item, unlinked.
+    await request(ana, 'DELETE', `/v1/equipment/${router.id}`);
+    expect(await listed(ana)).toMatchObject([{ label: 'Router da fibra', equipmentId: null }]);
+  });
+
+  it('links the items already listed when an equipment of their name is registered', async () => {
+    const ana = await signIn();
+    await request(ana, 'POST', '/v1/always-on', { ...TVS, label: 'Televisão' });
+    const created = await request(ana, 'POST', '/v1/equipment', equipment('televisão'));
+    const { item } = (await created.json()) as { item: { id: string } };
+    expect(await listed(ana)).toMatchObject([{ label: 'televisão', equipmentId: item.id }]);
+  });
+
+  it('links on reading what was named as an equipment before the link existed', async () => {
+    const ana = await signIn();
+    const created = await request(ana, 'POST', '/v1/equipment', equipment('Água quente'));
+    const { item } = (await created.json()) as { item: { id: string } };
+    await request(ana, 'POST', '/v1/always-on', { ...ROUTER, label: 'Box' });
+    // As before 0030: a name in another case (SQLite's lower() would not match "á"), no link.
+    await sql.run("UPDATE always_on SET label = 'ÁGUA QUENTE', equipment_id = NULL");
+    expect(await listed(ana)).toMatchObject([{ label: 'Água quente', equipmentId: item.id }]);
+    const stored = await sql.first<{ equipment_id: string | null }>(
+      'SELECT equipment_id FROM always_on',
+    );
+    expect(stored?.equipment_id).toBe(item.id);
+  });
+
+  it('does not link to the equipment of another household', async () => {
+    const ana = await signIn(0);
+    const rui = await signIn(1);
+    await request(rui, 'POST', '/v1/equipment', equipment('Router'));
+    await request(ana, 'POST', '/v1/always-on', ROUTER);
+    expect(await listed(ana)).toMatchObject([{ label: 'Router', equipmentId: null }]);
   });
 });

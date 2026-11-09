@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { alwaysOnInputSchema, MAX_ALWAYS_ON } from '../domain/always-on';
+import { linkByName, relinkAlwaysOn } from '../domain/always-on-links';
 import { budgetSchema } from '../domain/budget';
 import { equipmentInputSchema, sendsEstimate } from '../domain/equipment';
 import { locationBodySchema } from '../domain/location';
@@ -235,7 +236,10 @@ export function createLocalServer(
       }
       case 'GET /v1/always-on':
         return json({
-          items: [...house.alwaysOn].sort((a, b) => a.label.localeCompare(b.label, 'pt')),
+          // Linked as the Worker does (src/domain/always-on-links.ts); kept so on the next change.
+          items: relinkAlwaysOn(house.alwaysOn, house.equipment).sort((a, b) =>
+            a.label.localeCompare(b.label, 'pt'),
+          ),
         });
       case 'POST /v1/always-on': {
         const parsed = alwaysOnInputSchema.safeParse(body);
@@ -243,6 +247,7 @@ export function createLocalServer(
         if (house.alwaysOn.length >= MAX_ALWAYS_ON) return json({ error: 'too_many' }, 409);
         const item = {
           ...parsed.data,
+          ...linkByName(parsed.data.label, house.equipment),
           id: crypto.randomUUID(),
           createdAt: Math.floor(clock()),
         };
@@ -280,7 +285,11 @@ export function createLocalServer(
           Math.floor(clock()),
         );
         if (typeof added === 'string') return json({ error: added }, 409);
-        const saved = await keep({ ...house, equipment: added.items });
+        const saved = await keep({
+          ...house,
+          equipment: added.items,
+          alwaysOn: relinkAlwaysOn(house.alwaysOn, added.items),
+        });
         return saved.ok ? json({ item: added.item }, 201) : saved;
       }
       case 'GET /v1/signatures':
@@ -311,7 +320,9 @@ export function createLocalServer(
         return keep({
           ...house,
           alwaysOn: house.alwaysOn.map((item) =>
-            item.id === id ? { ...item, ...parsed.data } : item,
+            item.id === id
+              ? { ...item, ...parsed.data, ...linkByName(parsed.data.label, house.equipment) }
+              : item,
           ),
         });
       }
@@ -326,7 +337,17 @@ export function createLocalServer(
         return known ? empty() : json({ error: 'not_found' }, 404);
       }
       if (method === 'DELETE') {
-        return keep({ ...house, equipment: house.equipment.filter((item) => item.id !== id) });
+        const left = house.equipment.filter((item) => item.id !== id);
+        return keep({
+          ...house,
+          equipment: left,
+          alwaysOn: relinkAlwaysOn(
+            house.alwaysOn.map((item) =>
+              item.equipmentId === id ? { ...item, equipmentId: null } : item,
+            ),
+            left,
+          ),
+        });
       }
       if (method === 'PUT') {
         const parsed = equipmentInputSchema.safeParse(body);
@@ -334,7 +355,11 @@ export function createLocalServer(
         const changed = changeEquipment(house.equipment, id, parsed.data, sendsEstimate(body));
         if (changed === 'not_found') return json({ error: changed }, 404);
         if (changed === 'name_taken') return json({ error: changed }, 409);
-        return keep({ ...house, equipment: changed });
+        return keep({
+          ...house,
+          equipment: changed,
+          alwaysOn: relinkAlwaysOn(house.alwaysOn, changed),
+        });
       }
     }
     return json({ error: 'not_found' }, 404);

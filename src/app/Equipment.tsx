@@ -3,8 +3,13 @@
  * "Equipamentos": the house's equipment (src/domain/equipment.ts), optional,
  * and the recognised appliances linked to each one. Linked appliances take the
  * equipment's name; the plate's power only orders and warns, never blocks.
+ * What stays on (the card "Consumo base") shows here too: a badge on the
+ * equipment it is linked to (src/domain/always-on-links.ts), and the items
+ * not registered, each with "Registar". The list itself changes only there.
  */
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { itemWatts, type AlwaysOnItem } from '../domain/always-on';
 import {
   ENERGY_CLASSES,
   EQUIPMENT_KINDS,
@@ -21,7 +26,7 @@ import {
 import { t } from '../i18n/pt-PT';
 import { isLocal } from '../local/mode';
 import { formatPower } from '../lib/units';
-import type { Appliance } from './api';
+import { fetchAlwaysOn, type Appliance } from './api';
 import { useAppliances } from './appliances-store';
 import { estimateOf, fieldsOf } from './estimate-fields';
 import { EstimateFieldset } from './EstimateFieldset';
@@ -46,17 +51,42 @@ function summary(item: Equipment): string {
   return texts.summary(parts);
 }
 
+/** What the items linked to an equipment draw together; null when none says. */
+function linkedWatts(items: readonly AlwaysOnItem[]): number | null {
+  const watts = items.map(itemWatts).filter((value): value is number => value !== null);
+  return watts.length === 0 ? null : watts.reduce((sum, value) => sum + value, 0);
+}
+
+/** What stays on, read once and again after each change to the register (the links follow it). */
+function useAlwaysOnItems(version: number): AlwaysOnItem[] {
+  const [items, setItems] = useState<AlwaysOnItem[]>([]);
+  useEffect(() => {
+    let current = true;
+    // Without it the page still works: no badges, no section.
+    void fetchAlwaysOn().then((outcome) => {
+      if (current && outcome.ok) setItems(outcome.items);
+    });
+    return () => {
+      current = false;
+    };
+  }, [version]);
+  return items;
+}
+
 function EquipmentForm({
   initial,
+  initialName = '',
   rooms,
   onDone,
 }: {
   initial: Equipment | null;
+  /** A new one's name ("Registar" on what stays on). */
+  initialName?: string;
   rooms: string[];
   onDone: () => void;
 }) {
   const { me, signOut } = useSession();
-  const [name, setName] = useState(initial?.name ?? '');
+  const [name, setName] = useState(initial?.name ?? initialName);
   const [kind, setKind] = useState<EquipmentKind | ''>(initial?.kind ?? '');
   const [brand, setBrand] = useState(text(initial?.brand ?? null));
   const [model, setModel] = useState(text(initial?.model ?? null));
@@ -473,7 +503,12 @@ export function EquipmentPage() {
   const { me } = useSession();
   const register = useEquipment(me.householdId);
   const known = useAppliances(me.householdId);
-  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  // "Ver no registo" (Consumo base) opens that equipment: /equipamentos?ver=<id>.
+  const [params, setParams] = useSearchParams();
+  const [editing, setEditing] = useState<string | 'new' | null>(() => params.get('ver'));
+  const [newName, setNewName] = useState('');
+  const [version, setVersion] = useState(0);
+  const alwaysOn = useAlwaysOnItems(version);
   const items = useMemo(() => (register.kind === 'ready' ? register.items : []), [register]);
   const appliances = known.kind === 'ready' ? known.appliances : [];
   const rooms = useMemo(
@@ -484,6 +519,27 @@ export function EquipmentPage() {
     [items],
   );
   const current = items.find((item) => item.id === editing) ?? null;
+  // An id that is not (or not yet) in the register: the list.
+  const shown = editing === 'new' || current ? editing : null;
+  const linkedTo = (id: string) => alwaysOn.filter((item) => item.equipmentId === id);
+  const unregistered = alwaysOn.filter((item) => item.equipmentId === null);
+
+  useEffect(() => {
+    if (params.has('ver')) setParams({}, { replace: true });
+  }, [params, setParams]);
+
+  function done() {
+    setEditing(null);
+    setNewName('');
+    setVersion((value) => value + 1);
+  }
+
+  function badge(id: string) {
+    const linked = linkedTo(id);
+    if (linked.length === 0) return null;
+    const watts = linkedWatts(linked);
+    return texts.alwaysOn.badge(watts === null ? null : formatPower(watts));
+  }
 
   return (
     <>
@@ -491,7 +547,7 @@ export function EquipmentPage() {
       <p className="lead">{texts.intro}</p>
       {register.kind === 'error' && <p className="error">{texts.failed}</p>}
 
-      {editing === null ? (
+      {shown === null ? (
         <section className="card">
           <h2>{texts.listTitle}</h2>
           {register.kind === 'ready' && items.length === 0 && <p>{texts.empty}</p>}
@@ -502,6 +558,9 @@ export function EquipmentPage() {
                   <div>
                     <strong>{item.name}</strong>
                     {summary(item) !== '' && <p className="hint">{summary(item)}</p>}
+                    {badge(item.id) && (
+                      <span className="badge always-on-badge">{badge(item.id)}</span>
+                    )}
                   </div>
                   <button type="button" className="link-button" onClick={() => setEditing(item.id)}>
                     {texts.edit}
@@ -524,15 +583,62 @@ export function EquipmentPage() {
       ) : (
         <section className="card">
           <EquipmentForm
-            key={editing}
+            key={shown}
             initial={current}
+            initialName={newName}
             rooms={rooms}
-            onDone={() => setEditing(null)}
+            onDone={done}
           />
+          {current && linkedTo(current.id).length > 0 && (
+            <p className="hint">
+              {texts.alwaysOn.linked(
+                linkedWatts(linkedTo(current.id)) === null
+                  ? null
+                  : formatPower(linkedWatts(linkedTo(current.id)) as number),
+              )}{' '}
+              <Link to="/consumo#sempre-ligado">{texts.alwaysOn.editList}</Link>
+            </p>
+          )}
         </section>
       )}
 
-      {current && editing !== 'new' && (
+      {shown === null && register.kind === 'ready' && unregistered.length > 0 && (
+        <section className="card">
+          <h2>{texts.alwaysOn.title}</h2>
+          <p className="hint">{texts.alwaysOn.intro}</p>
+          <ul className="signature-list">
+            {unregistered.map((item) => {
+              const watts = itemWatts(item);
+              return (
+                <li key={item.id}>
+                  <div>
+                    <strong>
+                      {item.quantity > 1 ? `${item.quantity} × ${item.label}` : item.label}
+                    </strong>
+                    {watts !== null && <p className="hint">{formatPower(watts)}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={items.length >= MAX_EQUIPMENT}
+                    onClick={() => {
+                      setNewName(item.label);
+                      setEditing('new');
+                    }}
+                  >
+                    {texts.alwaysOn.register}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <p>
+            <Link to="/consumo#sempre-ligado">{texts.alwaysOn.editList}</Link>
+          </p>
+        </section>
+      )}
+
+      {current && shown !== 'new' && (
         <>
           {isLocal() ? (
             <p className="hint">{texts.linked.noShelly}</p>
@@ -542,7 +648,7 @@ export function EquipmentPage() {
           <EquipmentUses item={current} appliances={appliances} />
         </>
       )}
-      {editing === null && register.kind === 'ready' && <ConsumptionEstimateCard items={items} />}
+      {shown === null && register.kind === 'ready' && <ConsumptionEstimateCard items={items} />}
     </>
   );
 }
