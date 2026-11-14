@@ -18,6 +18,7 @@ Os emails nunca entram no repositório. `GET /v1/auth/me` diz `admin: true` a es
 |---|---|---|
 | Linhas lidas hoje e nos últimos 7 dias (UTC) | `meta.rows_read` de cada resultado do D1, somado por pedido e por execução do Cron (`server/src/worker.ts`) em `maintenance_state` (`rows_read:AAAA-MM-DD`) | 5 000 000 por dia |
 | Linhas escritas hoje e nos últimos 7 dias (UTC) | `meta.rows_written`, da mesma forma (`rows_written:AAAA-MM-DD`) | 100 000 por dia |
+| IA gratuita: neurons hoje e nos últimos 7 dias (UTC), e pedidos de hoje | Estimados a partir dos tokens de cada resposta do Workers AI (`server/src/ai-free.ts`, `docs/ai.md`), em `maintenance_state` (`ai_neurons:AAAA-MM-DD`, `ai_calls:AAAA-MM-DD`). Sem o binding `AI`, aparece "Desligada" | 10 000 por dia (a app para aos 9 000) |
 | Tamanho da base | Medido pelo Cron uma vez por dia | 500 MB |
 | Agregações | Até onde o Cron agregou os minutos (a casa mais atrasada) e a última limpeza | O Cron corre de 5 em 5 min |
 | Shelly | Por dispositivo ativo, sem nome: modelo, versão do script, última mensagem e minutos recebidos hoje (canal 0) contra os esperados desde a meia-noite de Lisboa | — |

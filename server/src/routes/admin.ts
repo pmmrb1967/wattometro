@@ -11,7 +11,8 @@ import { VISIT_PAGES } from '../../../src/lib/pages';
 import { accountTotals, recordVisit, visitsSince } from '../repo/admin';
 import { todayQuarters } from '../repo/now';
 import { getState } from '../repo/rollups';
-import { usageSince, utcDay } from '../repo/usage';
+import { freeAiSince, usageSince, utcDay } from '../repo/usage';
+import { FREE_NEURONS_PER_DAY } from '../ai-free';
 import { STATE } from '../rollups';
 import { listHouseholdIds } from '../repo/households';
 import {
@@ -73,8 +74,11 @@ export function adminRoutes(
         rowsRead: config.rowsReadLimit ?? DEFAULT_ROWS_READ_LIMIT,
         rowsWritten: ROWS_WRITTEN_LIMIT,
         databaseBytes: config.databaseLimitBytes ?? DEFAULT_DATABASE_LIMIT_BYTES,
+        aiNeurons: FREE_NEURONS_PER_DAY,
       },
       days: await usageSince(config.sql, utcDay(at - 6 * DAY)),
+      // The free AI's calls and estimated Neurons per UTC day (ai-free.ts); null: no binding.
+      freeAi: config.ai ? await freeAiSince(config.sql, utcDay(at - 6 * DAY)) : null,
       databaseBytes: await getState(config.sql, STATE.databaseBytes),
       cron: { rolledUpUntil, purgedAt: await getState(config.sql, STATE.purgedAt) },
       accounts: await accountTotals(config.sql),

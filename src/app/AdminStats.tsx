@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * "Definições › Servidor", for administrators only (ADMIN_EMAILS, docs/admin.md):
- * D1's daily rows read and written against the free plan, its size, the Cron,
+ * D1's daily rows read and written against the free plan, its size, the free
+ * AI's Neurons against Workers AI's free daily allocation, the Cron,
  * the Shelly's minutes today, the accounts and the visits per page. Totals only.
  */
 import { useEffect, useState } from 'react';
@@ -27,6 +28,11 @@ function Panel({ stats }: { stats: AdminStats }) {
   const today = days.at(-1);
   const utcToday = new Date(now * 1000).toISOString().slice(0, 10);
   const todayUsage = today?.day === utcToday ? today : { rowsRead: 0, rowsWritten: 0 };
+  const freeAiToday = stats.freeAi?.find((day) => day.day === utcToday) ?? {
+    calls: 0,
+    neurons: 0,
+  };
+  const freeAiOn = (day: string) => stats.freeAi?.find((usage) => usage.day === day)?.neurons ?? 0;
   const late = cron.rolledUpUntil !== null && now - cron.rolledUpUntil > CRON_LATE_SECONDS;
   return (
     <>
@@ -38,6 +44,14 @@ function Panel({ stats }: { stats: AdminStats }) {
         <div>
           <dt>{texts.rowsWritten}</dt>
           <dd>{ofLimit(todayUsage.rowsWritten, limits.rowsWritten)}</dd>
+        </div>
+        <div>
+          <dt>{texts.aiNeurons}</dt>
+          <dd>
+            {stats.freeAi === null
+              ? texts.aiOff
+              : texts.aiLine(ofLimit(freeAiToday.neurons, limits.aiNeurons), freeAiToday.calls)}
+          </dd>
         </div>
         <div>
           <dt>{texts.database}</dt>
@@ -62,6 +76,7 @@ function Panel({ stats }: { stats: AdminStats }) {
               <th>{texts.columns.day}</th>
               <th>{texts.columns.read}</th>
               <th>{texts.columns.written}</th>
+              {stats.freeAi !== null && <th>{texts.columns.neurons}</th>}
             </tr>
           </thead>
           <tbody>
@@ -70,6 +85,7 @@ function Panel({ stats }: { stats: AdminStats }) {
                 <td>{day.day}</td>
                 <td>{ofLimit(day.rowsRead, limits.rowsRead)}</td>
                 <td>{ofLimit(day.rowsWritten, limits.rowsWritten)}</td>
+                {stats.freeAi !== null && <td>{ofLimit(freeAiOn(day.day), limits.aiNeurons)}</td>}
               </tr>
             ))}
           </tbody>

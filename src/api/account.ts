@@ -63,8 +63,19 @@ export async function recordVisit(page: VisitPage): Promise<void> {
 
 const AdminStats = z.object({
   now: int,
-  limits: z.object({ rowsRead: int, rowsWritten: int, databaseBytes: int }),
+  limits: z.object({
+    rowsRead: int,
+    rowsWritten: int,
+    databaseBytes: int,
+    // Absent from a server older than the free AI.
+    aiNeurons: int.default(10_000),
+  }),
   days: z.array(z.object({ day: z.string(), rowsRead: int, rowsWritten: int })),
+  /** The free AI per UTC day; null: the server has no Workers AI. */
+  freeAi: z
+    .array(z.object({ day: z.string(), calls: int, neurons: int }))
+    .nullable()
+    .default(null),
   databaseBytes: int.nullable(),
   cron: z.object({ rolledUpUntil: int.nullable(), purgedAt: int.nullable() }),
   accounts: z.object({ users: int, households: int, pushDevices: int }),
