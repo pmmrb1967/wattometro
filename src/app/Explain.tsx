@@ -7,10 +7,11 @@
  */
 import { useState } from 'react';
 import { estimateExplain, explainFacts, type ExplainResult } from '../ai/explain';
-import { formatMicroUsd } from '../ai/models';
+import { findModel, formatMicroUsd } from '../ai/models';
 import type { ExplainSubject } from '../ai/prompts/explain';
 import { AiError } from '../ai/provider';
-import { providerFromSettings, recordUsage } from '../ai/settings';
+import { recordUsage } from '../ai/settings';
+import { appProvider } from './ai-provider';
 import { useAiSettings } from './ai-sync';
 import { t } from '../i18n/pt-PT';
 import { aiErrorText } from './ai-errors';
@@ -35,9 +36,10 @@ export function ExplainButton({
 }) {
   const { me } = useSession();
   const settings = useAiSettings(me.email);
-  const provider = providerFromSettings(settings);
+  const provider = appProvider(settings);
   const [state, setState] = useState<State>({ kind: 'idle' });
   if (!provider) return null;
+  const vendor = findModel(provider.model).vendor;
 
   async function send() {
     if (!provider) return;
@@ -54,7 +56,8 @@ export function ExplainButton({
 
   function ask() {
     if (!provider) return;
-    if (settings.autoSend) void send();
+    // The free AI costs nothing: no estimate to confirm.
+    if (settings.autoSend || vendor === 'free') void send();
     else {
       const estimate = estimateExplain(provider.model, subject, facts());
       setState({ kind: 'confirm', cost: formatMicroUsd(estimate.costMicroUsd) });
@@ -92,7 +95,9 @@ export function ExplainButton({
             {t.ask.unconfirmed(unconfirmed.join(', '))}
           </p>
         )}
-        <p className="hint">{texts.note(formatMicroUsd(cost))}</p>
+        <p className="hint">
+          {vendor === 'free' ? texts.noteFree : texts.note(formatMicroUsd(cost))}
+        </p>
       </div>
     );
   }
@@ -101,7 +106,7 @@ export function ExplainButton({
     <div className="explanation">
       {state.kind === 'confirm' ? (
         <div className="confirm">
-          <p>{texts.estimate(state.cost)}</p>
+          <p>{texts.estimate(state.cost, t.ai.vendors[vendor])}</p>
           <div className="actions">
             <button type="button" className="primary" onClick={() => void send()}>
               {t.ask.send}

@@ -58,13 +58,17 @@ export const settingsTexts = {
       failed: 'Não foi possível obter os números do servidor.',
       rowsRead: 'Linhas lidas hoje',
       rowsWritten: 'Linhas escritas hoje',
+      aiNeurons: 'IA gratuita hoje (neurons)',
+      aiLine: (ofLimit: string, calls: number) =>
+        `${ofLimit} · ${calls} ${calls === 1 ? 'pedido' : 'pedidos'}`,
+      aiOff: 'Desligada (o servidor não tem o Workers AI).',
       ofLimit: (used: string, limit: string, pct: string) => `${used} de ${limit} (${pct} %)`,
       resets:
-        'Voltam a zero à meia-noite UTC. Aos 100 %, a app deixa de ler (ou de gravar) até lá.',
+        'Voltam a zero à meia-noite UTC. Aos 100 %, a app deixa de ler (ou de gravar) até lá. Os neurons são os que o Workers AI indica em cada pedido, arredondados para cima; a IA gratuita para aos 90 %, para uma pergunta a meio não falhar.',
       database: 'Base de dados',
       databaseUnknown: 'Ainda não medida (o Cron mede-a uma vez por dia).',
       lastDays: 'Últimos 7 dias (UTC)',
-      columns: { day: 'Dia', read: 'Lidas', written: 'Escritas' },
+      columns: { day: 'Dia', read: 'Lidas', written: 'Escritas', neurons: 'Neurons (IA)' },
       cron: 'Agregações (Cron)',
       rolledUp: (ago: string) => `Agregou os minutos até há ${ago}.`,
       rolledUpNever: 'Ainda não agregou nada.',
@@ -153,33 +157,48 @@ export const settingsTexts = {
     ai: {
       title: 'Inteligência artificial',
       intro:
-        'Opcional: com uma chave da API da Anthropic tua, podes fazer perguntas sobre o teu consumo e pedir explicações em linguagem simples. Os números vêm sempre da app; a IA só os explica. Tudo funciona sem ela.',
+        'Opcional: faz perguntas sobre o teu consumo e pede explicações em linguagem simples, com a IA gratuita ou com uma chave tua da Anthropic ou da Google. Os números vêm sempre da app; a IA só os explica. Tudo funciona sem ela.',
+      vendor: 'Quem responde',
+      vendors: {
+        free: 'IA gratuita (sem chave)',
+        anthropic: 'Anthropic (Claude), com a tua chave',
+        gemini: 'Google (Gemini), com a tua chave',
+      },
       key: 'Chave da API da Anthropic',
+      geminiKey: 'Chave da API da Google (Gemini)',
       model: 'Modelo',
       modelOption: (label: string, id: string) =>
         id === 'claude-sonnet-5-5'
           ? `${label} (recomendado)`
-          : id === 'claude-haiku-5-5'
+          : id === 'claude-haiku-5-5' || id === 'gemini-3.5-flash-lite'
             ? `${label} (mais barato)`
             : `${label} (mais caro)`,
       autoSend: 'Enviar sem mostrar primeiro o custo estimado',
       keyNote:
         'A chave fica guardada na tua conta, cifrada, e aparece nos outros aparelhos onde entrares. O que perguntas vai diretamente deste browser para a Anthropic, com resumos já calculados (nunca as medições ao minuto). O custo é cobrado pela Anthropic na tua conta.',
+      geminiNote:
+        'A chave fica guardada na tua conta, cifrada, e aparece nos outros aparelhos onde entrares. O que perguntas vai diretamente deste browser para a Google, com resumos já calculados (nunca as medições ao minuto). Na UE, os termos da Gemini API só aceitam chaves de um projeto Google Cloud com a faturação ativa; o custo é cobrado pela Google.',
+      freeNote:
+        'Sem chave e sem custo para ti. O que perguntas vai para o servidor da app e daí para o Workers AI da Cloudflare (modelo Gemma 4), com os mesmos resumos já calculados (nunca as medições ao minuto). Nada disso fica guardado, só o número de pedidos do dia. A Cloudflare pode processar os pedidos fora da UE. Responde com menos rigor do que os modelos pagos.',
+      freeToday: (pct: string) =>
+        `Hoje já se gastou ${pct} % do limite diário, que é partilhado por todos os utilizadores e volta a zero à meia-noite UTC.`,
+      freeLocal:
+        'A IA gratuita precisa de uma conta com sessão iniciada: aqui só funciona uma chave tua.',
       showKey: 'Mostrar a chave',
       hideKey: 'Esconder a chave',
       inAccount: 'Guardada na tua conta: disponível em todos os teus aparelhos.',
       inBrowser: 'Guardada só neste browser: o servidor não a pôde guardar agora.',
       save: 'Guardar',
       test: 'Testar',
-      working: 'A testar a chave…',
-      works: 'A chave funciona.',
-      saved: 'Chave testada e guardada na tua conta.',
-      savedHere: 'Chave testada e guardada só neste browser (o servidor não a pôde guardar agora).',
+      working: 'A testar…',
+      works: 'Funciona.',
+      saved: 'Testado e guardado na tua conta.',
+      savedHere: 'Testado e guardado só neste browser (o servidor não o pôde guardar agora).',
       forget: 'Apagar',
       forgetConfirm:
-        'Apagar a chave da IA da tua conta? Deixa de funcionar em todos os teus aparelhos.',
-      forgetFailed: 'Não foi possível apagar a chave.',
-      forgotten: 'A chave foi apagada da tua conta e deste browser.',
+        'Apagar a escolha da IA e as chaves da tua conta? Deixa de funcionar em todos os teus aparelhos.',
+      forgetFailed: 'Não foi possível apagar.',
+      forgotten: 'A escolha da IA e as chaves foram apagadas da tua conta e deste browser.',
       spent: (cost: string, requests: number) =>
         `Este mês: ${requests} ${requests === 1 ? 'pedido' : 'pedidos'}, cerca de ${cost} (estimativa a preços de tabela).`,
     },

@@ -9,10 +9,11 @@
  */
 import { useState, type ChangeEvent } from 'react';
 import { estimateEquipmentPhotos, readEquipmentPhotos } from '../ai/equipment-photo';
-import { formatMicroUsd } from '../ai/models';
+import { findModel, formatMicroUsd } from '../ai/models';
 import { MAX_EQUIPMENT_PHOTOS } from '../ai/prompts/equipment-photo';
 import { AiError, type AiImage } from '../ai/provider';
-import { providerFromSettings, recordUsage } from '../ai/settings';
+import { recordUsage } from '../ai/settings';
+import { appProvider } from './ai-provider';
 import { PROGRAMME_KINDS, type EquipmentKind } from '../domain/equipment';
 import type { EquipmentReading } from '../domain/equipment-reading';
 import { t } from '../i18n/pt-PT';
@@ -79,9 +80,10 @@ export function EquipmentPhotos({
 }) {
   const { me } = useSession();
   const settings = useAiSettings(me.email);
-  const provider = providerFromSettings(settings);
+  const provider = appProvider(settings);
   const [state, setState] = useState<State>({ kind: 'idle', note: null });
   if (!provider) return null;
+  const free = findModel(provider.model).vendor === 'free';
 
   async function onFiles(event: ChangeEvent<HTMLInputElement>, source: PhotoSource) {
     const files = Array.from(event.target.files ?? []);
@@ -205,7 +207,7 @@ export function EquipmentPhotos({
             <p className="hint">{texts.programmesNeedKind(choices.programmes.length)}</p>
           ))}
         {refused.length > 0 && <p className="hint">{texts.refused(refused.join(', '))}</p>}
-        <p className="hint">{texts.spent(spent)}</p>
+        <p className="hint">{free ? texts.spentFree : texts.spent(spent)}</p>
         <div className="actions">
           {!nothing && (
             <button
@@ -242,7 +244,11 @@ export function EquipmentPhotos({
       <p className="hint">{texts.intro(MAX_EQUIPMENT_PHOTOS)}</p>
       {state.kind === 'confirm' ? (
         <div className="actions">
-          <span>{texts.confirm(state.photos.length, state.cost)}</span>
+          <span>
+            {free
+              ? texts.confirmFree(state.photos.length)
+              : texts.confirm(state.photos.length, state.cost)}
+          </span>
           <button type="button" className="primary" onClick={() => void send(state.photos)}>
             {texts.send}
           </button>

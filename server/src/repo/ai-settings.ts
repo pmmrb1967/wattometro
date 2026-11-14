@@ -4,6 +4,8 @@ import type { Sql } from '../db';
 
 export interface StoredAiSettings {
   keySealed: string;
+  /** The Gemini key, sealed; null: none (migration 0031). */
+  geminiKeySealed: string | null;
   model: string;
   autoSend: boolean;
   updatedAt: number;
@@ -15,16 +17,19 @@ export async function getAiSettings(
 ): Promise<StoredAiSettings | null> {
   const row = await sql.first<{
     key_sealed: string;
+    gemini_key_sealed: string | null;
     model: string;
     auto_send: number;
     updated_at: number;
   }>(
-    'SELECT key_sealed, model, auto_send, updated_at FROM user_ai_settings WHERE user_id = ?',
+    `SELECT key_sealed, gemini_key_sealed, model, auto_send, updated_at
+     FROM user_ai_settings WHERE user_id = ?`,
     user.id,
   );
   return row
     ? {
         keySealed: row.key_sealed,
+        geminiKeySealed: row.gemini_key_sealed,
         model: row.model,
         autoSend: row.auto_send === 1,
         updatedAt: row.updated_at,
@@ -38,13 +43,15 @@ export async function putAiSettings(
   settings: StoredAiSettings,
 ): Promise<void> {
   await sql.run(
-    `INSERT INTO user_ai_settings (user_id, household_id, key_sealed, model, auto_send, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO user_ai_settings
+       (user_id, household_id, key_sealed, gemini_key_sealed, model, auto_send, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (user_id) DO UPDATE SET key_sealed = excluded.key_sealed,
-       model = excluded.model, auto_send = excluded.auto_send, updated_at = excluded.updated_at`,
+       gemini_key_sealed = excluded.gemini_key_sealed, model = excluded.model, auto_send = excluded.auto_send, updated_at = excluded.updated_at`,
     user.id,
     user.householdId,
     settings.keySealed,
+    settings.geminiKeySealed,
     settings.model,
     settings.autoSend ? 1 : 0,
     settings.updatedAt,

@@ -40,6 +40,7 @@ export default {
       sessionSecret: env.SESSION_SECRET,
       ...(vapidKeys(env) ? { vapid: vapidKeys(env) } : {}),
       ...(env.AI_KEY_SECRET ? { aiKeySecret: env.AI_KEY_SECRET } : {}),
+      ...(env.AI ? { ai: env.AI } : {}),
       allowedOrigins: allowedOrigins(env),
       ingestRequestsPerMinute: positiveInteger(env.INGEST_REQUESTS_PER_MINUTE),
       ...(limitMb !== undefined ? { databaseLimitBytes: limitMb * 1000 * 1000 } : {}),

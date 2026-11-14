@@ -77,6 +77,8 @@ export const equipmentTexts = {
     preparing: 'A preparar as fotografias…',
     confirm: (count: number, cost: string) =>
       `Enviar ${count === 1 ? '1 fotografia' : `${count} fotografias`} à IA? Custo estimado: até ${cost}.`,
+    confirmFree: (count: number) =>
+      `Enviar ${count === 1 ? '1 fotografia' : `${count} fotografias`} à IA gratuita (Cloudflare)? Não tem custo para ti.`,
     send: 'Enviar',
     cancel: 'Cancelar',
     busy: 'A IA está a ler as fotografias…',
@@ -104,6 +106,7 @@ export const equipmentTexts = {
       `Li ${count === 1 ? '1 programa' : `${count} programas`}, mas os programas só se guardam numa máquina de lavar roupa ou loiça. Escolhe primeiro o tipo.`,
     refused: (names: string) => `Não consegui ler a duração ou a energia de: ${names}.`,
     spent: (cost: string) => `Esta leitura custou ${cost}.`,
+    spentFree: 'Lida pela IA gratuita, sem custo.',
     apply: 'Usar estes valores',
     discard: 'Descartar',
     applied: 'Pus os valores no formulário. Revê-os e carrega em Guardar.',

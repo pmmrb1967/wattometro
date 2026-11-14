@@ -11,9 +11,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { askWattometro, estimateChat, type ChatResult } from '../ai/chat';
-import { formatMicroUsd } from '../ai/models';
+import { findModel, formatMicroUsd } from '../ai/models';
 import { AiError, type AiEstimate, type ChatHistory } from '../ai/provider';
-import { providerFromSettings, recordUsage } from '../ai/settings';
+import { recordUsage } from '../ai/settings';
+import { appProvider } from './ai-provider';
 import { useAiSettings } from './ai-sync';
 import { t } from '../i18n/pt-PT';
 import { lisbonToday } from '../lib/time';
@@ -30,6 +31,8 @@ export const CHAT_TITLE_ID = 'chat-title';
 interface Exchange {
   question: string;
   result: ChatResult;
+  /** Answered by the free AI (no cost to show). */
+  free: boolean;
 }
 
 const costOf = (result: ChatResult) =>
@@ -62,7 +65,9 @@ function Answer({ exchange }: { exchange: Exchange }) {
           ))}
         </details>
       )}
-      <p className="hint">{texts.cost(formatMicroUsd(costOf(result)))}</p>
+      <p className="hint">
+        {exchange.free ? texts.costFree : texts.cost(formatMicroUsd(costOf(result)))}
+      </p>
     </article>
   );
 }
@@ -80,7 +85,9 @@ export function ChatPanel({
   const { me } = useSession();
   // Read again when they change (Definições, or the account's copy arriving).
   const settings = useAiSettings(me.email);
-  const provider = providerFromSettings(settings);
+  const provider = appProvider(settings);
+  const vendor = findModel(settings.model).vendor;
+  const vendorName = t.ai.vendors[vendor];
   const energy = useHouseholdEnergy();
   const [today] = useState(lisbonToday);
   const weather = useWeather(today);
@@ -92,12 +99,22 @@ export function ChatPanel({
   const [pending, setPending] = useState<{ question: string; estimate: AiEstimate } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The history is in the provider's own format: another model starts a new conversation.
+  const [conversationModel, setConversationModel] = useState(settings.model);
+  if (conversationModel !== settings.model) {
+    setConversationModel(settings.model);
+    setExchanges([]);
+    setHistory([]);
+    setPending(null);
+    setError(null);
+  }
   const input = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
+
   // The box follows the text up to three lines (index.css caps it; then it scrolls).
   useLayoutEffect(() => {
     const box = input.current;
@@ -118,7 +135,7 @@ export function ChatPanel({
       const result = await askWattometro(provider, context, history, text, texts.pages[page]);
       recordUsage(me.email, result.usage);
       setHistory(result.history);
-      setExchanges((list) => [...list, { question: text, result }]);
+      setExchanges((list) => [...list, { question: text, result, free: vendor === 'free' }]);
       setQuestion('');
     } catch (failure) {
       if (failure instanceof AiError) recordUsage(me.email, failure.usage);
@@ -132,7 +149,8 @@ export function ChatPanel({
     event.preventDefault();
     const trimmed = question.trim();
     if (!trimmed || !provider) return;
-    if (settings.autoSend) void send(trimmed);
+    // The free AI costs nothing: no estimate to confirm.
+    if (settings.autoSend || vendor === 'free') void send(trimmed);
     else
       setPending({ question: trimmed, estimate: estimateChat(provider.model, history, trimmed) });
   }
@@ -272,9 +290,9 @@ export function ChatPanel({
                 {error}
               </p>
             )}
-            <p className="hint chat-privacy" title={texts.privacy}>
+            <p className="hint chat-privacy" title={texts.privacy(vendorName)}>
               <span aria-hidden="true">🔒 </span>
-              {texts.privacyShort}
+              {texts.privacyShort(vendorName)}
             </p>
           </form>
         </>

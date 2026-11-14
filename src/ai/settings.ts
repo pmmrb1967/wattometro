@@ -7,13 +7,18 @@
  */
 import { z } from 'zod';
 import { AnthropicProvider } from './anthropic';
-import { AI_MODELS, DEFAULT_AI_MODEL } from './models';
+import { FreeProvider, type FreeTransport } from './free';
+import { GeminiProvider } from './gemini';
+import { AI_MODELS, DEFAULT_AI_MODEL, findModel } from './models';
 import type { AiProvider, AiUsage } from './provider';
 
 const MODEL_IDS = AI_MODELS.map((model) => model.id) as [string, ...string[]];
 
 const AiSettingsSchema = z.object({
+  /** The Anthropic key (the name it had when it was the only one). */
   apiKey: z.string(),
+  /** The Google Gemini key; absent from settings saved before Gemini. */
+  geminiKey: z.string().catch(''),
   model: z.enum(MODEL_IDS).catch(DEFAULT_AI_MODEL),
   /** Send without showing the estimated cost first. */
   autoSend: z.boolean().catch(false),
@@ -37,9 +42,16 @@ const MAX_USAGE_ENTRIES = 500;
 
 export const EMPTY_AI_SETTINGS: AiSettings = {
   apiKey: '',
+  geminiKey: '',
   model: DEFAULT_AI_MODEL,
   autoSend: false,
 };
+
+const trimmed = (settings: AiSettings): AiSettings => ({
+  ...settings,
+  apiKey: settings.apiKey.trim(),
+  geminiKey: settings.geminiKey.trim(),
+});
 
 const settingsKey = (email: string) => `wattometro.ai.${email}`;
 const usageKey = (email: string) => `wattometro.ai-usage.${email}`;
@@ -58,7 +70,7 @@ function read<T>(key: string, schema: z.ZodType<T>, fallback: T): T {
 /** Settings from elsewhere (the account), with the same defaults as a stored copy. */
 export function toAiSettings(value: unknown): AiSettings {
   const parsed = AiSettingsSchema.safeParse(value);
-  return parsed.success ? { ...parsed.data, apiKey: parsed.data.apiKey.trim() } : EMPTY_AI_SETTINGS;
+  return parsed.success ? trimmed(parsed.data) : EMPTY_AI_SETTINGS;
 }
 
 export function loadAiSettings(email: string): AiSettings {
@@ -66,10 +78,7 @@ export function loadAiSettings(email: string): AiSettings {
 }
 
 export function saveAiSettings(email: string, settings: AiSettings): void {
-  localStorage.setItem(
-    settingsKey(email),
-    JSON.stringify({ ...settings, apiKey: settings.apiKey.trim() }),
-  );
+  localStorage.setItem(settingsKey(email), JSON.stringify(trimmed(settings)));
 }
 
 export function forgetAiSettings(email: string): void {
@@ -86,13 +95,41 @@ export function forgetAiData(email: string): void {
   }
 }
 
-export function hasAiKey(settings: AiSettings): boolean {
-  return settings.apiKey.trim() !== '';
+/** The key the chosen model needs ('' for the free AI, which needs none). */
+export function keyFor(settings: AiSettings): string {
+  const vendor = findModel(settings.model).vendor;
+  return vendor === 'anthropic' ? settings.apiKey : vendor === 'gemini' ? settings.geminiKey : '';
 }
 
-export function providerFromSettings(settings: AiSettings): AiProvider | undefined {
-  if (!hasAiKey(settings)) return undefined;
-  return new AnthropicProvider({ apiKey: settings.apiKey, model: settings.model, browser: true });
+/** Whether the user chose to use AI: a key for the chosen model, or the free AI. */
+export function hasAiChoice(settings: AiSettings): boolean {
+  return findModel(settings.model).vendor === 'free' || keyFor(settings).trim() !== '';
+}
+
+/** Whether anything is kept: a key, or the free AI chosen. */
+export function hasAiKey(settings: AiSettings): boolean {
+  return (
+    settings.apiKey.trim() !== '' ||
+    settings.geminiKey.trim() !== '' ||
+    findModel(settings.model).vendor === 'free'
+  );
+}
+
+/**
+ * The provider of the chosen model, or undefined (no key; or the free AI
+ * without `free`, its way to the server: none in the local mode).
+ */
+export function providerFromSettings(
+  settings: AiSettings,
+  free?: FreeTransport,
+): AiProvider | undefined {
+  if (!hasAiChoice(settings)) return undefined;
+  const model = findModel(settings.model);
+  if (model.vendor === 'free') return free ? new FreeProvider(free) : undefined;
+  if (model.vendor === 'gemini') {
+    return new GeminiProvider({ apiKey: settings.geminiKey, model: model.id });
+  }
+  return new AnthropicProvider({ apiKey: settings.apiKey, model: model.id, browser: true });
 }
 
 function loadUsage(email: string): UsageEntry[] {

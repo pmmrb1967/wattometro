@@ -12,3 +12,4 @@ export * from '../api/appliances';
 export * from '../api/equipment';
 export * from '../api/energy';
 export * from '../api/settings';
+export * from '../api/ai-free';

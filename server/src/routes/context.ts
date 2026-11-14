@@ -11,6 +11,7 @@ import { readSession, SESSION_COOKIE, SESSION_SECONDS, signSession } from '../au
 import { type Sql } from '../db';
 import { type Fetcher, type VapidKeys } from '../webpush';
 import { type BodyFetcher } from '../pvgis';
+import { type WorkersAi } from '../ai-free';
 import { getHousehold } from '../repo/households';
 import type { User } from '../repo/users';
 
@@ -38,6 +39,8 @@ export interface AppConfig {
   adminEmails?: string[];
   /** For tests: what asks PVGIS (pvgis.ts). */
   pvgisFetcher?: BodyFetcher;
+  /** Workers AI (the `AI` binding): the free AI (ai-free.ts); without it, 503. */
+  ai?: WorkersAi;
 }
 
 export const DEFAULT_DATABASE_LIMIT_BYTES = 500 * 1000 * 1000;

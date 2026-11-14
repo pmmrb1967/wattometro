@@ -11,7 +11,12 @@ import {
 import type { AccountAiSettings } from './api';
 
 const EMAIL = 'ana@example.pt';
-const KEY = { apiKey: 'sk-ant-sintetica', model: 'claude-haiku-5-5', autoSend: false };
+const KEY = {
+  apiKey: 'sk-ant-sintetica',
+  geminiKey: '',
+  model: 'claude-haiku-5-5',
+  autoSend: false,
+};
 
 /** The account on a fake server; `down` answers as a server without it (503). */
 function account(initial: AccountAiSettings | null = null) {

@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { costMicroUsd, findModel } from './models';
 import {
   AiError,
+  CHAT_MAX_ROUNDS,
   type AiProvider,
   type AiTask,
   type AiUsage,
@@ -36,8 +37,6 @@ export interface AnthropicOptions {
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 /** Room for thinking and a few tool calls per round. */
 const CHAT_MAX_TOKENS = 16_000;
-/** Rounds of tool calls before giving up (a question needs one to three). */
-export const CHAT_MAX_ROUNDS = 6;
 
 export function toAiError(error: unknown): AiError {
   if (error instanceof AiError) return error;

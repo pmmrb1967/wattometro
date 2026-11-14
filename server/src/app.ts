@@ -20,6 +20,7 @@ import { databaseState } from './repo/health';
 import { createContext, DAY, type AppConfig, type AppEnv } from './routes/context';
 import { accountRoutes } from './routes/account';
 import { aiSettingsRoutes } from './routes/ai-settings';
+import { freeAiRoutes } from './routes/ai-free';
 import { pushRoutes } from './routes/push';
 import { householdRoutes } from './routes/household';
 import { devicesRoutes } from './routes/devices';
@@ -67,6 +68,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
 
   accountRoutes(app, context);
   aiSettingsRoutes(app, context);
+  freeAiRoutes(app, context);
   pushRoutes(app, context);
   householdRoutes(app, context);
   devicesRoutes(app, context);

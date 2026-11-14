@@ -15,7 +15,11 @@ export type AiErrorCode =
   | 'offline'
   | 'invalid_output'
   | 'refused'
-  | 'too_large';
+  | 'too_large'
+  /** The free AI: today's Neurons for everyone are spent (server/src/ai-free.ts). */
+  | 'free_quota'
+  /** The free AI needs an account (not in the local mode nor the demonstration). */
+  | 'free_unavailable';
 
 export class AiError extends Error {
   readonly code: AiErrorCode;
@@ -30,6 +34,9 @@ export class AiError extends Error {
 }
 
 export type AiTask = 'chat' | 'explain' | 'read_equipment' | 'test';
+
+/** Rounds of tool calls before giving up (a question needs one to three). */
+export const CHAT_MAX_ROUNDS = 6;
 
 export interface AiUsage {
   task: AiTask;

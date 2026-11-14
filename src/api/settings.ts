@@ -9,7 +9,10 @@ import { type Failure, failure, send } from './client';
 
 /** The user's AI settings kept in their account (GET /v1/ai-settings): the key opened by the server. */
 const AccountAiSettings = z.object({
+  /** The Anthropic key ('' when only another provider, or the free AI, is used). */
   apiKey: z.string(),
+  /** Absent from a server older than migration 0031. */
+  geminiKey: z.string().default(''),
   model: z.string(),
   autoSend: z.boolean(),
 });

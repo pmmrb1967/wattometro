@@ -119,9 +119,15 @@ describe('settings', () => {
 
   it('keeps each account’s key apart, trimmed', () => {
     expect(loadAiSettings('a@x.pt')).toEqual(EMPTY_AI_SETTINGS);
-    saveAiSettings('a@x.pt', { apiKey: ' sk-1 ', model: 'claude-haiku-5-5', autoSend: true });
+    saveAiSettings('a@x.pt', {
+      apiKey: ' sk-1 ',
+      geminiKey: ' AIza-1 ',
+      model: 'claude-haiku-5-5',
+      autoSend: true,
+    });
     expect(loadAiSettings('a@x.pt')).toEqual({
       apiKey: 'sk-1',
+      geminiKey: 'AIza-1',
       model: 'claude-haiku-5-5',
       autoSend: true,
     });

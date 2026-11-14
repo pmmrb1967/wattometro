@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Worker environment (server/wrangler.toml). Limits are variables there. */
+import type { WorkersAi } from './ai-free';
 import type { D1Like } from './db';
 import type { VapidKeys } from './webpush';
 
 export interface Env {
   DB: D1Like;
+  /** Workers AI (wrangler.toml, [ai]): the free AI (ai-free.ts). */
+  AI?: WorkersAi;
   /** Secret (wrangler secret put SESSION_SECRET): at least 32 random characters. */
   SESSION_SECRET: string;
   /** Secret (wrangler secret put AI_KEY_SECRET): at least 32 random characters; seals the AI keys. */

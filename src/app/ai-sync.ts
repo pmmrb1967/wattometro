@@ -69,8 +69,9 @@ function changed(): void {
   window.dispatchEvent(new Event(EVENT));
 }
 
-const toAccount = ({ apiKey, model, autoSend }: AiSettings): AccountAiSettings => ({
+const toAccount = ({ apiKey, geminiKey, model, autoSend }: AiSettings): AccountAiSettings => ({
   apiKey,
+  geminiKey,
   model,
   autoSend,
 });

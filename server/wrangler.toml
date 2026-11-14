@@ -39,6 +39,11 @@ VAPID_PUBLIC_KEY = "BLf-NqBqEYR8G6YN4tEzrvrPL_g4Bkq9sKKDaibw2b0icmYJfcn_VYigkbCP
 # Administrators' emails (docs/admin.md): a secret, never here
 # (wrangler secret put ADMIN_EMAILS, comma-separated).
 
+# Workers AI: the free AI (server/src/ai-free.ts, docs/ai.md), within the account's free
+# daily Neurons (no card). Requests and answers are never stored; only the day's totals.
+[ai]
+binding = "AI"
+
 # Rollups (minutes → 15 min → day), retention and database size: server/src/rollups.ts.
 [triggers]
 crons = ["*/5 * * * *"]

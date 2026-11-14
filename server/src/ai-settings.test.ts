@@ -94,9 +94,39 @@ describe('/v1/ai-settings', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(await response.json()).toEqual({
       apiKey: KEY,
+      geminiKey: '',
       model: 'claude-haiku-5-5',
       autoSend: true,
       updatedAt: NOW,
+    });
+  });
+
+  it('keeps a Gemini key sealed too, and the free AI with no key at all', async () => {
+    const app = makeApp(SECRET);
+    const pc = await signIn(app);
+    const gemini = 'AIza-exemplo-sintetico';
+    expect(
+      (
+        await pc('PUT', {
+          apiKey: '',
+          geminiKey: gemini,
+          model: 'gemini-3.8-flash',
+          autoSend: false,
+        })
+      ).status,
+    ).toBe(204);
+    const row = db.prepare('SELECT * FROM user_ai_settings').get() as Record<string, unknown>;
+    expect(JSON.stringify(row)).not.toContain(gemini);
+    expect(await (await pc('GET')).json()).toMatchObject({ apiKey: '', geminiKey: gemini });
+
+    expect(
+      (await pc('PUT', { apiKey: '', model: '@cf/google/gemma-4-26b-a4b-it', autoSend: false }))
+        .status,
+    ).toBe(204);
+    expect(await (await pc('GET')).json()).toMatchObject({
+      apiKey: '',
+      geminiKey: '',
+      model: '@cf/google/gemma-4-26b-a4b-it',
     });
   });
 

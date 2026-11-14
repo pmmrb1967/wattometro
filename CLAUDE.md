@@ -6,7 +6,7 @@ Instruções para o Claude Code neste repositório. O plano completo está em `p
 
 **Wattómetro**: PWA gratuita para monitorizar e otimizar o consumo elétrico de uma casa portuguesa, a partir de um **Shelly** instalado no quadro elétrico e/ou do CSV de consumos a 15 min exportado do Balcão Digital da **E-Redes**.
 
-O objetivo não são gráficos (o Home Assistant e a app Shelly já os fazem): são **conclusões em euros e ações concretas** — potência contratada certa, tarifário mais barato para o perfil real, custo do consumo fantasma, fatura prevista do mês, aparelhos a degradar, registo de problemas de tensão para reclamar. IA opcional com a chave do próprio utilizador.
+O objetivo não são gráficos (o Home Assistant e a app Shelly já os fazem): são **conclusões em euros e ações concretas** — potência contratada certa, tarifário mais barato para o perfil real, custo do consumo fantasma, fatura prevista do mês, aparelhos a degradar, registo de problemas de tensão para reclamar. IA opcional: com a chave do próprio utilizador (Anthropic ou Google) ou com a IA gratuita do Workers AI.
 
 **Âmbito atual: uso familiar** (uma casa, poucos utilizadores), no plano gratuito da Cloudflare. A arquitetura tem de permitir, **sem reescrita**, passar para o plano pago e, mais tarde, para grande público (ver "Preparado para crescer").
 
@@ -14,7 +14,7 @@ Projeto irmão: **Faturómetro** (`github.com/pmmrb1967/faturometro`). Mesmo sta
 
 ## Regras invioláveis
 
-1. **Dados só na conta Cloudflare do dono, na UE.** Bases D1 criadas com `--jurisdiction eu`. Sem analytics nem logs remotos com dados de consumo. Ligações externas permitidas: o Worker do projeto, `https://api.anthropic.com` (só por ação ou definição explícita do utilizador), Open-Meteo (clima, sem dados pessoais) os serviços de push dos browsers (só avisos que o utilizador ativou, cifrados de ponta a ponta, sem medições: `docs/alerts.md`) o OMIE (o Cron do Worker lê os preços públicos do dia seguinte; o pedido não leva nada da casa: `docs/omie.md`) e o PVGIS (produção solar estimada, pedida pelo Worker só quando o utilizador carrega em "Calcular"; leva só as coordenadas da localidade e a inclinação, orientação e perdas dos painéis, nunca consumos: `docs/pvgis.md`).
+1. **Dados só na conta Cloudflare do dono, na UE.** Bases D1 criadas com `--jurisdiction eu`. Sem analytics nem logs remotos com dados de consumo. Ligações externas permitidas: o Worker do projeto, `https://api.anthropic.com` e `https://generativelanguage.googleapis.com` (só com a chave do próprio utilizador, por ação ou definição explícita dele), o Workers AI pelo Worker (a IA gratuita, só se o utilizador a escolher; recebe os mesmos resumos, nada fica guardado: `docs/ai.md`), Open-Meteo (clima, sem dados pessoais) os serviços de push dos browsers (só avisos que o utilizador ativou, cifrados de ponta a ponta, sem medições: `docs/alerts.md`) o OMIE (o Cron do Worker lê os preços públicos do dia seguinte; o pedido não leva nada da casa: `docs/omie.md`) e o PVGIS (produção solar estimada, pedida pelo Worker só quando o utilizador carrega em "Calcular"; leva só as coordenadas da localidade e a inclinação, orientação e perdas dos painéis, nunca consumos: `docs/pvgis.md`).
 2. **A app tem de funcionar sem IA.** Qualquer funcionalidade nova precisa de um caminho sem chave de API.
 3. **O código calcula, a IA explica.** Nenhum número mostrado ao utilizador vem de um LLM. A IA recebe resultados já calculados (agregados pequenos) e interpreta-os. Nunca enviar séries temporais em bruto à IA.
 4. **Unidades inteiras.** Dinheiro em **cêntimos inteiros** (preços unitários em micro-euros inteiros); energia em **Wh inteiros**; potência em **W**. Nunca somar euros ou kWh em vírgula flutuante. Conversões só em `src/lib/money.ts` e `src/lib/units.ts`.
@@ -47,7 +47,7 @@ CSV E-Redes ──(processado no browser)──POST /v1/import──────
 ## Stack
 
 - **App:** Vite + React 18 + TypeScript (`strict: true`), `vite-plugin-pwa`, `react-router`, Dexie (cache local), `zod`, gráficos com uPlot ou ECharts (séries longas)
-- **IA:** `@anthropic-ai/sdk` com `dangerouslyAllowBrowser: true`, sempre através de `src/ai/`
+- **IA:** `@anthropic-ai/sdk` com `dangerouslyAllowBrowser: true`, Gemini por REST e a IA gratuita (Workers AI pelo Worker), sempre através de `src/ai/` (`docs/ai.md`)
 - **Servidor:** Cloudflare Worker em TypeScript (`server/`), D1, Cron Triggers, `zod`. Router: Hono (leve, portável para Node/Bun/Deno)
 - **Shelly:** script mJS em `shelly/` (versionado, com versão no payload)
 - **Clima:** Open-Meteo

@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Rows read and written per UTC day, the free plan's limits (D1 counts them per
- * UTC day): every request and Cron run adds what it did (worker.ts).
+ * UTC day): every request and Cron run adds what it did (worker.ts). Also the
+ * free AI's calls and estimated Neurons per UTC day (Workers AI counts them per
+ * UTC day too: ai-free.ts). Totals only: nobody's name.
  */
 import type { Sql } from '../db';
 
 const PREFIX = 'rows_read:';
 const WRITTEN_PREFIX = 'rows_written:';
+const AI_NEURONS_PREFIX = 'ai_neurons:';
+const AI_CALLS_PREFIX = 'ai_calls:';
 
 /** 'YYYY-MM-DD' of an epoch second, in UTC (D1's day, not Lisbon's). */
 export function utcDay(ts: number): string {
@@ -75,16 +79,64 @@ export async function usageSince(sql: Sql, fromDay: string): Promise<DayUsage[]>
   return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
 
-/** Forgets the days before `day`. */
+export interface FreeAiDay {
+  /** UTC day. */
+  day: string;
+  calls: number;
+  /** Estimated from the tokens (ai-free.ts, neuronsFor). */
+  neurons: number;
+}
+
+/** One more free AI call and its Neurons on a UTC day. */
+export async function addFreeAiUsage(sql: Sql, day: string, neurons: number): Promise<void> {
+  await sql.run(
+    `INSERT INTO maintenance_state (name, value) VALUES (?, 1), (?, ?)
+     ON CONFLICT (name) DO UPDATE SET value = value + excluded.value`,
+    AI_CALLS_PREFIX + day,
+    AI_NEURONS_PREFIX + day,
+    Math.max(0, Math.ceil(neurons)),
+  );
+}
+
+/** The free AI's days from `fromDay` (UTC), oldest first (two primary-key ranges). */
+export async function freeAiSince(sql: Sql, fromDay: string): Promise<FreeAiDay[]> {
+  const rows = await sql.all<{ name: string; value: number }>(
+    `SELECT name, value FROM maintenance_state
+     WHERE (name >= ? AND name < ?) OR (name >= ? AND name < ?)`,
+    AI_CALLS_PREFIX + fromDay,
+    AI_CALLS_PREFIX + '~',
+    AI_NEURONS_PREFIX + fromDay,
+    AI_NEURONS_PREFIX + '~',
+  );
+  const days = new Map<string, FreeAiDay>();
+  for (const { name, value } of rows) {
+    const calls = name.startsWith(AI_CALLS_PREFIX);
+    const day = name.slice((calls ? AI_CALLS_PREFIX : AI_NEURONS_PREFIX).length);
+    const usage = days.get(day) ?? { day, calls: 0, neurons: 0 };
+    if (calls) usage.calls = value;
+    else usage.neurons = value;
+    days.set(day, usage);
+  }
+  return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/** The free AI's count on one UTC day (zeros when none). */
+export async function freeAiOn(sql: Sql, day: string): Promise<FreeAiDay> {
+  return (
+    (await freeAiSince(sql, day)).find((usage) => usage.day === day) ?? {
+      day,
+      calls: 0,
+      neurons: 0,
+    }
+  );
+}
+
+/** Forgets the days before `day` (rows read and written, and the free AI's). */
 export async function purgeRowsRead(sql: Sql, day: string): Promise<void> {
-  await sql.batch([
-    {
+  await sql.batch(
+    [PREFIX, WRITTEN_PREFIX, AI_CALLS_PREFIX, AI_NEURONS_PREFIX].map((prefix) => ({
       query: 'DELETE FROM maintenance_state WHERE name >= ? AND name < ?',
-      params: [PREFIX, PREFIX + day],
-    },
-    {
-      query: 'DELETE FROM maintenance_state WHERE name >= ? AND name < ?',
-      params: [WRITTEN_PREFIX, WRITTEN_PREFIX + day],
-    },
-  ]);
+      params: [prefix, prefix + day],
+    })),
+  );
 }
