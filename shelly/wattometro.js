@@ -26,7 +26,7 @@
 // Conservative JavaScript on purpose: the Shelly interpreter is a subset.
 // Runs on a Shelly EM Gen3 since 2026-10-24 (docs/shelly.md).
 
-let SCRIPT_VERSION = '0.4.0';
+let SCRIPT_VERSION = '0.4.1';
 let FORMAT = 1;
 // A script has ~25 KB of memory in all (docs/shelly.md, measured on an EM Gen3).
 // Sending a request needs about SEND_OVERHEAD + SEND_FACTOR × body bytes at its
@@ -54,7 +54,7 @@ let CLOCK_JUMP = 30;
 let LOG_DAYS = 10;
 let FILL_EVERY = 3600; // seconds between asks for gaps, besides after a boot or an outage
 let FILL_WINDOW = 10; // log minutes per request
-let FILL_MEMORY = 15000; // free bytes needed to read the log and send it
+let FILL_MEMORY = 10000; // free bytes needed to read FILL_WINDOW minutes of the log (~1.1 KB of JSON)
 let FILL_KEYS = [
   'total_act_energy',
   'max_act_power',
@@ -84,8 +84,9 @@ let lastRaw = null; // the device's unixtime at the last tick
 let sentRaw = 0; // and when the request in flight was sent
 let bootAt = null; // epoch s of the last boot (unixtime − uptime), for outages
 // Gaps: minutes before `cursor` are checked; `gap` is the one being filled, and
-// carry/prev the Wh decimals carried between its minutes.
-let fill = { cursor: null, nextAsk: 0, gap: null, carry: 0, prev: null };
+// carry/prev the Wh decimals carried between its minutes; post the log minutes
+// read and waiting to be sent.
+let fill = { cursor: null, nextAsk: 0, gap: null, carry: 0, prev: null, post: null };
 
 function clamp(value) {
   if (value > INT16) return INT16;
@@ -310,9 +311,10 @@ function askGap(now) {
         fill.cursor = to;
         return;
       }
-      fill.gap = { from: answer.missing[0][0], to: answer.missing[0][1] };
+      fill.gap = { from: answer.missing[0][0], to: answer.missing[0][1], located: false };
       fill.carry = 0;
       fill.prev = null;
+      fill.post = null;
       print('wattometro: filling', (fill.gap.to - fill.gap.from) / 60, 'minutes from the log');
     }
   );
@@ -321,8 +323,31 @@ function askGap(now) {
 function endGap() {
   fill.cursor = fill.gap.to;
   fill.gap = null;
+  fill.post = null;
   // The next gap, if any.
   fill.nextAsk = lastNow;
+}
+
+// Moves the gap's start to the first minute the log holds (EM1Data.GetRecords,
+// a short answer): reads are FILL_WINDOW minutes long, and an empty one says
+// nothing of where the records resume, so a gap older than the log is skipped here.
+function locateGap() {
+  sending = true;
+  Shelly.call('EM1Data.GetRecords', { id: cfg.channel, ts: fill.gap.from }, function (result, errorCode) {
+    sending = false;
+    if (fill.gap === null) return;
+    fill.gap.located = true;
+    if (errorCode !== 0 || !result || !result.data_blocks) return; // read window by window
+    let first = null;
+    for (let i = 0; i < result.data_blocks.length; i++) {
+      let block = result.data_blocks[i];
+      if (block.ts + block.period * block.records <= fill.gap.from) continue;
+      if (first === null || block.ts < first) first = block.ts;
+    }
+    if (first === null) return endGap();
+    if (first > fill.gap.from) fill.gap.from = first - (first % 60);
+    if (fill.gap.from >= fill.gap.to) endGap();
+  });
 }
 
 // One log record as an ingest minute (scripts/shelly/backfill.ts does the same).
@@ -399,43 +424,63 @@ function onLog(result, errorCode, start, end) {
   let more = result.next_record_ts;
   if (next === null) next = typeof more === 'number' && more > start && more < end ? more : end;
   result = null;
+  sending = false;
   if (parts.length === 0) {
-    sending = false;
     fill.gap.from = next;
     if (next >= fill.gap.to) endGap();
     return;
   }
+  // Sent on a later tick, once the log's answer is gone: on 2026-11-17 the EM Gen3
+  // ran out of memory holding both (docs/shelly.md, "Registo interno").
+  fill.post = {
+    body: '{"v":' + FORMAT + ',"sv":' + JSON.stringify(SCRIPT_VERSION) + ',"min":[' + parts.join(',') + ']}',
+    carry: state.carry,
+    prev: state.prev,
+    next: next
+  };
+}
+
+function sendFill(free) {
+  let post = fill.post;
+  if (free !== null && free < SEND_OVERHEAD + SEND_FACTOR * post.body.length) return;
+  sending = true;
   Shelly.call(
     'HTTP.Request',
     {
       method: 'POST',
       url: cfg.url,
-      body: '{"v":' + FORMAT + ',"sv":' + JSON.stringify(SCRIPT_VERSION) + ',"min":[' + parts.join(',') + ']}',
+      body: post.body,
       headers: { Authorization: 'Bearer ' + cfg.token, 'Content-Type': 'application/json' },
       timeout: 10
     },
     function (answer, code) {
       sending = false;
       if (code !== 0 || !answer || answer.code === 401 || answer.code === 429 || answer.code >= 500) {
-        // Read again from the same minute later.
+        // Sent again later.
         backoff(answer && answer.code === 429 ? 60 : 0);
         return;
       }
       failures = 0;
       nextSend = lastNow + SEND_GAP;
-      fill.carry = state.carry;
-      fill.prev = state.prev;
-      fill.gap.from = next;
-      if (next >= fill.gap.to) endGap();
+      if (fill.gap === null || fill.post !== post) return;
+      fill.post = null;
+      fill.carry = post.carry;
+      fill.prev = post.prev;
+      fill.gap.from = post.next;
+      if (post.next >= fill.gap.to) endGap();
     }
   );
 }
 
+// Reads at most FILL_WINDOW minutes of the log at a time: reading the whole gap
+// (386 minutes, 29 records a page on the EM Gen3) took the script out of memory.
 function fillStep() {
   let free = memoryFree();
+  if (fill.post !== null) return sendFill(free);
+  if (!fill.gap.located) return locateGap();
   if (free !== null && free < FILL_MEMORY) return;
   let start = fill.gap.from;
-  let end = fill.gap.to;
+  let end = Math.min(fill.gap.to, start + FILL_WINDOW * 60);
   sending = true;
   Shelly.call('EM1Data.GetData', { id: cfg.channel, ts: start, end_ts: end - 60 }, function (result, errorCode) {
     onLog(result, errorCode, start, end);

@@ -25,10 +25,14 @@ const START = 1_792_000_000 - (1_792_000_000 % 60) + 50; // 10 s before a minute
 
 /**
  * Script memory as measured on a Shelly EM Gen3 (docs/shelly.md, 2026-10-24):
- * 25.2 KB in all, ~7 KB in use with an empty queue, ~1.2 bytes per byte of
- * queued text, and a request peaking at ~3.3 KB plus 4 × its body.
+ * 25.2 KB in all, ~1.2 bytes per byte of queued text, and a request peaking at
+ * ~3.3 KB plus 4 × its body. With the script 0.4.0, 7.6–10.9 KB in use with an
+ * empty queue (2026-11-17). A log answer (EM1Data.GetData) is held while its
+ * callback runs, at ~3 bytes per byte of JSON: with that, reading a whole
+ * 386-minute gap and sending from the callback runs out of memory, as the
+ * device did on 2026-11-17.
  */
-const MEMORY = { total: 25_200, base: 7_000, perQueuedByte: 1.2, perEntry: 80 };
+const MEMORY = { total: 25_200, base: 8_500, perQueuedByte: 1.2, perEntry: 80, perLogByte: 3 };
 const SEND = { overhead: 3_300, perBodyByte: 4 };
 const QUEUED_BYTES = `(function () {
   var n = done === null ? 0 : 1000;
@@ -100,6 +104,11 @@ class FakeShelly {
   /** The device's own minute log (EM1Data), kept whether the script runs or not. */
   log = new Map<number, number[]>();
   logReads = 0;
+  recordReads = 0;
+  /** Minutes asked for in each GetData. */
+  logSpans: number[] = [];
+  /** Memory of a log answer whose callback is running. */
+  private held = 0;
   private minute: { t: number; wh: number; powers: number[] } | null = null;
   logs: string[] = [];
   private tick: (() => void) | null = null;
@@ -146,9 +155,25 @@ class FakeShelly {
         }
         if (method === 'EM1Data.GetData') {
           this.logReads++;
+          this.logSpans.push((Number(params.end_ts) - Number(params.ts)) / 60 + 1);
           const answer = this.logData(Number(params.ts), Number(params.end_ts));
-          this.use(this.used() + 2 * JSON.stringify(answer).length);
-          this.pending = Promise.resolve().then(() => callback(answer, 0, ''));
+          const held = MEMORY.perLogByte * JSON.stringify(answer).length;
+          this.use(this.used() + held);
+          this.pending = Promise.resolve().then(() => {
+            this.held = held;
+            try {
+              callback(answer, 0, '');
+            } finally {
+              this.held = 0;
+            }
+          });
+          return;
+        }
+        if (method === 'EM1Data.GetRecords') {
+          this.recordReads++;
+          this.pending = Promise.resolve().then(() =>
+            callback({ data_blocks: this.logBlocks(Number(params.ts)) }, 0, ''),
+          );
           return;
         }
         if (method !== 'HTTP.Request') throw new Error(`unexpected ${method}`);
@@ -187,7 +212,7 @@ class FakeShelly {
   /** Memory in use now, from what the script holds in its queue. */
   private used(): number {
     const queued = this.context ? (runInContext(QUEUED_BYTES, this.context) as number) : 0;
-    return MEMORY.base + queued;
+    return MEMORY.base + queued + this.held;
   }
 
   /** Over the limit the device stops the script ("out_of_memory"). */
@@ -216,6 +241,17 @@ class FakeShelly {
     }
     const next = times[LOG_PAGE];
     return { keys: LOG_KEYS, data, ...(next !== undefined ? { next_record_ts: next } : {}) };
+  }
+
+  /** GetRecords: the log's runs of consecutive minutes, as {ts, period, records}. */
+  private logBlocks(ts: number) {
+    const blocks: { ts: number; period: number; records: number }[] = [];
+    for (const t of [...this.log.keys()].sort((a, b) => a - b)) {
+      const last = blocks.at(-1);
+      if (last && last.ts + 60 * last.records === t) last.records++;
+      else blocks.push({ ts: t, period: 60, records: 1 });
+    }
+    return blocks.filter((block) => block.ts + 60 * block.records > ts);
   }
 
   /** Closes the minute into the log, as the device does. */
@@ -321,7 +357,7 @@ describe('shelly/wattometro.js', () => {
     expect(seconds.voltage.every((v) => v === 2312)).toBe(true);
 
     const device = db.prepare('SELECT model, firmware, script_version FROM devices').get();
-    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.4.0' });
+    expect(device).toEqual({ model: 'S3EM-002CXCEU', firmware: '1.4.4', script_version: '0.4.1' });
     expect(shelly.requests[0]?.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     // The boot time goes in every request; with no earlier minute it is not an outage.
     expect(shelly.requests.every((r) => (JSON.parse(r.body) as { b: number }).b === BOOT)).toBe(
@@ -510,6 +546,25 @@ describe('shelly/wattometro.js', () => {
       expect(shelly.logs.join(' ')).toContain('filling');
     });
 
+    it('after 6.5 hours without internet (2026-11-17), fills them a few minutes at a time', async () => {
+      shelly.run();
+      await shelly.advance(10 + 60 + 10);
+      shelly.online = false;
+      await shelly.advance(6.5 * 3600);
+      shelly.online = true;
+      const from = shelly.clock - 6.5 * 3600;
+      await shelly.advance(30 * 60);
+
+      expect(shelly.outOfMemory).toBe(false);
+      const rows = minutes();
+      expect(inARow(rows)).toBe(true);
+      expect(rows.length).toBeGreaterThan(7 * 60);
+      expect(rows.some((row) => row.ts === from - (from % 60) + 3600)).toBe(true);
+      // Each read asks for 10 minutes at most, not the whole gap.
+      expect(Math.max(...shelly.logSpans)).toBeLessThanOrEqual(10);
+      expect(shelly.logSpans.length).toBeGreaterThan(30);
+    });
+
     it('after the script was stopped for half an hour, fills that half hour', async () => {
       shelly.run();
       await shelly.advance(10 + 5 * 60);
@@ -536,8 +591,10 @@ describe('shelly/wattometro.js', () => {
       // The first looks back 10 days; later ones start where the previous ended.
       expect(from[0]).toBeLessThan(START - 9 * 86_400);
       expect(from.slice(1).every((ts) => ts > START - 3600)).toBe(true);
-      // The minutes before the script started are in no log here: one read finds none.
-      expect(shelly.logReads).toBe(1);
+      // The minutes before the script started are in no log here: the list of
+      // records says so, and the log itself is never read.
+      expect(shelly.recordReads).toBe(1);
+      expect(shelly.logReads).toBe(0);
       expect(minutes().every((row) => row.ts !== undefined)).toBe(true);
     });
   });

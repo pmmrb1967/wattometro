@@ -12,7 +12,7 @@
  *                              {missing: [[start, end)…], now}: the minutes of channel c in
  *                              [from, to) (whole minutes, ≤ 11 days) not stored, the oldest
  *                              `limit` gaps at most, to fill from the Shelly's own minute log
- *                              (scripts/shelly-backfill.ts, shelly/wattometro.js 0.4.0+)
+ *                              (scripts/shelly-backfill.ts, shelly/wattometro.js 0.4.0+; 0.4.1 without running out of memory)
  */
 import type { Hono } from 'hono';
 import { z } from 'zod';
