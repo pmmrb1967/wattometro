@@ -219,6 +219,12 @@ export function demoResponse(method: string, path: string, body?: unknown): Resp
         return invalid();
       }
       return secondsRecords(data, from, to);
+    case 'GET /v1/power/minutes':
+      if (!range || to - from > 25 * 3600 || url.searchParams.get('meter') !== METER) {
+        return invalid();
+      }
+      // Every minute of the demonstration has its per-second values.
+      return json({ minutes: [] });
     case 'GET /v1/signatures':
       return json({
         signatures: [...demo.signatures]

@@ -4,7 +4,9 @@
  * chart on the Potência page: the apparent power of each second (what the
  * meter compares with the contracted power), the day's peak and the night's
  * baseload (src/domain/baseload.ts, from the quarter hours made of the
- * seconds).
+ * seconds). Minutes without per-second values (filled from the Shelly's own
+ * log, docs/shelly.md) are drawn flat at their peak; the baseload is left to
+ * the seconds, as a peak says nothing of the energy.
  */
 import { SECONDS_PER_MINUTE, type SecondReadings } from '../lib/readings-1s';
 import {
@@ -31,11 +33,15 @@ export interface PowerDay {
   peak: { ts: EpochSeconds; va: number } | null;
   /** Null when the night has too few quarter hours. */
   baseloadW: Watts | null;
+  /** Minutes drawn from their peak alone, without per-second values. */
+  peakOnlyMinutes: number;
 }
 
 export function powerDay(
   minutes: readonly { ts: EpochSeconds; readings: SecondReadings }[],
   day: LocalDate,
+  /** [ts, peak VA] of the minutes without per-second values (GET /v1/power/minutes). */
+  peakOnly: readonly (readonly [EpochSeconds, number])[] = [],
 ): PowerDay {
   const start = startOfLisbonDay(day);
   const length = lisbonDayLength(day);
@@ -61,6 +67,17 @@ export function powerDay(
     quarters.set(quarterTs, quarter);
   }
 
+  let peakOnlyMinutes = 0;
+  for (const [ts, value] of peakOnly) {
+    const offset = ts - start;
+    if (offset < 0 || offset >= length || offset % SECONDS_PER_MINUTE !== 0) continue;
+    // The seconds win where both exist.
+    if (va.subarray(offset, offset + SECONDS_PER_MINUTE).some((v) => v !== NO_VALUE)) continue;
+    va.fill(Math.abs(value), offset, Math.min(length, offset + SECONDS_PER_MINUTE));
+    peakOnlyMinutes += 1;
+    if (!peak || Math.abs(value) > peak.va) peak = { ts, va: Math.abs(value) };
+  }
+
   const full = [...quarters]
     .filter(([, quarter]) => quarter.seconds >= QUARTER_HOUR * MIN_QUARTER_SHARE)
     .map(([ts, quarter]) => ({
@@ -69,7 +86,7 @@ export function powerDay(
       energyWh: Math.round(quarter.joules / quarter.seconds / 4),
     }));
   const night = nightlyBaseload(full)[0];
-  return { start, length, va, peak, baseloadW: night ? night.watts : null };
+  return { start, length, va, peak, baseloadW: night ? night.watts : null, peakOnlyMinutes };
 }
 
 /**

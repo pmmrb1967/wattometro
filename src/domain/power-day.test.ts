@@ -38,6 +38,32 @@ describe('powerDay', () => {
     expect(powerDay(sparse, '2026-01-15').baseloadW).toBeNull();
   });
 
+  it('draws the minutes without seconds flat at their peak, the seconds first', () => {
+    const start = startOfLisbonDay('2026-01-15');
+    const day = powerDay([minute(start, 200, null)], '2026-01-15', [
+      [start, 9000],
+      [start + 120, 4500],
+      [start + 61, 7000],
+      [start - 60, 8000],
+    ]);
+    // The minute with seconds keeps them; a misaligned or outside one is left out.
+    expect(day.va[0]).toBe(200);
+    expect(day.va[60]).toBe(NO_VALUE);
+    expect(day.va[120]).toBe(4500);
+    expect(day.va[179]).toBe(4500);
+    expect(day.va[180]).toBe(NO_VALUE);
+    expect(day.peakOnlyMinutes).toBe(1);
+    expect(day.peak).toEqual({ ts: start + 120, va: 4500 });
+  });
+
+  it('leaves the baseload to the seconds', () => {
+    const start = startOfLisbonDay('2026-01-15');
+    const night = Array.from({ length: 360 }, (_, index) => [start + index * 60, 160] as const);
+    const day = powerDay([], '2026-01-15', night);
+    expect(day.baseloadW).toBeNull();
+    expect(day.peakOnlyMinutes).toBe(360);
+  });
+
   it('has 23 and 25 hours on the days the clocks change', () => {
     expect(powerDay([], '2026-03-29').length).toBe(82_800);
     expect(powerDay([], '2026-10-25').length).toBe(90_000);

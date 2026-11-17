@@ -18,7 +18,9 @@ export const powerTexts = {
       zoomHint: 'Arrasta sobre o gráfico para ver um intervalo de perto, até ao segundo.',
       range: (from: string, to: string) => `Das ${from} às ${to}`,
       wholeDay: 'Ver o dia todo',
-      none: 'Não há valores ao segundo deste dia.',
+      peakOnly: (minutes: number) =>
+        `${minutes === 1 ? '1 minuto não tem' : `${minutes} minutos não têm`} valores ao segundo (o Shelly enviou-${minutes === 1 ? 'o' : 'os'} mais tarde, do registo que guarda, depois de uma falha de internet ou do próprio Shelly): aparecem com o pico de cada minuto, sem o detalhe de cada segundo.`,
+      none: 'Não há valores deste dia.',
       error: 'Não foi possível ler os valores ao segundo deste dia. Tenta mais tarde.',
     },
     title: 'Potência contratada',

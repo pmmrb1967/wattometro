@@ -10,6 +10,9 @@
  *                              (repo/power.ts; ≤ 366 days); X-Truncated: 1 when there were more
  *   GET  /v1/seconds?meter&from&to → application/octet-stream, the per-second values of meter
  *                              'device:channel' in [from, to) (≤ 25 h) as records (repo/seconds.ts)
+ *   GET  /v1/power/minutes?meter&from&to → {minutes: [[ts, peak]…]}: the minutes of meter
+ *                              'device:channel' in [from, to) (≤ 25 h) without per-second values,
+ *                              with their peak, VA (W without an apparent peak) (repo/power.ts)
  */
 import type { Hono } from 'hono';
 import { z } from 'zod';
@@ -20,6 +23,7 @@ import { STATE } from '../rollups';
 import {
   dayPeaks,
   eredesQuarters,
+  minutesWithoutSeconds,
   peakMinutes,
   powerByMeter,
   splitRange,
@@ -127,5 +131,21 @@ export function powerRoutes(app: Hono<AppEnv>, { config, requireUser }: RouteCon
     );
     c.header('Content-Type', 'application/octet-stream');
     return c.body(records.buffer as ArrayBuffer);
+  });
+
+  app.get('/v1/power/minutes', requireUser, async (c) => {
+    const parsed = SecondsQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+    const { meter, from, to } = parsed.data;
+    const [deviceId = '', channel] = meter.split(':');
+    const minutes = await minutesWithoutSeconds(
+      config.sql,
+      c.get('user').householdId,
+      deviceId,
+      Number(channel),
+      from,
+      to,
+    );
+    return c.json({ minutes });
   });
 }

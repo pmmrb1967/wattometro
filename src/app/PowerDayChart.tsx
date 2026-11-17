@@ -18,6 +18,8 @@ import {
   HOUR,
   lisbonOffset,
   lisbonToday,
+  nextDate,
+  startOfLisbonDay,
   MINUTE,
   QUARTER_HOUR,
   type EpochSeconds,
@@ -25,6 +27,7 @@ import {
 } from '../lib/time';
 import { formatKva, formatPower } from '../lib/units';
 import { decodeSecondsRecords } from '../nilm/series';
+import { fetchMinutesWithoutSeconds } from './api';
 import { loadDaySeconds } from './seconds-cache';
 import { useSession } from './session';
 
@@ -341,11 +344,23 @@ export function PowerDayChart({ meter, tariff }: { meter: string; tariff: Tariff
 
   useEffect(() => {
     let current = true;
-    void loadDaySeconds(me.householdId, meter, day).then((outcome) => {
+    // The minutes without seconds are asked every time: the Shelly fills them from
+    // its own log up to a week later (docs/shelly.md), after the seconds are kept.
+    const from = startOfLisbonDay(day);
+    void Promise.all([
+      loadDaySeconds(me.householdId, meter, day),
+      fetchMinutesWithoutSeconds(meter, from, startOfLisbonDay(nextDate(day))),
+    ]).then(([outcome, peakOnly]) => {
       if (!current) return;
       setLoaded({
         day,
-        result: outcome.ok ? powerDay(decodeSecondsRecords(outcome.records), day) : 'error',
+        result: outcome.ok
+          ? powerDay(
+              decodeSecondsRecords(outcome.records),
+              day,
+              peakOnly.ok ? peakOnly.minutes : [],
+            )
+          : 'error',
       });
     });
     return () => {
@@ -377,6 +392,9 @@ export function PowerDayChart({ meter, tariff }: { meter: string; tariff: Tariff
           {/* A new day starts on the whole day. */}
           <Chart key={day} data={data} tariff={tariff} />
           <p className="hint">{texts.caption}</p>
+          {data.peakOnlyMinutes > 0 && (
+            <p className="hint">{texts.peakOnly(data.peakOnlyMinutes)}</p>
+          )}
         </>
       )}
     </section>

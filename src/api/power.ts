@@ -69,6 +69,23 @@ export async function fetchPeakRecords(
   return failure(response, []);
 }
 
+const MinutePeaks = z.object({ minutes: z.array(z.tuple([int, int])) });
+
+/**
+ * GET /v1/power/minutes: a meter's minutes in [from, to) (≤ 25 h) without
+ * per-second values, as [ts, peak VA (W without an apparent peak)].
+ */
+export async function fetchMinutesWithoutSeconds(
+  meter: string,
+  from: number,
+  to: number,
+): Promise<{ ok: true; minutes: [number, number][] } | Failure> {
+  const query = new URLSearchParams({ meter, from: String(from), to: String(to) });
+  const response = await send('GET', `/v1/power/minutes?${query}`);
+  if (response?.ok) return { ok: true, minutes: MinutePeaks.parse(await response.json()).minutes };
+  return failure(response, []);
+}
+
 /** GET /v1/seconds: a meter's per-second values in [from, to) (≤ 25 h), as records. */
 export async function fetchSeconds(
   meter: string,

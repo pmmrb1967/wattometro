@@ -199,6 +199,31 @@ describe('GET /v1/seconds', () => {
   });
 });
 
+describe('GET /v1/power/minutes', () => {
+  it('gives the minutes without per-second values and their peak, in its household only', async () => {
+    await minute(0, START, 3000, 3200);
+    await minute(0, START + 60, 5000, null);
+    await minute(0, START + 120, 6000, 6500);
+    await minute(1, START + 60, 9000, null);
+    const cookie = await signIn();
+    const meter = `${households[0]!.deviceId}:0`;
+    const response = await get(cookie, `/v1/power/minutes?meter=${meter}&from=${START}&to=${NOW}`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ minutes: [[START + 60, 5000]] });
+
+    const other = `${households[1]!.deviceId}:0`;
+    const theirs = await get(cookie, `/v1/power/minutes?meter=${other}&from=${START}&to=${NOW}`);
+    expect(await theirs.json()).toEqual({ minutes: [] });
+  });
+
+  it('refuses more than a day of 25 hours', async () => {
+    const cookie = await signIn();
+    const meter = `${households[0]!.deviceId}:0`;
+    const path = `/v1/power/minutes?meter=${meter}&from=${START}&to=${START + 25 * 3600 + 1}`;
+    expect((await get(cookie, path)).status).toBe(400);
+  });
+});
+
 describe('GET /v1/power/peaks', () => {
   it('packs the minutes above the threshold, with their per-second values', async () => {
     await minute(0, START, 3000, 3200);

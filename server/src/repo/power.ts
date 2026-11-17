@@ -338,3 +338,36 @@ export async function dayPeaks(
     (a, b) => a.meter.localeCompare(b.meter) || a.day.localeCompare(b.day),
   );
 }
+
+/**
+ * The minutes of a meter in [from, to) without per-second values (those
+ * filled from the Shelly's own log, docs/shelly.md, or past the readings_1s
+ * retention), with their peak: the apparent peak, else the active one. The
+ * day chart of "Potência" draws them where it has no seconds. Primary-key
+ * ranges on both tables: a Lisbon day is at most 1500 rows of each.
+ */
+export async function minutesWithoutSeconds(
+  sql: Sql,
+  householdId: string,
+  deviceId: string,
+  channel: number,
+  from: number,
+  to: number,
+): Promise<[number, number][]> {
+  const rows = await sql.all<{ ts: number; peak: number }>(
+    `SELECT m.ts, COALESCE(m.apparent_max_va, m.power_max_w) AS peak
+     FROM readings_1m AS m
+     WHERE m.device_id = ? AND m.channel = ? AND m.ts >= ? AND m.ts < ? AND m.household_id = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM readings_1s AS s
+         WHERE s.device_id = m.device_id AND s.channel = m.channel AND s.ts = m.ts
+       )
+     ORDER BY m.ts`,
+    deviceId,
+    channel,
+    from,
+    to,
+    householdId,
+  );
+  return rows.map((row) => [row.ts, row.peak]);
+}

@@ -3,7 +3,10 @@
  * The per-second values of a Lisbon day (GET /v1/seconds), kept in this
  * browser once the day is over: they no longer change, and a day is ~520 KB
  * and 1440 rows read from D1 per channel. Days the Shelly may still be
- * sending (its queue holds 4 h) are always fetched again. At most KEEP_DAYS
+ * sending (its queue holds ~30 min, docs/shelly.md) are always fetched again,
+ * with a wide margin. Minutes filled later from the Shelly's own log bring no
+ * per-second values, so they never change a kept day (the chart asks for them
+ * apart: GET /v1/power/minutes). At most KEEP_DAYS
  * days are kept. Cleared on sign-out; the demonstration is never kept.
  */
 import { isDemo } from '../demo/mode';
@@ -12,7 +15,7 @@ import { fetchSeconds, type Failure } from './api';
 
 const DB_NAME = 'wattometro-seconds';
 const STORE = 'days';
-/** The Shelly's queue (4 h) and a margin: after this a day is complete. */
+/** The Shelly's queue (~30 min) and a wide margin: after this a day's seconds are complete. */
 export const SETTLED_SECONDS = 6 * 3600;
 export const KEEP_DAYS = 14;
 
