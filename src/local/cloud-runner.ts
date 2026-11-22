@@ -13,12 +13,13 @@
 import { OneDrive } from '../cloud/onedrive';
 import { oneDriveAccountLabel, oneDriveToken, signOutOfOneDrive } from '../cloud/onedrive-auth';
 import { oneDriveAvailable } from '../cloud/providers';
-import { localStatus, markBackup, markChanged } from './backup';
+import { markBackup, markChanged } from './backup';
 import { BACKUPS_FOLDER, decodeHouse, parseBackupName, readKeyFile } from './cloud-files';
-import { browserCloudLinkStore, type CloudLink } from './cloud-state';
+import { browserCloudLinkStore, type CloudLink, type CloudLinkStore } from './cloud-state';
 import {
   connectFirst,
   disconnect,
+  houseHasData,
   joinCloud,
   REMOVED_KEY,
   resetSnapshotCache,
@@ -29,7 +30,7 @@ import {
 import type { LocalData } from './data';
 import { newGeneration, SECTIONS, type Section, type SyncMeta } from './meta';
 import { localExclusive, reloadLocal } from './server';
-import { browserStore } from './store';
+import { browserStore, type LocalStore } from './store';
 import { notifyLocalWrite, onLocalWrite } from './write-hook';
 
 /** Window event (a CustomEvent with the SyncResult, or null when the link changed): the cloud status changed. */
@@ -92,6 +93,7 @@ async function browserRun(): Promise<SyncResult> {
 interface Runner {
   write(): void;
   request(): void;
+  stop(): void;
 }
 
 let current: Runner | null = null;
@@ -187,13 +189,7 @@ export function startCloudRunner(
   }
 
   const online = () => request();
-  const runner: Runner = { write, request };
-  current = runner;
-  onLocalWrite(write);
-  if (typeof window !== 'undefined') window.addEventListener('online', online);
-  request();
-
-  return () => {
+  function stop(): void {
     stopped = true;
     if (writeTimer !== undefined) clearTimer(writeTimer);
     if (nextTimer !== undefined) clearTimer(nextTimer);
@@ -202,7 +198,14 @@ export function startCloudRunner(
       current = null;
       onLocalWrite(null);
     }
-  };
+  }
+  const runner: Runner = { write, request, stop };
+  current = runner;
+  onLocalWrite(write);
+  if (typeof window !== 'undefined') window.addEventListener('online', online);
+  request();
+
+  return stop;
 }
 
 /**
@@ -216,8 +219,11 @@ export function runWhileLinked(): () => void {
   const check = async () => {
     const status = await cloudStatus();
     if (!active) return;
-    if (status.linked && !stop) stop = startCloudRunner();
-    else if (!status.linked && stop) {
+    // A runner stopped by unlinkCloud (current is then null) starts again while still linked.
+    if (status.linked && (!stop || current === null)) {
+      stop?.();
+      stop = startCloudRunner();
+    } else if (!status.linked && stop) {
       stop();
       stop = null;
     }
@@ -232,8 +238,16 @@ export function runWhileLinked(): () => void {
   };
 }
 
-export async function cloudStatus(): Promise<CloudStatus> {
-  const link = await browserCloudLinkStore.load();
+/**
+ * The link of this browser; never linked (and its IndexedDB never opened)
+ * where OneDrive is not offered.
+ */
+export async function cloudStatus(
+  available: () => boolean = oneDriveAvailable,
+  links: CloudLinkStore = browserCloudLinkStore,
+): Promise<CloudStatus> {
+  if (!available()) return { linked: false };
+  const link = await links.load();
   if (!link) return { linked: false };
   const status: CloudStatus = { linked: true };
   if (link.accountLabel !== undefined) status.accountLabel = link.accountLabel;
@@ -308,13 +322,18 @@ export async function cloudHasHouse(accountId: string): Promise<boolean> {
 
 /** Back from "Ligar de novo ao OneDrive": the link follows that account, and a cycle runs. */
 export async function relinkAccount(accountId: string): Promise<void> {
-  const link = await browserCloudLinkStore.load();
-  if (!link) return;
   const label = await oneDriveAccountLabel(accountId).catch(() => undefined);
-  const next: CloudLink = { ...link, accountId };
-  if (label !== undefined) next.accountLabel = label;
-  delete next.error;
-  await browserCloudLinkStore.save(next);
+  // In the cycles' lock: a cycle mid-way cannot put the old account's error back.
+  const relinked = await acrossTabs(async () => {
+    const link = await browserCloudLinkStore.load();
+    if (!link) return false;
+    const next: CloudLink = { ...link, accountId };
+    if (label !== undefined) next.accountLabel = label;
+    delete next.error;
+    await browserCloudLinkStore.save(next);
+    return true;
+  });
+  if (!relinked) return;
   emit(null);
   requestSync();
 }
@@ -348,7 +367,8 @@ export async function linkFirstDevice(
   accountId: string,
   password: string,
 ): Promise<{ recoveryKey: string }> {
-  const result = await connectFirst(browserSyncDeps(accountId), password, await account(accountId));
+  const who = await account(accountId);
+  const result = await acrossTabs(() => connectFirst(browserSyncDeps(accountId), password, who));
   // Linked again: the removed mark goes, and the runner starts (runWhileLinked).
   clearRemovedMark();
   return result;
@@ -360,7 +380,8 @@ export async function joinFromCloud(
   secret: { password: string } | { recoveryKey: string },
   mode: 'join' | 'replace',
 ): Promise<void> {
-  await joinCloud(browserSyncDeps(accountId), secret, mode, await account(accountId));
+  const who = await account(accountId);
+  await acrossTabs(() => joinCloud(browserSyncDeps(accountId), secret, mode, who));
   clearRemovedMark();
 }
 
@@ -371,28 +392,43 @@ export async function joinFromCloud(
  * snapshot stays in the folder); with it, the error comes back and nothing here changes.
  */
 export async function unlinkCloud(options: { removeCloud: boolean }): Promise<boolean> {
-  const link = await browserCloudLinkStore.load();
-  let reached = true;
+  // No new cycle from here; one already running ends before the lock is ours.
+  current?.stop();
+  let outcome: { reached: boolean; accountId?: string };
   try {
-    await disconnect(browserSyncDeps(link?.accountId), options);
+    outcome = await acrossTabs(async () => {
+      const link = await browserCloudLinkStore.load();
+      const accountId = link?.accountId;
+      const done = (reached: boolean) =>
+        accountId === undefined ? { reached } : { reached, accountId };
+      try {
+        await disconnect(browserSyncDeps(accountId), options);
+      } catch (error) {
+        if (options.removeCloud) throw error;
+        await browserCloudLinkStore.clear();
+        resetSnapshotCache();
+        return done(false);
+      }
+      return done(true);
+    });
   } catch (error) {
-    if (options.removeCloud) throw error;
-    reached = false;
-    await browserCloudLinkStore.clear();
-    resetSnapshotCache();
+    // Still linked: runWhileLinked starts the runner again.
+    emit(null);
+    throw error;
   }
-  await signOutOfOneDrive(link?.accountId).catch(() => undefined);
+  await signOutOfOneDrive(outcome.accountId).catch(() => undefined);
   emit(null);
-  return reached;
+  return outcome.reached;
 }
 
-/** Whether the house in this browser has anything to keep (joining asks what to do with it). */
-export async function localHouseHasData(): Promise<boolean> {
-  const read = await browserStore.load();
-  return (
-    read.kind !== 'empty' &&
-    localStatus(read, { backupAt: null, changedAt: null }, 0, false).kind !== 'empty'
-  );
+/**
+ * Whether the house in this browser has anything to keep, in any section
+ * (joining asks what to do with it). One that cannot be read counts as kept.
+ */
+export async function localHouseHasData(store: LocalStore = browserStore): Promise<boolean> {
+  const read = await store.load();
+  if (read.kind === 'empty') return false;
+  return read.kind === 'unreadable' || houseHasData(read.data);
 }
 
 /** The link changed: the banner and the runner look again. */

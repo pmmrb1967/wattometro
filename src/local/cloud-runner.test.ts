@@ -1,8 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cloudWorking, notifyLocalWrite, restoredMeta, startCloudRunner } from './cloud-runner';
+import {
+  cloudStatus,
+  cloudWorking,
+  localHouseHasData,
+  notifyLocalWrite,
+  restoredMeta,
+  startCloudRunner,
+} from './cloud-runner';
+import { memoryCloudLinkStore, type CloudLink } from './cloud-state';
 import type { SyncResult } from './cloud-sync';
+import { emptyLocalData, type LocalData } from './data';
 import { SECTIONS } from './meta';
+import { memoryStore, type LocalStore } from './store';
 
 const DONE: SyncResult = { pulled: 0, pushed: false, backup: false };
 const DAY = 86_400;
@@ -132,5 +142,58 @@ describe('restoredMeta', () => {
     expect(meta.quartersGeneration.at).toBe(1_800_000_000);
     expect(meta.quartersGeneration.id).not.toBe('');
     expect(restoredMeta(1_800_000_000).quartersGeneration.id).not.toBe(meta.quartersGeneration.id);
+  });
+});
+
+describe('localHouseHasData', () => {
+  const withData = (patch: Partial<LocalData>) => memoryStore({ ...emptyLocalData(), ...patch });
+
+  it('is false for no house or an empty one', async () => {
+    expect(await localHouseHasData(memoryStore(null))).toBe(false);
+    expect(await localHouseHasData(memoryStore(emptyLocalData()))).toBe(false);
+  });
+
+  it('is true for a house with data in any section, not only quarters or tariffs', async () => {
+    const equipment = [{ name: 'Frigorífico' }] as unknown as LocalData['equipment'];
+    const alwaysOn = [{ name: 'Router' }] as unknown as LocalData['alwaysOn'];
+    const installation = { ...emptyLocalData().installation, electricCar: true };
+    for (const store of [
+      withData({ equipment }),
+      withData({ alwaysOn }),
+      withData({ zone: 'A' }),
+      withData({ budget: 5_000 } as unknown as Partial<LocalData>),
+      withData({ installation }),
+    ]) {
+      expect(await localHouseHasData(store)).toBe(true);
+    }
+  });
+
+  it('is true for a house that cannot be read', async () => {
+    const unreadable: LocalStore = {
+      ...memoryStore(null),
+      load: () => Promise.resolve({ kind: 'unreadable' }),
+    };
+    expect(await localHouseHasData(unreadable)).toBe(true);
+  });
+});
+
+describe('cloudStatus', () => {
+  const link = { provider: 'onedrive', deviceId: 'd', keyId: 'k' } as unknown as CloudLink;
+
+  it('is not linked, without reading the link, where OneDrive is not offered', async () => {
+    const links = memoryCloudLinkStore(link);
+    const load = vi.spyOn(links, 'load');
+    expect(await cloudStatus(() => false, links)).toEqual({ linked: false });
+    expect(load).not.toHaveBeenCalled();
+    expect(cloudWorking(await cloudStatus(() => false, links), 0)).toBe(false);
+  });
+
+  it('reads the link where OneDrive is offered', async () => {
+    const links = memoryCloudLinkStore({ ...link, lastSyncAt: 100, accountLabel: 'a@example.com' });
+    expect(await cloudStatus(() => true, links)).toEqual({
+      linked: true,
+      lastSyncAt: 100,
+      accountLabel: 'a@example.com',
+    });
   });
 });
