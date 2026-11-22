@@ -14,6 +14,7 @@ import {
   nonExtractable,
   unlockWithPassword,
   unlockWithRecoveryKey,
+  WrongSecretError,
   type EncryptedBlob,
   type WrappedMasterKey,
 } from '../lib/crypto';
@@ -102,8 +103,9 @@ export async function unlockKeyFile(
         ? await unlockWithPassword(file.wrappedKey, secret.password)
         : await unlockWithRecoveryKey(file.wrappedKey, secret.recoveryKey);
     return { keyId: file.keyId, masterKey: await nonExtractable(masterKey) };
-  } catch {
-    throw new CloudKeyError('wrong_secret');
+  } catch (error) {
+    if (error instanceof WrongSecretError) throw new CloudKeyError('wrong_secret');
+    throw error;
   }
 }
 
