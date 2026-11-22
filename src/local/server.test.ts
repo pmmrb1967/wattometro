@@ -385,11 +385,20 @@ describe('sync meta', () => {
 
   it('DELETE /v1/import/eredes starts a new quarters generation', async () => {
     const { store, api } = server();
+    await api.respond('POST', '/v1/import/eredes', { quarters: [[DAY, 100, 0]] });
     await api.respond('DELETE', '/v1/import/eredes');
     const meta = await store.loadMeta();
     expect(meta.quartersGeneration.at).toBe(NOW);
     expect(meta.quartersGeneration.id).not.toBe('');
-    expect(meta.stamps.quarters).toBe(0);
+    expect(meta.stamps.quarters).toBe(NOW);
+  });
+
+  it('DELETE /v1/import/eredes on an empty house also stamps quarters', async () => {
+    const { store, api } = server();
+    await api.respond('DELETE', '/v1/import/eredes');
+    const meta = await store.loadMeta();
+    expect(meta.stamps.quarters).toBe(NOW);
+    expect(meta.quartersGeneration.at).toBe(NOW);
   });
 
   it('exclusive runs between writes, never during one', async () => {

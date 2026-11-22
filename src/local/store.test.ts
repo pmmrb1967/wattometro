@@ -68,6 +68,23 @@ describe('browserStore', () => {
   });
 });
 
+describe('browserStore meta', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  // The stub returns one fixed result per get, so this reads back what the stub holds.
+  it('reads the stamps it holds', async () => {
+    const meta = { ...emptyMeta(), stamps: { ...emptyMeta().stamps, zone: 5 } };
+    stubIndexedDb('complete', meta);
+    expect(await browserStore.save(emptyLocalData(), meta)).toBe(true);
+    expect(await browserStore.loadMeta()).toEqual(meta);
+  });
+
+  it('reads invalid stamps as emptyMeta()', async () => {
+    stubIndexedDb('complete', { stamps: {} });
+    expect(await browserStore.loadMeta()).toEqual(emptyMeta());
+  });
+});
+
 describe('memoryStore meta', () => {
   it('keeps meta with the house', async () => {
     const store = memoryStore();

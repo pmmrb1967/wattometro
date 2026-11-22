@@ -100,7 +100,12 @@ export function createLocalServer(
     const now = Math.floor(clock());
     const before = await household();
     let meta = stampChanges(before, next, await store.loadMeta(), now);
-    if (options.newQuarters) meta = { ...meta, quartersGeneration: newGeneration(now) };
+    if (options.newQuarters) {
+      meta = {
+        stamps: { ...meta.stamps, quarters: now },
+        quartersGeneration: newGeneration(now),
+      };
+    }
     if (!(await store.save(next, meta))) return notKept();
     data = next;
     onChange();

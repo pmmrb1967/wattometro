@@ -67,6 +67,13 @@ export function sectionValue(data: LocalData, section: Section): unknown {
     : data[section];
 }
 
+/** Cheap check first, so a write that leaves a section alone never stringifies it. */
+function sameReference(before: LocalData, after: LocalData, section: Section): boolean {
+  return section === 'equipment'
+    ? before.equipment === after.equipment && before.alwaysOn === after.alwaysOn
+    : before[section] === after[section];
+}
+
 /** The meta with `now` on every section whose content changed between the two houses. */
 export function stampChanges(
   before: LocalData,
@@ -76,6 +83,7 @@ export function stampChanges(
 ): SyncMeta {
   const stamps = { ...meta.stamps };
   for (const section of SECTIONS) {
+    if (sameReference(before, after, section)) continue;
     if (
       JSON.stringify(sectionValue(before, section)) !== JSON.stringify(sectionValue(after, section))
     ) {
