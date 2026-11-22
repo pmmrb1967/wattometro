@@ -35,6 +35,7 @@
   "author": "Paulo Barbosa",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
+    "@azure/msal-browser": "5.28.0",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "hono": "^4.13.13",
     "pdfjs-dist": "^6.4.299",

@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => ({
         // For link previews only: no phone needs a copy.
         globIgnores: ['**/og-image.png'],
         // The API shares the origin: never answer it with the app shell.
-        navigateFallbackDenylist: [/^\/v1(\/|$)/],
+        navigateFallbackDenylist: [/^\/v1(\/|$)/, /^\/auth-redirect\.html/],
         // Web Push alerts (public/push-sw.js, docs/alerts.md).
         importScripts: ['push-sw.js'],
       },
@@ -82,6 +82,10 @@ export default defineConfig(({ mode }) => ({
         loadEnv(mode, process.cwd(), 'VITE_').VITE_API_PROXY || 'http://localhost:8787',
       ),
     },
+  },
+  build: {
+    // The Microsoft sign-in return page is its own entry (src/cloud/auth-redirect.ts).
+    rollupOptions: { input: { main: 'index.html', 'auth-redirect': 'auth-redirect.html' } },
   },
   test: {
     environment: 'node',
