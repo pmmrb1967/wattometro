@@ -4,7 +4,7 @@ A sincronização do modo sem conta pelo OneDrive (`docs/local-mode.md`) precisa
 
 Sem id, a app não mostra a opção OneDrive e tudo o resto funciona igual.
 
-**Registo atual** (2026-11-22): ainda não está registada. Falta o registo no Entra e o id em `src/cloud/cloud-config.ts`. Não ponham no repositório (público) o email da conta do portal nem outros dados pessoais.
+**Registo atual** (2026-11-22): ainda não está registada. Falta o registo no Entra e o id em `src/cloud/cloud-config.ts`. Não ponhas no repositório (público) o email da conta do portal nem outros dados pessoais.
 
 ## Que conta usar
 
@@ -37,7 +37,7 @@ Uma origem nova (por exemplo um domínio próprio) precisa do seu `…/auth-redi
 
 - Entrada por redirecionamento (`@azure/msal-browser`, carregado só quando se usa o OneDrive); a página `/auth-redirect.html` recebe a resposta e devolve-a à app.
 - A sessão da Microsoft fica no `localStorage` deste browser; o token só vai para a Microsoft.
-- Só acede à pasta da app (`/me/drive/special/approot`, que aparece como **Aplicações/Wattometro** ou **Apps/Wattometro** no OneDrive). Lá ficam `chave.json` (a chave mestra embrulhada pela palavra-passe e pela chave de recuperação), `casas/` (um ficheiro por aparelho) e `copias/` (cópias datadas). Tudo é cifrado no browser, exceto o `chave.json` e os cabeçalhos simples dos ficheiros (formato e versão).
+- Só acede à pasta da app (`/me/drive/special/approot`, que aparece como **Aplicações/Wattometro** ou **Apps/Wattometro** no OneDrive). Lá ficam `chave.json` (a chave mestra embrulhada pela palavra-passe e pela chave de recuperação), `casas/` (um ficheiro por aparelho) e `copias/` (cópias datadas). Tudo é cifrado no browser, exceto o `chave.json` e os cabeçalhos simples dos ficheiros (formato e `keyId`).
 - O nome mostrado em "OneDrive de …" é o email da conta Microsoft (as contas pessoais não dão o nome do dono pelo Graph).
 - O cabeçalho CSP (`security-headers.ts`) autoriza `login.microsoftonline.com`, `graph.microsoft.com` e os anfitriões de descarregamento do OneDrive, e `frame-src 'self'` mais `login.microsoftonline.com` para a renovação silenciosa da sessão.
 
@@ -46,7 +46,7 @@ Uma origem nova (por exemplo um domínio próprio) precisa do seu `…/auth-redi
 `localhost` só existe no próprio computador, e a Microsoft só devolve a resposta aos endereços registados.
 
 1. `pnpm dev` na porta **5173** (a do endereço registado), com o id em `.env.local` ou na constante.
-2. "Usar sem conta", junta uma fatura ou importa o CSV, e em **Definições → Dados** carrega em **Ligar ao OneDrive**; aceita a autorização, escolhe a palavra-passe e guarda a chave de recuperação.
+2. "Usar sem conta", importa o CSV da E-Redes, e em **Definições → Dados** carrega em **Ligar ao OneDrive**; aceita a autorização, escolhe a palavra-passe e guarda a chave de recuperação.
 3. No OneDrive deve aparecer a pasta da app com `chave.json` e `casas/`.
 4. "Outro dispositivo": janela anónima do Chrome (ou o Edge) em `http://localhost:5173`, **Tenho a casa no OneDrive**; os dados aparecem. Muda algo lá, **Sincronizar agora**, e confirma do outro lado.
 5. Uma cópia cifrada aparece em `copias/` na primeira sincronização (e depois uma por semana, se a casa mudar).

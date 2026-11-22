@@ -149,9 +149,9 @@ describe('OneDrive', () => {
     const fetch = fakeFetch([json({ owner: {} })]);
     const onedrive = new OneDrive(async () => 'token-1', {
       fetch: fetch.impl,
-      label: async () => 'ana@outlook.pt',
+      label: async () => 'ana@example.com',
     });
-    expect(await onedrive.account()).toEqual({ label: 'ana@outlook.pt' });
+    expect(await onedrive.account()).toEqual({ label: 'ana@example.com' });
     expect(fetch.calls).toHaveLength(0);
   });
 
