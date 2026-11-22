@@ -8,8 +8,10 @@
  *   same start, the snapshot with the larger quarters stamp wins (then deviceId).
  * - Every other section: the whole section of the snapshot with the larger stamp
  *   (a tie between non-zero stamps goes to the larger deviceId).
- * - A stamp more than a day ahead of `now` counts as `now`, so a wrong clock
- *   cannot win forever.
+ * - A stamp, or the start of a quarters generation, more than a day ahead of
+ *   `now` counts as `now`, so a wrong clock cannot win forever. A generation
+ *   kept like that may then carry different starts on different devices: it is
+ *   the same one (same id) and counts with the earliest of them.
  */
 import { emptyLocalData, withQuarters, type LocalData } from './data';
 import { SECTIONS, type Generation, type Section, type SyncMeta } from './meta';
@@ -32,6 +34,28 @@ function compareText(a: string, b: string): number {
 
 function compareGenerations(a: Generation, b: Generation): number {
   return a.at - b.at || compareText(a.id, b.id);
+}
+
+/**
+ * The newest of these generations, each start capped as the stamps are (a
+ * generation found with several starts counts with the earliest); null when none.
+ */
+export function newestGeneration(
+  generations: readonly Generation[],
+  now: number,
+): Generation | null {
+  const starts = new Map<string, number>();
+  for (const generation of generations) {
+    const at = effectiveStamp(generation.at, now);
+    const known = starts.get(generation.id);
+    starts.set(generation.id, known === undefined ? at : Math.min(known, at));
+  }
+  let best: Generation | null = null;
+  for (const [id, at] of starts) {
+    const current = { id, at };
+    if (best === null || compareGenerations(current, best) > 0) best = current;
+  }
+  return best;
 }
 
 export function mergeHouses(
@@ -63,11 +87,13 @@ export function mergeHouses(
     }
   }
 
-  const generation = all
-    .map((snapshot) => snapshot.meta.quartersGeneration)
-    .reduce((best, current) => (compareGenerations(current, best) > 0 ? current : best));
+  const generation =
+    newestGeneration(
+      all.map((snapshot) => snapshot.meta.quartersGeneration),
+      now,
+    ) ?? mine.meta.quartersGeneration;
   const sameGeneration = bySection('quarters').filter(
-    (snapshot) => compareGenerations(snapshot.meta.quartersGeneration, generation) === 0,
+    (snapshot) => snapshot.meta.quartersGeneration.id === generation.id,
   );
   for (const snapshot of sameGeneration) {
     data.quarters = withQuarters(data.quarters, snapshot.data.quarters);

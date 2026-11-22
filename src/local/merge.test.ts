@@ -116,6 +116,38 @@ describe('mergeHouses', () => {
     expect(mergeHouses(a, [c], NOW).data.zone).toBe('C');
   });
 
+  it('a quarters generation more than a day ahead counts as now, and a later restore wins', () => {
+    const ahead = { id: 'future', at: NOW + 30 * DAY };
+    const a = snap('a', { quarters: [[T0, 100, 0]] }, { quarters: NOW - 10 }, ahead);
+    const b = snap(
+      'b',
+      { quarters: [[T0 + 900, 200, 0]] },
+      { quarters: NOW - 20 },
+      { id: 'g0', at: NOW - 100 },
+    );
+    const merged = mergeHouses(b, [a], NOW);
+    expect(merged.data.quarters).toEqual([[T0, 100, 0]]);
+    expect(merged.meta.quartersGeneration).toEqual({ id: 'future', at: NOW });
+
+    // b kept the capped generation; a still sends the one ahead: the same generation, its earliest start.
+    const kept = { ...b, data: merged.data, meta: merged.meta };
+    const later = NOW + 600;
+    const again = mergeHouses(kept, [a], later);
+    expect(again.meta.quartersGeneration).toEqual({ id: 'future', at: NOW });
+    expect(again.data.quarters).toEqual([[T0, 100, 0]]);
+
+    // A restore after that (a new generation at a later real time) wins over it.
+    const restored = snap(
+      'c',
+      { quarters: [[T0 + 1800, 300, 0]] },
+      { quarters: later },
+      { id: 'r', at: later },
+    );
+    const afterRestore = mergeHouses(restored, [kept, a], later);
+    expect(afterRestore.meta.quartersGeneration).toEqual({ id: 'r', at: later });
+    expect(afterRestore.data.quarters).toEqual([[T0 + 1800, 300, 0]]);
+  });
+
   it('order of theirs does not change the result', () => {
     const quarter = (n: number, wh: number): LocalQuarter => [T0 + 900 * n, wh, 0];
     const a = snap(
