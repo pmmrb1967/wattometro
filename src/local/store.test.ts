@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyLocalData } from './data';
-import { browserStore } from './store';
+import { emptyMeta } from './meta';
+import { browserStore, memoryStore } from './store';
 
 interface FakeRequest {
   result: unknown;
@@ -64,5 +65,28 @@ describe('browserStore', () => {
   it('reads what is kept', async () => {
     stubIndexedDb('complete', emptyLocalData());
     expect(await browserStore.load()).toEqual({ kind: 'ok', data: emptyLocalData() });
+  });
+});
+
+describe('memoryStore meta', () => {
+  it('keeps meta with the house', async () => {
+    const store = memoryStore();
+    const meta = { ...emptyMeta(), stamps: { ...emptyMeta().stamps, zone: 5 } };
+    await store.save(emptyLocalData(), meta);
+    expect(await store.loadMeta()).toEqual(meta);
+  });
+
+  it('loadMeta without meta is emptyMeta()', async () => {
+    expect(await memoryStore(emptyLocalData()).loadMeta()).toEqual(emptyMeta());
+  });
+
+  it('clear removes the meta', async () => {
+    const store = memoryStore();
+    await store.save(emptyLocalData(), {
+      ...emptyMeta(),
+      stamps: { ...emptyMeta().stamps, zone: 5 },
+    });
+    await store.clear();
+    expect(await store.loadMeta()).toEqual(emptyMeta());
   });
 });

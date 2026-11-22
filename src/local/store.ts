@@ -5,18 +5,22 @@
  * Only "Apagar os dados deste browser" removes it.
  */
 import type { LocalData } from './data';
+import { emptyMeta, syncMetaSchema, type SyncMeta } from './meta';
 import { readStored, type LocalRead } from './stored';
 
 const DB_NAME = 'wattometro-local';
 const STORE = 'household';
 const KEY = 'data';
+const META_KEY = 'meta';
 
 /** What the local server reads and writes; IndexedDB in the app, memory in the tests. */
 export interface LocalStore {
   load(): Promise<LocalRead>;
   /** True once it is on disk; false when the browser refused it (full, private window). */
-  save(data: LocalData): Promise<boolean>;
-  /** False when the browser did not remove it. */
+  save(data: LocalData, meta?: SyncMeta): Promise<boolean>;
+  /** The change stamps kept with the house; empty when none were kept. */
+  loadMeta(): Promise<SyncMeta>;
+  /** Removes the house and its stamps. False when the browser did not remove it. */
   clear(): Promise<boolean>;
 }
 
@@ -59,24 +63,44 @@ export const browserStore: LocalStore = {
     const read = await withStore('readonly', (store) => store.get(KEY) as IDBRequest<unknown>);
     return read.ok ? readStored(read.value) : { kind: 'unreadable' };
   },
-  async save(data) {
-    return (await withStore('readwrite', (store) => store.put(data, KEY))).ok;
+  async loadMeta() {
+    const read = await withStore('readonly', (store) => store.get(META_KEY) as IDBRequest<unknown>);
+    const parsed = read.ok ? syncMetaSchema.safeParse(read.value) : null;
+    return parsed?.success ? parsed.data : emptyMeta();
+  },
+  async save(data, meta) {
+    // Both keys in one transaction: the stamps never describe another house than the one kept.
+    return (
+      await withStore('readwrite', (store) => {
+        if (meta) store.put(meta, META_KEY);
+        return store.put(data, KEY);
+      })
+    ).ok;
   },
   async clear() {
-    return (await withStore('readwrite', (store) => store.delete(KEY))).ok;
+    return (
+      await withStore('readwrite', (store) => {
+        store.delete(META_KEY);
+        return store.delete(KEY);
+      })
+    ).ok;
   },
 };
 
-export function memoryStore(initial: LocalData | null = null): LocalStore {
+export function memoryStore(initial: LocalData | null = null, meta?: SyncMeta): LocalStore {
   let kept = initial;
+  let keptMeta = meta ? structuredClone(meta) : emptyMeta();
   return {
     load: () => Promise.resolve(kept ? { kind: 'ok', data: kept } : { kind: 'empty' }),
-    save: (data) => {
+    loadMeta: () => Promise.resolve(structuredClone(keptMeta)),
+    save: (data, next) => {
       kept = structuredClone(data);
+      if (next) keptMeta = structuredClone(next);
       return Promise.resolve(true);
     },
     clear: () => {
       kept = null;
+      keptMeta = emptyMeta();
       return Promise.resolve(true);
     },
   };

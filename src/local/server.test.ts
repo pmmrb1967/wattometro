@@ -375,3 +375,39 @@ describe('localDataSchema', () => {
     );
   });
 });
+
+describe('sync meta', () => {
+  it('PUT /v1/quality/zone stamps zone with the clock', async () => {
+    const { store, api } = server();
+    await api.respond('PUT', '/v1/quality/zone', { zone: 'B' });
+    expect((await store.loadMeta()).stamps.zone).toBe(NOW);
+  });
+
+  it('DELETE /v1/import/eredes starts a new quarters generation', async () => {
+    const { store, api } = server();
+    await api.respond('DELETE', '/v1/import/eredes');
+    const meta = await store.loadMeta();
+    expect(meta.quartersGeneration.at).toBe(NOW);
+    expect(meta.quartersGeneration.id).not.toBe('');
+    expect(meta.stamps.quarters).toBe(0);
+  });
+
+  it('exclusive runs between writes, never during one', async () => {
+    const { api } = server();
+    const order: string[] = [];
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow = api.exclusive(async () => {
+      order.push('start');
+      await gate;
+      order.push('end');
+    });
+    const write = api
+      .respond('PUT', '/v1/quality/zone', { zone: 'A' })
+      .then(() => order.push('write'));
+    await Promise.resolve();
+    release();
+    await Promise.all([slow, write]);
+    expect(order).toEqual(['start', 'end', 'write']);
+  });
+});

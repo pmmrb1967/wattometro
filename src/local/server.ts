@@ -28,6 +28,7 @@ import {
   withTariff,
   type LocalData,
 } from './data';
+import { newGeneration, stampChanges } from './meta';
 import { browserStore, type LocalStore } from './store';
 
 const EREDES = 'eredes';
@@ -94,9 +95,13 @@ export function createLocalServer(
     return data;
   }
 
-  async function keep(next: LocalData): Promise<Response> {
+  async function keep(next: LocalData, options: { newQuarters?: boolean } = {}): Promise<Response> {
     if (locked) return unreadable();
-    if (!(await store.save(next))) return notKept();
+    const now = Math.floor(clock());
+    const before = await household();
+    let meta = stampChanges(before, next, await store.loadMeta(), now);
+    if (options.newQuarters) meta = { ...meta, quartersGeneration: newGeneration(now) };
+    if (!(await store.save(next, meta))) return notKept();
     data = next;
     onChange();
     return empty();
@@ -108,6 +113,22 @@ export function createLocalServer(
       acrossTabs(() => {
         data = null;
         return task();
+      }),
+    );
+    writes = run.catch(() => undefined);
+    return run;
+  }
+
+  /** A task between writes, in the same queue and lock; what it changes is read again afterwards. */
+  function exclusive<T>(task: () => Promise<T>): Promise<T> {
+    const run = writes.then(() =>
+      acrossTabs(async () => {
+        data = null;
+        try {
+          return await task();
+        } finally {
+          data = null;
+        }
       }),
     );
     writes = run.catch(() => undefined);
@@ -186,7 +207,7 @@ export function createLocalServer(
         return saved.ok ? json({ written: quarters.length }) : saved;
       }
       case 'DELETE /v1/import/eredes':
-        return keep({ ...house, quarters: [] });
+        return keep({ ...house, quarters: [] }, { newQuarters: true });
       case 'GET /v1/tariffs':
         return json({ tariffs: house.tariffs });
       case 'POST /v1/tariffs': {
@@ -367,6 +388,7 @@ export function createLocalServer(
 
   return {
     respond,
+    exclusive,
     /** Forgets what was read, so the next request reads the store again (after a restore). */
     reload: () => {
       data = null;
@@ -381,3 +403,4 @@ const server = createLocalServer(browserStore, undefined, () =>
 /** Answers one API request of the local mode. */
 export const localResponse = server.respond;
 export const reloadLocal = server.reload;
+export const localExclusive = server.exclusive;
