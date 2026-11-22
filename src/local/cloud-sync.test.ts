@@ -259,6 +259,74 @@ describe('syncOnce', () => {
     expect((await linkOf(a)).error).toBe('throttled');
   });
 
+  it('a link removed mid-cycle is not saved again and nothing more is written', async () => {
+    const { drive, a } = await connected();
+    const mine = housePath((await linkOf(a)).deviceId);
+    const backupsBefore = backups(drive);
+    clock += 8 * DAY;
+    await edit(a, (data) => ({ ...data, zone: 'A' }));
+    // "Desligar" in another tab while this cycle reads the folder.
+    const unlinking: CloudDrive = {
+      read: (path) => drive.read(path),
+      write: (path, bytes, options) => drive.write(path, bytes, options),
+      remove: (path) => drive.remove(path),
+      account: () => drive.account(),
+      list: async (folder) => {
+        const entries = await drive.list(folder);
+        await drive.remove(mine);
+        await a.links.clear();
+        return entries;
+      },
+    };
+    const result = await syncOnce({ ...a, drive: unlinking });
+    expect(result.pushed).toBe(false);
+    expect(await a.links.load()).toBeNull();
+    expect(drive.files.has(mine)).toBe(false);
+    expect(backups(drive)).toEqual(backupsBefore);
+  });
+
+  it('a link removed mid-cycle is not saved again after a drive error', async () => {
+    const { drive, a } = await connected();
+    const failing: CloudDrive = {
+      read: async (path) => {
+        await a.links.clear();
+        if (path.startsWith('casas/')) throw new CloudError('offline');
+        return drive.read(path);
+      },
+      write: (path, bytes, options) => drive.write(path, bytes, options),
+      remove: (path) => drive.remove(path),
+      account: () => drive.account(),
+      list: (folder) => drive.list(folder),
+    };
+    // Another device's snapshot, so the cycle reads one.
+    const b = device(drive);
+    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    resetSnapshotCache();
+    const result = await syncOnce({ ...a, drive: failing });
+    expect(result.error).toBe('offline');
+    expect(await a.links.load()).toBeNull();
+  });
+
+  it('a link followed to another account mid-cycle keeps that account and no error', async () => {
+    const { drive, a } = await connected();
+    const relinked: CloudDrive = {
+      read: (path) => drive.read(path),
+      write: (path, bytes, options) => drive.write(path, bytes, options),
+      remove: (path) => drive.remove(path),
+      account: () => drive.account(),
+      list: async () => {
+        const link = await linkOf(a);
+        await a.links.save({ ...link, accountId: 'other' });
+        throw new CloudError('needs_reconnect');
+      },
+    };
+    const result = await syncOnce({ ...a, drive: relinked });
+    expect(result.error).toBe('needs_reconnect');
+    const link = await linkOf(a);
+    expect(link.accountId).toBe('other');
+    expect(link.error).toBeUndefined();
+  });
+
   it('a second write in the same second is pushed on the next cycle', async () => {
     const { drive, a } = await connected();
     clock += 60;
@@ -382,6 +450,22 @@ describe('joinCloud', () => {
     await syncOnce(a);
     expect(await houseOf(a)).toEqual(kept);
     expect(await houseOf(b)).toEqual(kept);
+  });
+
+  it('replace with no readable house in the cloud is refused and keeps this house', async () => {
+    const { drive, a } = await connected();
+    // Only chave.json is left readable: this device's snapshot is gone.
+    await drive.remove(housePath((await linkOf(a)).deviceId));
+    resetSnapshotCache();
+    const kept = house({ zone: 'C', quarters: quarters(Q + 900) });
+    const b = device(drive, kept);
+    await expect(joinCloud(b, { password: PASSWORD }, 'replace', {})).rejects.toMatchObject({
+      code: 'no_cloud_house',
+    });
+    expect(await houseOf(b)).toEqual(kept);
+    expect(await b.links.load()).toBeNull();
+    expect(b.onHouseChanged).not.toHaveBeenCalled();
+    expect([...drive.files.keys()].filter((path) => path.startsWith('casas/'))).toEqual([]);
   });
 
   it('a wrong password is refused and links nothing', async () => {

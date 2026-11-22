@@ -29,15 +29,8 @@ import {
 } from './cloud-files';
 import type { CloudLink, CloudLinkStore } from './cloud-state';
 import { emptyLocalData, LOCAL_VERSION, type LocalData } from './data';
-import { mergeHouses, type HouseSnapshot } from './merge';
-import {
-  emptyMeta,
-  SECTIONS,
-  sectionValue,
-  type Generation,
-  type Section,
-  type SyncMeta,
-} from './meta';
+import { mergeHouses, newestGeneration, type HouseSnapshot } from './merge';
+import { emptyMeta, SECTIONS, sectionValue, type Section, type SyncMeta } from './meta';
 import type { LocalStore } from './store';
 
 export interface SyncDeps {
@@ -62,10 +55,15 @@ export interface SyncResult {
   retryAfterSeconds?: number;
 }
 
-/** Why joining or connecting stopped before linking anything. */
+/**
+ * Why joining or connecting stopped before linking anything; `no_cloud_house`:
+ * "Ficar com a da cloud" on a folder without a house that can be read.
+ */
+export type CloudSyncErrorCode = 'unreadable_house' | 'newer_app' | 'no_cloud_house';
+
 export class CloudSyncError extends Error {
-  readonly code: 'unreadable_house' | 'newer_app';
-  constructor(code: 'unreadable_house' | 'newer_app') {
+  readonly code: CloudSyncErrorCode;
+  constructor(code: CloudSyncErrorCode) {
     super(code);
     this.name = 'CloudSyncError';
     this.code = code;
@@ -102,7 +100,8 @@ async function houseHash(house: { data: LocalData; meta: SyncMeta }): Promise<st
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function hasData(data: LocalData, section: Section): boolean {
+/** The section holds something to keep (the installation: anything but unknown). */
+export function hasData(data: LocalData, section: Section): boolean {
   switch (section) {
     case 'quarters':
       return data.quarters.length > 0;
@@ -115,6 +114,11 @@ function hasData(data: LocalData, section: Section): boolean {
     default:
       return data[section] !== null;
   }
+}
+
+/** Any section holds something to keep. */
+export function houseHasData(data: LocalData): boolean {
+  return SECTIONS.some((section) => hasData(data, section));
 }
 
 /** Section by section, so the order of the keys in the stored object does not matter. */
@@ -135,10 +139,6 @@ function sameHouse(
       JSON.stringify(sectionValue(a.data, section)) ===
         JSON.stringify(sectionValue(b.data, section)),
   );
-}
-
-function compareGenerations(a: Generation, b: Generation): number {
-  return a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 function markRemoved(at: number): void {
@@ -238,6 +238,20 @@ async function backupIfDue(
   return written;
 }
 
+/**
+ * The link is still the one the cycle started with: not removed ("Desligar",
+ * another tab) nor followed to another account or folder meanwhile.
+ */
+async function sameLink(links: CloudLinkStore, link: CloudLink): Promise<boolean> {
+  const latest = await links.load();
+  return (
+    latest !== null &&
+    latest.deviceId === link.deviceId &&
+    latest.keyId === link.keyId &&
+    latest.accountId === link.accountId
+  );
+}
+
 export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
   const { drive, house, links } = deps;
   const result: SyncResult = { pulled: 0, pushed: false, backup: false };
@@ -246,6 +260,10 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
   const next: CloudLink = { ...link };
   const now = Math.floor(deps.now());
   const key: CloudKey = { keyId: link.keyId, masterKey: link.masterKey };
+  /** What the cycle learnt goes on the link only while it is still this one. */
+  const saveLink = async (): Promise<void> => {
+    if (await sameLink(links, link)) await links.save(next);
+  };
 
   try {
     // 0. The folder's key: gone or another means the cloud house was deleted or replaced.
@@ -265,7 +283,7 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
     result.pulled = snapshots.read;
     if (snapshots.newer) {
       next.error = 'newer_app';
-      await links.save(next);
+      await saveLink();
       return { ...result, error: 'newer_app' };
     }
 
@@ -285,7 +303,9 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
     if (merged === null) return result;
     if (merged.changed) deps.onHouseChanged();
 
-    // 4. This device's snapshot, when the house changed since the last one sent.
+    // 4. This device's snapshot, when the house changed since the last one sent;
+    // nothing more goes to the cloud once this browser was unlinked meanwhile.
+    if (!(await sameLink(links, link))) return result;
     const hash = await houseHash(merged.joined);
     if (!snapshots.mineListed || hash !== link.lastPushedHash) {
       await drive.write(
@@ -297,6 +317,7 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
     }
 
     // 5. The shared backup calendar.
+    if (!(await sameLink(links, link))) return result;
     result.backup = await backupIfDue(drive, key, link.deviceId, merged.joined, now);
 
     next.lastSyncAt = now;
@@ -306,12 +327,12 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
     } else {
       delete next.error;
     }
-    await links.save(next);
+    await saveLink();
     return result;
   } catch (error) {
     if (!(error instanceof CloudError)) throw error;
     next.error = error.code;
-    await links.save(next);
+    await saveLink();
     const failed: SyncResult = { ...result, error: error.code };
     if (error.retryAfterSeconds !== undefined) failed.retryAfterSeconds = error.retryAfterSeconds;
     return failed;
@@ -388,24 +409,22 @@ export async function joinCloud(
   if (snapshots.newer) throw new CloudSyncError('newer_app');
   const now = Math.floor(deps.now());
   const cloud = snapshots.theirs;
+  // Replacing by nothing would empty this browser's house: refused, the house stays.
+  if (mode === 'replace' && cloud.length === 0) throw new CloudSyncError('no_cloud_house');
 
   await deps.exclusive(async () => {
     const local = await readableHouse(deps.house);
-    if (mode === 'replace') {
-      const [first, ...rest] = cloud;
-      const replaced = first
-        ? mergeHouses(first, rest, now)
-        : { data: emptyLocalData(), meta: emptyMeta() };
+    const [first, ...rest] = cloud;
+    if (mode === 'replace' && first) {
+      const replaced = mergeHouses(first, rest, now);
       await deps.house.save(replaced.data, replaced.meta);
       return;
     }
     // The cloud's newest generation, so these quarters join its union.
-    const generation = cloud
-      .map((snapshot) => snapshot.meta.quartersGeneration)
-      .reduce<Generation | null>(
-        (best, current) => (best && compareGenerations(best, current) >= 0 ? best : current),
-        null,
-      );
+    const generation = newestGeneration(
+      cloud.map((snapshot) => snapshot.meta.quartersGeneration),
+      now,
+    );
     const stamps = { ...local.meta.stamps };
     for (const section of SECTIONS) {
       const inCloud = cloud.some((snapshot) => snapshot.meta.stamps[section] !== 0);
