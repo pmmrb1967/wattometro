@@ -90,6 +90,16 @@ describe('house file', () => {
     expect(await decodeHouse(key, bytes)).toEqual({ kind: 'newer', version: 99 });
   });
 
+  it('newer version with a meta of another shape is still newer', async () => {
+    const key = await createKeyFile(new MemoryDrive(), 'x', ITER);
+    const future = { ...payload(), version: emptyLocalData().version + 1, meta: { other: 1 } };
+    const bytes = await encodeHouse(key, future as unknown as HousePayload);
+    expect(await decodeHouse(key, bytes)).toEqual({
+      kind: 'newer',
+      version: emptyLocalData().version + 1,
+    });
+  });
+
   it('corrupt blob is unreadable', async () => {
     const key = await createKeyFile(new MemoryDrive(), 'x', ITER);
     const header = JSON.parse(new TextDecoder().decode(await encodeHouse(key, payload())));

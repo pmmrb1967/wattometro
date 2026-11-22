@@ -121,6 +121,8 @@ const headerSchema = z.object({
   blob: blobSchema,
 });
 
+const versionSchema = z.looseObject({ version: z.number().int().min(1) });
+
 const envelopeSchema = z.object({
   version: z.number().int().min(1),
   deviceId: z.string().min(1).max(200),
@@ -157,10 +159,15 @@ export async function decodeHouse(key: CloudKey, bytes: Uint8Array): Promise<Dec
   } catch {
     return { kind: 'unreadable' };
   }
+  // The version first: a newer format may change the rest of the envelope.
+  const versioned = versionSchema.safeParse(plain);
+  if (!versioned.success) return { kind: 'unreadable' };
+  if (versioned.data.version > LOCAL_VERSION) {
+    return { kind: 'newer', version: versioned.data.version };
+  }
   const envelope = envelopeSchema.safeParse(plain);
   if (!envelope.success) return { kind: 'unreadable' };
   const { version, deviceId, writtenAt, meta, data } = envelope.data;
-  if (version > LOCAL_VERSION) return { kind: 'newer', version };
   const stored = readStored(data);
   if (stored.kind !== 'ok') return { kind: 'unreadable' };
   return { kind: 'ok', payload: { version, deviceId, writtenAt, data: stored.data, meta } };
