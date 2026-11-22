@@ -9,7 +9,29 @@ Para quem só tem o ficheiro da E-Redes e não quer conta: na página de entrada
 - **Volta sozinho.** O modo fica marcado neste browser (`localStorage`); ao abrir a app outra vez, entra nele.
 - **Armazenamento persistente.** A app pede-o ao browser (`navigator.storage.persist()`) só quando já há dados e de novo em cada abertura, enquanto não for concedido: os browsers tendem a aceitar mais depressa uma app já usada ou instalada. O browser pode recusar.
 - **Cópia.** Em Definições › Dados: "Guardar cópia" descarrega um ficheiro JSON (o mesmo formato, com versão, validado com zod ao repor); "Repor cópia" substitui a casa deste browser; "Apagar os dados deste browser" remove-a, com a chave de IA e o registo de gastos.
-- **Lembrete.** A faixa do topo mostra a data da última cópia (a do descarregamento: a app não sabe se o ficheiro foi guardado). Avisa quando há dados e nunca houve cópia, ou quando a cópia tem mais de 30 dias e a casa mudou desde então (`src/local/backup.ts`). Sem alterações não há aviso, por mais antiga que seja a cópia. Repor uma cópia conta como cópia.
+- **Lembrete.** A faixa do topo mostra a data da última cópia (a do descarregamento: a app não sabe se o ficheiro foi guardado). Avisa quando há dados e nunca houve cópia, ou quando a cópia tem mais de 30 dias e a casa mudou desde então (`src/local/backup.ts`). Sem alterações não há aviso, por mais antiga que seja a cópia. Repor uma cópia conta como cópia. Com o OneDrive ligado (abaixo), a sincronização também conta como cópia: enquanto a cloud sincronizar sem erro duradouro e a última sincronização tiver menos de 30 dias, não há lembrete (`cloudWorking` em `src/local/cloud-runner.ts`).
+
+## Sincronizar pelo OneDrive
+
+Opcional, em Definições › Dados (só aparece se a app tiver o id da Microsoft: `docs/onedrive.md`). Decidido a 2026-11-22 (`planning/plan.md`, Decisões). Sem isto, tudo funciona como antes, só com a casa neste browser.
+
+- **Ligar.** "Ligar ao OneDrive" abre a página da Microsoft (por redirecionamento) e, ao voltar, a app vê a pasta da app (`Aplicações/Wattometro`). Se ainda não tem casa, pede uma **palavra-passe da cloud** (mínimo 12 caracteres; não é a da Microsoft e a app não a guarda) e mostra uma **chave de recuperação**, para guardar num sítio seguro. Uma das duas abre a casa noutro aparelho; sem as duas, ninguém lê os dados, nem o dono. A casa é cifrada no browser com a cifragem do Faturómetro (chave mestra embrulhada pela palavra-passe e pela chave de recuperação, em `chave.json`).
+- **Aparelho novo.** Na página de entrada, "Tenho a casa no OneDrive": entra na Microsoft, escreve a palavra-passe (ou usa a chave de recuperação) e abre a casa; se a pasta ainda não tem casa, diz-o. Em Definições, num browser que já tem uma casa, pergunta-se o que fazer: **juntar as duas casas** (acrescenta o que falta na cloud; o que a cloud já tem fica) ou **ficar com a da cloud** (descarrega antes uma cópia da casa deste browser e substitui-a).
+- **O que há na pasta.** `chave.json`; `casas/`, um ficheiro cifrado por aparelho (cada aparelho só escreve o seu e lê os dos outros); `copias/`, as cópias datadas.
+- **Como se juntam as casas**, por palavras simples:
+  - os **quartos de hora** da E-Redes juntam-se pelo início do intervalo: um que só um aparelho tem fica em todos, e se dois têm o mesmo ganha o de alteração mais recente;
+  - **cada uma das outras secções** (tarifários, zona de qualidade, localidade, orçamento, instalação, equipamentos) fica inteira com a versão da alteração mais recente;
+  - os **equipamentos e o "sempre ligado"** andam juntos, porque um aponta para o outro;
+  - **apagar os dados da E-Redes** ou **repor uma cópia** vale para todos os aparelhos: é uma alteração mais recente que tudo o que eles tinham;
+  - um relógio adiantado mais de um dia conta como "agora", para não ganhar para sempre.
+- **Quando sincroniza.** Ao abrir a app, 10 s depois da última alteração (várias seguidas fazem um só ciclo), de 5 em 5 minutos com a app aberta, quando a internet volta e em "Sincronizar agora". Um separador de cada vez (Web Locks). Se a Microsoft pedir para esperar (`Retry-After`), nada corre até lá. O ficheiro do aparelho só é enviado quando a casa mudou desde o último envio.
+- **Cópias automáticas.** Uma cópia datada em `copias/` quando a mais recente (de qualquer aparelho) tem 7 dias e a casa mudou desde então, ou quando há casa e ainda não há nenhuma; ficam as 8 mais recentes. Em Definições › Dados, "Cópias no OneDrive" lista-as e "Repor" substitui a casa em todos os aparelhos ligados (com confirmação).
+- **Faixa do topo.** "Sem conta: a casa sincroniza com o teu OneDrive. Última sincronização: …" e os avisos: a ligação expirou (com "Ligar de novo ao OneDrive"); o OneDrive está cheio; outro aparelho tem uma versão mais recente da app (atualizar este); um aparelho tem dados ilegíveis (os outros continuam); a casa na cloud foi apagada ou substituída (com "Ligar de novo"). Uma falha passageira (sem rede, Microsoft a pedir para esperar) não tira a contagem como cópia.
+- **Não se perde nada por engano.** Uma casa deste browser que não se consegue ler nunca é enviada nem escrita por cima (continua o aviso de "Não perder dados"), e uma casa gravada por uma app mais recente não é tocada.
+- **Desligar.** Tira este browser da sincronização: apaga a fotografia deste aparelho da pasta e esquece a sessão da Microsoft aqui; a casa fica neste browser e na cloud, e os outros aparelhos continuam. Se o OneDrive não responder, o browser fica desligado na mesma e a fotografia dele fica na pasta.
+- **Apagar.** "Apagar os dados deste browser", com o OneDrive ligado, pergunta: **só deste browser** (a cloud e os outros aparelhos ficam como estão) ou **também da cloud** (a casa, as cópias e a chave, para todos os aparelhos; pede para escrever "apagar" e, se o OneDrive não responder, não apaga nada). Apagar os consumos da E-Redes em Importar também vale para todos os aparelhos.
+- **Limites.** A Microsoft só renova a sessão de uma app de página única durante 24 h; depois, "Ligar de novo ao OneDrive". A palavra-passe da cloud não se recupera: só a chave de recuperação a substitui. Só OneDrive por agora; Google Drive e Dropbox ficam para depois.
+- **Casas com Shelly** (conta) continuam no D1, na Cloudflare; isto é só para o modo sem conta.
 
 ## Não perder dados
 
@@ -26,10 +48,12 @@ Para quem só tem o ficheiro da E-Redes e não quer conta: na página de entrada
 | Tarifário a partir do PDF da fatura (lido no browser) | "Amanhã no mercado": os preços do dia seguinte são lidos pelo Cron do Worker |
 | Potência contratada aproximada (máximos de 15 min, com o aviso) | Potência ao segundo, aparelhos, tensão, falhas de energia |
 | Consumo base, dias fora do habitual, fatura prevista, relatório em PDF | Avisos no telemóvel |
-| Clima (Open-Meteo, pedido pelo browser como sempre) | Sincronização entre aparelhos |
+| Clima (Open-Meteo, pedido pelo browser como sempre) | |
 | IA com a chave do utilizador, guardada só neste browser (`src/ai/settings.ts`, como num servidor sem `AI_KEY_SECRET`) | |
+| Sincronização entre aparelhos e cópias automáticas, pelo OneDrive do utilizador (abaixo) | |
 
 ## Limites
 
 - Os dados perdem-se se o browser os apagar (limpeza de dados, janela privada, falta de espaço sem armazenamento persistente) ou ao mudar de aparelho: daí a cópia e o aviso no topo.
-- Sem regras novas de privacidade: nenhuma ligação externa nova (regra 1), e o servidor não guarda nada destas casas.
+- Privacidade: o servidor não guarda nada destas casas. A única ligação externa nova é a Microsoft (`login.microsoftonline.com`, `graph.microsoft.com` e os anfitriões de descarregamento do OneDrive), só quando o utilizador liga o OneDrive (regra 1 do `CLAUDE.md`); o que lá vai está cifrado no browser.
+- A renovação da sessão da Microsoft numa app de página única dura 24 h: depois disso pode falhar e é preciso um clique em "Ligar de novo ao OneDrive". Até lá, as alterações ficam neste browser.
