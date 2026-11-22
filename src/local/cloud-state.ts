@@ -17,8 +17,8 @@ export interface CloudLink {
   accountLabel?: string;
   /** Epoch seconds of the last cycle that ended without an error. */
   lastSyncAt?: number;
-  /** The largest change stamp of the last snapshot this device wrote. */
-  lastPushedStamp?: number;
+  /** SHA-256 (hex) of the house in the last snapshot this device wrote. */
+  lastPushedHash?: string;
   error?: CloudErrorCode | 'unreadable_device' | 'newer_app' | 'removed';
 }
 

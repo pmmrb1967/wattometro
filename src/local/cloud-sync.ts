@@ -93,6 +93,15 @@ function newestStamp(meta: SyncMeta): number {
   return Math.max(meta.quartersGeneration.at, ...SECTIONS.map((section) => meta.stamps[section]));
 }
 
+/** SHA-256 (hex) of the house as pushed: a new snapshot is sent whenever this changes. */
+async function houseHash(house: { data: LocalData; meta: SyncMeta }): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(JSON.stringify({ data: house.data, meta: house.meta })),
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function hasData(data: LocalData, section: Section): boolean {
   switch (section) {
     case 'quarters':
@@ -277,17 +286,13 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
     if (merged.changed) deps.onHouseChanged();
 
     // 4. This device's snapshot, when the house changed since the last one sent.
-    const stamp = newestStamp(merged.joined.meta);
-    if (
-      !snapshots.mineListed ||
-      link.lastPushedStamp === undefined ||
-      stamp > link.lastPushedStamp
-    ) {
+    const hash = await houseHash(merged.joined);
+    if (!snapshots.mineListed || hash !== link.lastPushedHash) {
       await drive.write(
         housePath(link.deviceId),
         await encodeHouse(key, payloadOf(link.deviceId, merged.joined, now)),
       );
-      next.lastPushedStamp = stamp;
+      next.lastPushedHash = hash;
       result.pushed = true;
     }
 
@@ -424,13 +429,14 @@ export async function disconnect(deps: SyncDeps, options: { removeCloud: boolean
   const { drive } = deps;
   const link = await deps.links.load();
   if (options.removeCloud) {
+    // The key first: a device mid-cycle then finds the house removed and writes nothing more.
+    await drive.remove(KEY_FILE);
     for (const entry of await drive.list(HOUSES_FOLDER)) {
       await drive.remove(`${HOUSES_FOLDER}/${entry.name}`);
     }
     for (const entry of await drive.list(BACKUPS_FOLDER)) {
       if (parseBackupName(entry.name)) await drive.remove(`${BACKUPS_FOLDER}/${entry.name}`);
     }
-    await drive.remove(KEY_FILE);
   } else if (link) {
     await drive.remove(housePath(link.deviceId));
   }

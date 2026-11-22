@@ -259,6 +259,39 @@ describe('syncOnce', () => {
     expect((await linkOf(a)).error).toBe('throttled');
   });
 
+  it('a second write in the same second is pushed on the next cycle', async () => {
+    const { drive, a } = await connected();
+    clock += 60;
+    await edit(a, (data) => ({ ...data, zone: 'A' }));
+    expect((await syncOnce(a)).pushed).toBe(true);
+    await edit(a, (data) => ({ ...data, tariffs: [tariff('2026-01-01')] }));
+    expect((await syncOnce(a)).pushed).toBe(true);
+
+    const b = device(drive);
+    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    expect((await houseOf(b))?.tariffs).toEqual([tariff('2026-01-01')]);
+  });
+
+  it("a peer's clock ahead does not stop this device's own edits from being pushed", async () => {
+    const { drive, a } = await connected();
+    const b = { ...device(drive), now: () => clock + 3_600 };
+    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    clock += 60;
+    const read = await b.house.load();
+    const before = read.kind === 'ok' ? read.data : emptyLocalData();
+    const after = { ...before, zone: 'C' as const };
+    await b.house.save(after, stampChanges(before, after, await b.house.loadMeta(), clock + 3_600));
+    await syncOnce(b);
+    await syncOnce(a);
+    expect((await houseOf(a))?.zone).toBe('C');
+
+    clock += 60;
+    await edit(a, (data) => ({ ...data, tariffs: [tariff('2026-01-01')] }));
+    expect((await syncOnce(a)).pushed).toBe(true);
+    await syncOnce(b);
+    expect((await houseOf(b))?.tariffs).toEqual([tariff('2026-01-01')]);
+  });
+
   it('reads again only the snapshots whose etag changed', async () => {
     const { drive, a } = await connected();
     const b = device(drive);
@@ -444,6 +477,34 @@ describe('disconnect', () => {
     expect(backups(drive).length).toBeGreaterThan(1);
     expect(await a.links.load()).toBeNull();
     expect(await houseOf(a)).toEqual(kept);
+  });
+
+  it('removeCloud removes chave.json first and keeps the link when a removal fails', async () => {
+    const { drive, a, b } = await two();
+    const removed: string[] = [];
+    const failing: CloudDrive = {
+      read: (path) => drive.read(path),
+      list: (folder) => drive.list(folder),
+      write: (path, bytes, options) => drive.write(path, bytes, options),
+      account: () => drive.account(),
+      remove: (path) => {
+        removed.push(path);
+        if (removed.length === 2) return Promise.reject(new CloudError('offline'));
+        return drive.remove(path);
+      },
+    };
+    await expect(disconnect({ ...a, drive: failing }, { removeCloud: true })).rejects.toMatchObject(
+      { code: 'offline' },
+    );
+    expect(removed[0]).toBe(KEY_FILE);
+    expect(drive.files.has(KEY_FILE)).toBe(false);
+    expect(await a.links.load()).not.toBeNull();
+
+    clock += 60;
+    await edit(b, (data) => ({ ...data, zone: 'A' }));
+    const before = versions(drive);
+    expect((await syncOnce(b)).error).toBe('removed');
+    expect(versions(drive)).toEqual(before);
   });
 
   it('disconnect with removeCloud empties the folder', async () => {
