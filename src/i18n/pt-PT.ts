@@ -14,6 +14,7 @@ import { equipmentTexts } from './pt-PT/equipment';
 import { consumptionTexts } from './pt-PT/consumption';
 import { tariffsTexts } from './pt-PT/tariffs';
 import { setupTexts } from './pt-PT/setup';
+import { cloudTexts } from './pt-PT/cloud';
 
 export const t = {
   ...commonTexts,
@@ -27,4 +28,5 @@ export const t = {
   ...consumptionTexts,
   ...tariffsTexts,
   ...setupTexts,
+  ...cloudTexts,
 } as const;

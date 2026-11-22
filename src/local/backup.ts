@@ -25,11 +25,22 @@ export interface BackupMarks {
 export type LocalStatus =
   { kind: 'unreadable' | 'empty' | 'never' } | { kind: 'due' | 'fresh'; at: number };
 
-export function localStatus(read: LocalRead, marks: BackupMarks, now: number): LocalStatus {
+/**
+ * `cloudOk`: the house syncs with the user's cloud (linked, no error, synced in
+ * the last 30 days, src/local/cloud-runner.ts `cloudWorking`): that counts as a
+ * copy, so the reminder never asks for one; the banner then shows the sync.
+ */
+export function localStatus(
+  read: LocalRead,
+  marks: BackupMarks,
+  now: number,
+  cloudOk: boolean,
+): LocalStatus {
   if (read.kind === 'unreadable') return { kind: 'unreadable' };
   if (read.kind === 'empty') return { kind: 'empty' };
   if (read.data.quarters.length === 0 && read.data.tariffs.length === 0) return { kind: 'empty' };
   const { backupAt, changedAt } = marks;
+  if (cloudOk) return { kind: 'fresh', at: backupAt ?? now };
   if (backupAt === null) return { kind: 'never' };
   const changed = changedAt !== null && changedAt > backupAt;
   return { kind: changed && now - backupAt >= COPY_DUE_SECONDS ? 'due' : 'fresh', at: backupAt };

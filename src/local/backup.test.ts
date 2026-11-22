@@ -23,38 +23,52 @@ const NEVER = { backupAt: null, changedAt: null };
 
 describe('localStatus', () => {
   it('says nothing about copies while there is nothing to copy', () => {
-    expect(localStatus({ kind: 'empty' }, NEVER, NOW)).toEqual({ kind: 'empty' });
-    expect(localStatus({ kind: 'ok', data: emptyLocalData() }, NEVER, NOW)).toEqual({
+    expect(localStatus({ kind: 'empty' }, NEVER, NOW, false)).toEqual({ kind: 'empty' });
+    expect(localStatus({ kind: 'ok', data: emptyLocalData() }, NEVER, NOW, false)).toEqual({
       kind: 'empty',
     });
   });
 
   it('counts a tariff as something to copy', () => {
     const data = { ...emptyLocalData(), tariffs: [{ id: 'x' } as never] };
-    expect(localStatus({ kind: 'ok', data }, NEVER, NOW)).toEqual({ kind: 'never' });
+    expect(localStatus({ kind: 'ok', data }, NEVER, NOW, false)).toEqual({ kind: 'never' });
   });
 
   it('warns when data exist and no copy was ever made', () => {
-    expect(localStatus(WITH_DATA, NEVER, NOW)).toEqual({ kind: 'never' });
+    expect(localStatus(WITH_DATA, NEVER, NOW, false)).toEqual({ kind: 'never' });
   });
 
   it('warns when the copy is over 30 days old and the house changed since', () => {
     const marks = { backupAt: NOW - 31 * DAY, changedAt: NOW - DAY };
-    expect(localStatus(WITH_DATA, marks, NOW)).toEqual({ kind: 'due', at: marks.backupAt });
+    expect(localStatus(WITH_DATA, marks, NOW, false)).toEqual({ kind: 'due', at: marks.backupAt });
   });
 
   it('does not warn about an old copy of a house that did not change', () => {
     const marks = { backupAt: NOW - 200 * DAY, changedAt: NOW - 201 * DAY };
-    expect(localStatus(WITH_DATA, marks, NOW)).toEqual({ kind: 'fresh', at: marks.backupAt });
+    expect(localStatus(WITH_DATA, marks, NOW, false)).toEqual({
+      kind: 'fresh',
+      at: marks.backupAt,
+    });
   });
 
   it('does not warn yet about a recent copy of a house that changed', () => {
     const marks = { backupAt: NOW - 29 * DAY, changedAt: NOW - DAY };
-    expect(localStatus(WITH_DATA, marks, NOW)).toEqual({ kind: 'fresh', at: marks.backupAt });
+    expect(localStatus(WITH_DATA, marks, NOW, false)).toEqual({
+      kind: 'fresh',
+      at: marks.backupAt,
+    });
   });
 
   it('puts data it cannot read above everything else', () => {
-    expect(localStatus({ kind: 'unreadable' }, NEVER, NOW)).toEqual({ kind: 'unreadable' });
+    expect(localStatus({ kind: 'unreadable' }, NEVER, NOW, false)).toEqual({ kind: 'unreadable' });
+    expect(localStatus({ kind: 'unreadable' }, NEVER, NOW, true)).toEqual({ kind: 'unreadable' });
+  });
+
+  it('a working cloud link counts as a copy', () => {
+    expect(localStatus(WITH_DATA, NEVER, NOW, true)).toEqual({ kind: 'fresh', at: NOW });
+    const old = { backupAt: NOW - 31 * DAY, changedAt: NOW - DAY };
+    expect(localStatus(WITH_DATA, old, NOW, true)).toEqual({ kind: 'fresh', at: old.backupAt });
+    expect(localStatus({ kind: 'empty' }, NEVER, NOW, true)).toEqual({ kind: 'empty' });
   });
 });
 

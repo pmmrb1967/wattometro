@@ -20,6 +20,7 @@ import { dailyEnergy, empty, energyRecords, invalid, json } from '../demo/respon
 import { t } from '../i18n/pt-PT';
 import { lisbonDate, startOfLisbonDay } from '../lib/time';
 import { markChanged } from './backup';
+import { notifyLocalWrite } from './write-hook';
 import {
   emptyLocalData,
   importSummary,
@@ -401,9 +402,11 @@ export function createLocalServer(
   };
 }
 
-const server = createLocalServer(browserStore, undefined, () =>
-  markChanged(Math.floor(Date.now() / 1000)),
-);
+// The banner counts the change; a linked cloud folder gets it in the next cycle.
+const server = createLocalServer(browserStore, undefined, () => {
+  markChanged(Math.floor(Date.now() / 1000));
+  notifyLocalWrite();
+});
 
 /** Answers one API request of the local mode. */
 export const localResponse = server.respond;

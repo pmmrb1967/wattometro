@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { eredesCoverage, type EredesDay } from '../domain/eredes-coverage';
 import { parseEredesXlsx, type EredesFile } from '../import/eredes';
+import { cloudStatus } from '../local/cloud-runner';
 import { isLocal } from '../local/mode';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonDateTime, formatLocalDate } from '../lib/time';
@@ -158,7 +159,9 @@ export function EredesImportSection() {
   }
 
   async function remove() {
-    if (!window.confirm(texts.removeConfirm)) return;
+    // With OneDrive linked, the deletion reaches every device (a new quarters generation).
+    const linked = isLocal() && (await cloudStatus()).linked;
+    if (!window.confirm(linked ? t.cloud.eredesRemoveConfirm : texts.removeConfirm)) return;
     const outcome = await deleteEredesImport();
     if (outcome.ok) {
       setSummary({ quarters: 0, estimated: 0, energyWh: 0, from: null, to: null, days: [] });
