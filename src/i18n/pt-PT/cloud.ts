@@ -42,6 +42,8 @@ export const cloudTexts = {
         'Este browser também tem uma casa. Juntar acrescenta-lhe o que falta na cloud; ficar com a da cloud descarrega primeiro uma cópia da casa deste browser e depois substitui-a.',
       join: 'Juntar as duas casas',
       keepCloud: 'Ficar com a da cloud',
+      noCloudHouse:
+        'A pasta do OneDrive não tem uma casa que se consiga ler. Usa «Juntar as duas casas».',
       open: 'Abrir a casa',
       working: 'A abrir a casa…',
     },
@@ -86,7 +88,7 @@ export const cloudTexts = {
       word: 'apagar',
       removeAll: 'Apagar tudo',
       cloudNotRemoved:
-        'Não foi possível apagar a casa do OneDrive. Nada foi apagado; tenta outra vez.',
+        'Não foi possível apagar tudo do OneDrive: a casa na cloud pode ter ficado só em parte. Este browser não foi apagado; tenta outra vez.',
     },
     /** Importar: deleting the E-Redes data with the cloud linked. */
     eredesRemoveConfirm:
@@ -101,6 +103,8 @@ export const cloudTexts = {
         'Outro aparelho tem uma versão mais recente da app. Atualiza a app neste aparelho: fecha-a e volta a abri-la.',
       unreadable_device:
         'Um aparelho tem dados que não se conseguem ler. Os outros continuam a sincronizar.',
+      failed:
+        'Não foi possível sincronizar com o OneDrive. Abre Definições › Dados para ver o que se passa.',
       removed: 'A casa no OneDrive foi apagada ou substituída. Liga de novo para continuar.',
       removedLink: 'Ligar de novo',
       close: 'Fechar',

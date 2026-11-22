@@ -25,7 +25,8 @@ const nowSeconds = () => Math.floor(Date.now() / 1000);
 export function LocalDataSection() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [unreadable, setUnreadable] = useState(false);
-  const [linked, setLinked] = useState(false);
+  /** Null until the cloud status is known: "Apagar" and "Repor" wait for it. */
+  const [linked, setLinked] = useState<boolean | null>(null);
   /** With the cloud linked, "Apagar" first asks where from. */
   const [removing, setRemoving] = useState<'idle' | 'choice' | 'cloud'>('idle');
 
@@ -139,6 +140,7 @@ export function LocalDataSection() {
             <input
               type="file"
               accept="application/json,.json"
+              disabled={linked === null}
               onChange={(event) => void restore(event.target.files?.[0])}
             />
             <span className="file-row">
@@ -148,7 +150,12 @@ export function LocalDataSection() {
         </div>
         <StatusLine status={status} />
         {removing === 'idle' && (
-          <button type="button" className="secondary danger" onClick={() => void remove()}>
+          <button
+            type="button"
+            className="secondary danger"
+            disabled={linked === null}
+            onClick={() => void remove()}
+          >
             {texts.remove}
           </button>
         )}

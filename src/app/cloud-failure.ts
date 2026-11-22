@@ -10,7 +10,14 @@ export function cloudFailure(error: unknown): string {
   if (error instanceof CloudKeyError && error.code === 'wrong_secret')
     return texts.join.wrongSecret;
   if (error instanceof CloudSyncError) {
-    return error.code === 'newer_app' ? texts.newerApp : texts.unreadableHouse;
+    switch (error.code) {
+      case 'newer_app':
+        return texts.newerApp;
+      case 'no_cloud_house':
+        return texts.join.noCloudHouse;
+      case 'unreadable_house':
+        return texts.unreadableHouse;
+    }
   }
   return texts.failed;
 }

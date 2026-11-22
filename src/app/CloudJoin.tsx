@@ -43,8 +43,12 @@ export function CloudJoin({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    // "Abrir a casa" (nothing here to keep) joins: the same house as replacing, and
+    // it also opens a folder whose snapshots cannot be read (replace refuses that).
     const mode =
-      submitter instanceof HTMLButtonElement && submitter.value === 'join' ? 'join' : 'replace';
+      !hasData || (submitter instanceof HTMLButtonElement && submitter.value === 'join')
+        ? 'join'
+        : 'replace';
     const value = String(new FormData(event.currentTarget).get('secret')).trim();
     const secret = byRecovery ? { recoveryKey: value } : { password: value };
     setStatus({ kind: 'busy' });
@@ -95,7 +99,7 @@ export function CloudJoin({
           <button
             type="submit"
             name="mode"
-            value="replace"
+            value="join"
             className="primary"
             disabled={busy || hasData === null}
           >

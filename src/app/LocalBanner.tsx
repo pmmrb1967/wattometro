@@ -140,8 +140,18 @@ function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean
           {cloudTexts[cloud.error]}
         </p>
       );
-    default:
+    case undefined:
+    case 'offline':
+    case 'throttled':
+      // They pass on their own (the copy reminder comes back if they last).
       return null;
+    default:
+      // Anything else that lasts (a damaged chave.json, a conflict…): the sync stopped.
+      return (
+        <p className="server-banner" role="alert">
+          {cloudTexts.failed}
+        </p>
+      );
   }
 }
 
