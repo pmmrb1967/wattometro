@@ -17,18 +17,28 @@ export interface CloudReturn {
 }
 
 let pending: Promise<CloudReturn | null> = Promise.resolve(null);
-let taken = false;
+/** The intents whose flow has taken the sign-in. */
+const cleared = new Set<CloudIntent>();
 
 /** On start, before the router: nothing happens unless a sign-in just came back. */
 export function startCloudReturn(): void {
   if (!oneDriveAvailable()) return;
+  cleared.clear();
   pending = completeOneDriveSignIn().catch(() => null);
 }
 
-/** The sign-in that came back for `intent`, once; null for any other or none. */
+/**
+ * The sign-in that came back for `intent`; null for any other or none. The same
+ * answer on every call (React's StrictMode runs effects twice) until
+ * `clearCloudReturn` says the flow has taken it.
+ */
 export async function takeCloudReturn(intent: CloudIntent): Promise<{ accountId: string } | null> {
   const back = await pending;
-  if (taken || back?.intent !== intent) return null;
-  taken = true;
+  if (cleared.has(intent) || back?.intent !== intent) return null;
   return { accountId: back.accountId };
+}
+
+/** The flow for `intent` has the sign-in: later calls get null (another visit to the page). */
+export function clearCloudReturn(intent: CloudIntent): void {
+  cleared.add(intent);
 }

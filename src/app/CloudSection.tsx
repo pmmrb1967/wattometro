@@ -25,7 +25,7 @@ import {
   unlinkCloud,
   type CloudStatus,
 } from '../local/cloud-runner';
-import { takeCloudReturn } from '../local/cloud-return';
+import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
 import { CloudSyncError } from '../local/cloud-sync';
 import { browserStore } from '../local/store';
 import { download } from './download';
@@ -390,6 +390,7 @@ export function CloudSection() {
     void (async () => {
       const back = await takeCloudReturn('connect');
       if (!active || back === null) return;
+      clearCloudReturn('connect');
       setStep({ kind: 'checking' });
       try {
         const exists = await cloudHasHouse(back.accountId);

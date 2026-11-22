@@ -19,7 +19,7 @@ import {
   type LocalStatus,
 } from '../local/backup';
 import { signInToOneDrive } from '../cloud/onedrive-auth';
-import { takeCloudReturn } from '../local/cloud-return';
+import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
 import {
   clearRemovedMark,
   CLOUD_CHANGED,
@@ -90,11 +90,18 @@ function useLocalStatus(): BannerState {
 /** The sync runs while the local mode is open and linked; back from "Ligar de novo", it continues. */
 function useCloudRunner(): void {
   useEffect(() => {
+    let active = true;
     const stop = runWhileLinked();
     void takeCloudReturn('reconnect').then((back) => {
-      if (back) void relinkAccount(back.accountId);
+      // StrictMode runs this twice: only the run still mounted takes the sign-in.
+      if (!active || !back) return;
+      clearCloudReturn('reconnect');
+      void relinkAccount(back.accountId);
     });
-    return stop;
+    return () => {
+      active = false;
+      stop();
+    };
   }, []);
 }
 
