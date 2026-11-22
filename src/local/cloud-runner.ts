@@ -242,11 +242,14 @@ export async function cloudStatus(): Promise<CloudStatus> {
   return status;
 }
 
-/** The cloud counts as a copy: linked, without an error, synced in the last 30 days. */
+/** Errors that pass on their own: the link still counts while its last sync is recent. */
+const TRANSIENT: readonly (CloudLink['error'] | undefined)[] = [undefined, 'offline', 'throttled'];
+
+/** The cloud counts as a copy: linked, without a lasting error, synced in the last 30 days. */
 export function cloudWorking(status: CloudStatus, now: number): boolean {
   return (
     status.linked &&
-    status.error === undefined &&
+    TRANSIENT.includes(status.error) &&
     status.lastSyncAt !== undefined &&
     now - status.lastSyncAt < CLOUD_STALE_S
   );

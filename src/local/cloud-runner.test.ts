@@ -103,6 +103,26 @@ describe('cloudWorking', () => {
     );
     expect(cloudWorking({ linked: false }, NOW)).toBe(false);
   });
+
+  it('ignores offline and throttled while the last sync is recent', () => {
+    const recent = NOW - DAY;
+    expect(cloudWorking({ linked: true, lastSyncAt: recent, error: 'offline' }, NOW)).toBe(true);
+    expect(cloudWorking({ linked: true, lastSyncAt: recent, error: 'throttled' }, NOW)).toBe(true);
+    expect(cloudWorking({ linked: true, lastSyncAt: NOW - 31 * DAY, error: 'offline' }, NOW)).toBe(
+      false,
+    );
+    for (const error of [
+      'needs_reconnect',
+      'quota_full',
+      'newer_app',
+      'unreadable_device',
+      'removed',
+      'unexpected',
+      'conflict',
+    ] as const) {
+      expect(cloudWorking({ linked: true, lastSyncAt: recent, error }, NOW)).toBe(false);
+    }
+  });
 });
 
 describe('restoredMeta', () => {
