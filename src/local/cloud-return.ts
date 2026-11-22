@@ -8,8 +8,8 @@
 import { completeOneDriveSignIn } from '../cloud/onedrive-auth';
 import { oneDriveAvailable } from '../cloud/providers';
 
-/** Linking this browser from Settings › Dados; signing in again from the banner. */
-export type CloudIntent = 'connect' | 'reconnect';
+/** Linking this browser from Settings › Dados; signing in again from the banner; opening a house from the landing page. */
+export type CloudIntent = 'connect' | 'reconnect' | 'join';
 
 export interface CloudReturn {
   intent: string;

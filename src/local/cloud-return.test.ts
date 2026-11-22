@@ -28,6 +28,15 @@ describe('takeCloudReturn', () => {
     expect(await takeCloudReturn('connect')).toBeNull();
   });
 
+  it('gives the landing page its own join intent only', async () => {
+    completeOneDriveSignIn.mockResolvedValue({ intent: 'join', accountId: 'account-2' });
+    startCloudReturn();
+    expect(await takeCloudReturn('connect')).toBeNull();
+    expect(await takeCloudReturn('join')).toEqual({ accountId: 'account-2' });
+    clearCloudReturn('join');
+    expect(await takeCloudReturn('join')).toBeNull();
+  });
+
   it('gives nothing when no sign-in came back', async () => {
     completeOneDriveSignIn.mockResolvedValue(null);
     startCloudReturn();

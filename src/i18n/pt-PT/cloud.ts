@@ -45,6 +45,12 @@ export const cloudTexts = {
       open: 'Abrir a casa',
       working: 'A abrir a casa…',
     },
+    landingJoin: {
+      button: 'Tenho a casa no OneDrive',
+      leaving: 'A abrir a página da Microsoft…',
+      noHouse:
+        'Esta pasta do OneDrive ainda não tem uma casa. Usa sem conta e liga o OneDrive em Definições.',
+    },
     cancel: 'Cancelar',
     linked: (account: string, when: string) =>
       `OneDrive de ${account} · última sincronização: ${when}`,

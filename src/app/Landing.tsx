@@ -4,10 +4,15 @@
  * The page before signing in: what the app is for, where the data comes from
  * and what it does with it; the demo. The login is on "/entrar" (the top bar).
  */
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
+import { signInToOneDrive } from '../cloud/onedrive-auth';
+import { oneDriveAvailable } from '../cloud/providers';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
+import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
 import type { Me } from './api';
+import { LandingJoin } from './CloudJoin';
 import { LandingDay } from './LandingDay';
 import { Login } from './Login';
 
@@ -25,6 +30,30 @@ export function Landing({
   onLocal: () => void;
 }) {
   const { pathname } = useLocation();
+  // Back from the Microsoft sign-in with "Tenho a casa no OneDrive": the account to open.
+  const [joining, setJoining] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    if (!oneDriveAvailable()) return;
+    let active = true;
+    void takeCloudReturn('join').then((back) => {
+      if (!active || back === null) return;
+      clearCloudReturn('join');
+      setJoining(back.accountId);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (joining !== null) {
+    return (
+      <section className="card">
+        <LandingJoin accountId={joining} onDone={onLocal} onCancel={() => setJoining(null)} />
+      </section>
+    );
+  }
 
   if (pathname === SIGN_IN_PATH) {
     return (
@@ -50,6 +79,19 @@ export function Landing({
             <button type="button" className="secondary" onClick={onLocal}>
               {t.local.title}
             </button>
+            {oneDriveAvailable() && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={leaving}
+                onClick={() => {
+                  setLeaving(true);
+                  void signInToOneDrive('join').catch(() => setLeaving(false));
+                }}
+              >
+                {leaving ? t.cloud.landingJoin.leaving : t.cloud.landingJoin.button}
+              </button>
+            )}
             <a href="#como-funciona" className="secondary button-link">
               {copy.howItWorksLink}
             </a>

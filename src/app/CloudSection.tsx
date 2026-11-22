@@ -8,17 +8,15 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { signInToOneDrive } from '../cloud/onedrive-auth';
 import { oneDriveAvailable } from '../cloud/providers';
 import { t } from '../i18n/pt-PT';
-import { formatLisbonDateTime, formatLocalDate, lisbonToday } from '../lib/time';
+import { formatLisbonDateTime, formatLocalDate } from '../lib/time';
 import { CloudKeyError } from '../local/cloud-files';
 import {
   announceCloudChange,
   CLOUD_CHANGED,
   cloudHasHouse,
   cloudStatus,
-  joinFromCloud,
   linkFirstDevice,
   listCloudBackups,
-  localHouseHasData,
   readCloudBackup,
   requestSync,
   restoreHouse,
@@ -26,9 +24,8 @@ import {
   type CloudStatus,
 } from '../local/cloud-runner';
 import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
-import { CloudSyncError } from '../local/cloud-sync';
-import { browserStore } from '../local/store';
-import { download } from './download';
+import { cloudFailure } from './cloud-failure';
+import { CloudJoin } from './CloudJoin';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.cloud;
@@ -42,15 +39,6 @@ type Step =
   | { kind: 'create'; accountId: string }
   | { kind: 'recovery'; recoveryKey: string }
   | { kind: 'join'; accountId: string };
-
-function failure(error: unknown): string {
-  if (error instanceof CloudKeyError && error.code === 'wrong_secret')
-    return texts.join.wrongSecret;
-  if (error instanceof CloudSyncError) {
-    return error.code === 'newer_app' ? texts.newerApp : texts.unreadableHouse;
-  }
-  return texts.failed;
-}
 
 function useCloudStatus(): CloudStatus | null {
   const [status, setStatus] = useState<CloudStatus | null>(null);
@@ -103,7 +91,7 @@ function CreateForm({
     } catch (error) {
       // Another device linked the folder meanwhile: this one joins it.
       if (error instanceof CloudKeyError && error.code === 'exists') onExists();
-      else setStatus({ kind: 'error', text: failure(error) });
+      else setStatus({ kind: 'error', text: cloudFailure(error) });
     }
   }
 
@@ -165,101 +153,6 @@ function RecoveryKey({ value, onSaved }: { value: string; onSaved: () => void })
         {texts.recovery.saved}
       </button>
     </div>
-  );
-}
-
-/** A folder that already has a house: unlock its key, and join or replace this browser's. */
-export function CloudJoin({
-  accountId,
-  onDone,
-  onCancel,
-}: {
-  accountId: string;
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [byRecovery, setByRecovery] = useState(false);
-  const [hasData, setHasData] = useState<boolean | null>(null);
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
-  const form = texts.join;
-
-  useEffect(() => {
-    let active = true;
-    void localHouseHasData().then((has) => {
-      if (active) setHasData(has);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const mode =
-      submitter instanceof HTMLButtonElement && submitter.value === 'join' ? 'join' : 'replace';
-    const value = String(new FormData(event.currentTarget).get('secret')).trim();
-    const secret = byRecovery ? { recoveryKey: value } : { password: value };
-    setStatus({ kind: 'busy' });
-    try {
-      if (mode === 'replace' && hasData) {
-        // "Ficar com a da cloud": this browser's house is kept in a file first.
-        const read = await browserStore.load();
-        if (read.kind === 'ok') download(read.data, t.local.data.fileName(lisbonToday()));
-      }
-      await joinFromCloud(accountId, secret, mode);
-      onDone();
-    } catch (error) {
-      setStatus({ kind: 'error', text: failure(error) });
-    }
-  }
-
-  const busy = status.kind === 'busy';
-  return (
-    <form className="form" onSubmit={submit}>
-      <h3>{form.title}</h3>
-      <p className="hint">{form.intro}</p>
-      <label>
-        {byRecovery ? form.recoveryKey : form.password}
-        <input
-          key={byRecovery ? 'recovery' : 'password'}
-          name="secret"
-          type={byRecovery ? 'text' : 'password'}
-          autoComplete={byRecovery ? 'off' : 'current-password'}
-          required
-        />
-      </label>
-      <button type="button" className="link-button" onClick={() => setByRecovery(!byRecovery)}>
-        {byRecovery ? form.usePassword : form.useRecovery}
-      </button>
-      {hasData && <p className="hint">{form.bothHouses}</p>}
-      <StatusLine status={status} />
-      <div className="actions">
-        {hasData ? (
-          <>
-            <button type="submit" name="mode" value="join" className="primary" disabled={busy}>
-              {busy ? form.working : form.join}
-            </button>
-            <button type="submit" name="mode" value="replace" className="secondary" disabled={busy}>
-              {form.keepCloud}
-            </button>
-          </>
-        ) : (
-          <button
-            type="submit"
-            name="mode"
-            value="replace"
-            className="primary"
-            disabled={busy || hasData === null}
-          >
-            {busy ? form.working : form.open}
-          </button>
-        )}
-        <button type="button" className="secondary" onClick={onCancel}>
-          {texts.cancel}
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -398,7 +291,7 @@ export function CloudSection() {
       } catch (caught) {
         if (!active) return;
         setStep({ kind: 'idle' });
-        setError({ kind: 'error', text: failure(caught) });
+        setError({ kind: 'error', text: cloudFailure(caught) });
       }
     })();
     return () => {
