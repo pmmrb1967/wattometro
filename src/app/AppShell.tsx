@@ -13,6 +13,7 @@ import { LOCAL_ME } from '../local/server';
 import { DEMO_ME } from '../demo/server';
 import { Landing, SIGN_IN_PATH } from './Landing';
 import { LocalBanner } from './LocalBanner';
+import { Privacy, PRIVACY_PATH } from './Privacy';
 import { clearWeatherCache } from '../weather/weather';
 import { isVisitPage } from '../lib/pages';
 import { clearEnergyCache } from './energy-cache';
@@ -258,15 +259,24 @@ export function AppShell() {
         )}
         <div className="main">
           <main className="content">
-            {me === undefined && <p className="hint">{t.loading}</p>}
-            {me === null && <Landing onSignedIn={enter} onDemo={startDemo} onLocal={startLocal} />}
-            {context && <Outlet context={context} />}
+            {pathname === PRIVACY_PATH ? (
+              <Privacy />
+            ) : (
+              <>
+                {me === undefined && <p className="hint">{t.loading}</p>}
+                {me === null && (
+                  <Landing onSignedIn={enter} onDemo={startDemo} onLocal={startLocal} />
+                )}
+                {context && <Outlet context={context} />}
+              </>
+            )}
           </main>
 
           <footer className="footer">
             <p>{t.legal.copyright}</p>
             <p className="footer-links">
               <a href={feedbackLink(pathname)}>{t.feedback.footer}</a>
+              <Link to={PRIVACY_PATH}>{t.privacyPage.link}</Link>
               <a href={LICENSE_URL} rel="noreferrer">
                 {t.legal.license}
               </a>

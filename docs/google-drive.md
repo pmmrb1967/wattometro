@@ -23,7 +23,7 @@ Os nomes dos menus mudam com frequência; se algum não bater certo, procura o e
 4. **Ecrã de consentimento** (**Google Auth Platform**, antes chamado *OAuth consent screen*):
    - **Branding**: nome da app `Wattómetro`, email de apoio e email de contacto do programador (**Developer contact information**). Para poder publicar, a Google exige também:
      - **Application home page**: `https://app.wattometro.workers.dev/`;
-     - **Application privacy policy link**: o Wattómetro ainda não tem página de privacidade; é preciso criá-la antes de publicar;
+     - **Application privacy policy link**: `https://app.wattometro.workers.dev/privacidade` (página pública da app, `src/app/Privacy.tsx`; tem de estar publicada antes de publicares a app na Google);
      - **Authorised domains**: `wattometro.workers.dev` (sem `app.` nem `https://`: no `workers.dev`, o domínio de cada conta é o principal).
 
      Sem estes, a página **Audience** diz "To publish your app, you must complete your configuration on the Branding page" e não mostra **Publish app**. O **App logo** fica vazio: com logótipo, a Google exige a verificação da marca.
