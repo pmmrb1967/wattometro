@@ -181,7 +181,11 @@ const BACKUP_PATTERN = /^wattometro-(\d{4}-\d{2}-\d{2})-[a-z0-9]{8}\.bin$/;
 
 /** `day` is AAAA-MM-DD; the first 8 letters or digits of the device id tell devices apart. */
 export function backupName(day: string, deviceId: string): string {
-  const short = deviceId.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8).padEnd(8, '0');
+  const short = deviceId
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 8)
+    .padEnd(8, '0');
   return `wattometro-${day}-${short}.bin`;
 }
 
