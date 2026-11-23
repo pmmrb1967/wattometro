@@ -260,7 +260,8 @@ Capacidade medida e opções para abrir a app a outras pessoas: [`docs/hosting.m
   - [x] Ciclo de sincronização, agendamento e cópias automáticas (`cloud-sync.ts`, `cloud-runner.ts`)
   - [x] Definições › Dados (ligar, aparelho novo, cópias, desligar, apagar), faixa do topo e entrada ("Tenho a casa no OneDrive")
   - [x] CSP, regra 1 do `CLAUDE.md` e documentação
-  - [ ] Registo "Wattometro" no Entra, id em `src/cloud/cloud-config.ts` e teste real com conta Microsoft (falta o id da app no Entra e o teste real)
+  - [x] Registo "Wattometro" no Entra (2026-11-23), id em `src/cloud/cloud-config.ts`
+  - [ ] Teste real com conta Microsoft (ligar, segundo aparelho, reconectar, repor cópia, desligar; confirmar os anfitriões de descarregamento)
 
 ### Instalação própria
 - [x] README com os passos para uma conta Cloudflare própria

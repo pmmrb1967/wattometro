@@ -4,7 +4,7 @@ A sincronização do modo sem conta pelo OneDrive (`docs/local-mode.md`) precisa
 
 Sem id, a app não mostra a opção OneDrive e tudo o resto funciona igual.
 
-**Registo atual** (2026-11-22): ainda não está registada. Falta o registo no Entra e o id em `src/cloud/cloud-config.ts`. Não ponhas no repositório (público) o email da conta do portal nem outros dados pessoais.
+**Registo atual** (2026-11-23): id `9c75a57c-b9b8-4d1f-943a-8cf8778a1adb`, em `src/cloud/cloud-config.ts`. Não ponhas no repositório (público) o email da conta do portal nem outros dados pessoais.
 
 ## Que conta usar
 
