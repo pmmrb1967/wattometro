@@ -16,7 +16,12 @@ import {
 } from '../cloud/providers';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
-import { clearCloudReturn, takeCloudReturn, type CloudReturn } from '../local/cloud-return';
+import {
+  clearCloudReturn,
+  takeCloudFailure,
+  takeCloudReturn,
+  type CloudReturn,
+} from '../local/cloud-return';
 import type { Me } from './api';
 import { LandingJoin } from './CloudJoin';
 import { LandingDay } from './LandingDay';
@@ -43,12 +48,22 @@ export function Landing({
   const [leaving, setLeaving] = useState<CloudProvider | null>(null);
   /** With more than one service: "Tenho a casa na cloud" shows one button per service. */
   const [choosing, setChoosing] = useState(false);
+  /** The service whose sign-in failed or could not be opened. */
+  const [failed, setFailed] = useState<CloudProvider | null>(null);
 
   useEffect(() => {
     if (!cloudAvailable()) return;
     let active = true;
     void takeCloudReturn('join').then((back) => {
-      if (!active || back === null) return;
+      if (!active) return;
+      if (back === null) {
+        void takeCloudFailure('join').then((provider) => {
+          if (!active || provider === null) return;
+          clearCloudReturn('join');
+          setFailed(provider);
+        });
+        return;
+      }
       clearCloudReturn('join');
       setJoining(back);
     });
@@ -68,7 +83,11 @@ export function Landing({
   const providers = availableProviders();
   const join = (provider: CloudProvider) => {
     setLeaving(provider);
-    void signInToCloud(provider, 'join').catch(() => setLeaving(null));
+    setFailed(null);
+    void signInToCloud(provider, 'join').catch(() => {
+      setLeaving(null);
+      setFailed(provider);
+    });
   };
 
   if (pathname === SIGN_IN_PATH) {
@@ -127,6 +146,11 @@ export function Landing({
               {copy.howItWorksLink}
             </a>
           </div>
+          {failed !== null && (
+            <p className="server-banner" role="alert">
+              {t.cloud.failed(providerName(failed))}
+            </p>
+          )}
           <p className="hint">{t.demo.intro}</p>
           <p className="hint">{t.local.intro}</p>
         </div>

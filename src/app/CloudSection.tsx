@@ -29,7 +29,12 @@ import {
   unlinkCloud,
   type CloudStatus,
 } from '../local/cloud-runner';
-import { clearCloudReturn, takeCloudReturn, type CloudReturn } from '../local/cloud-return';
+import {
+  clearCloudReturn,
+  takeCloudFailure,
+  takeCloudReturn,
+  type CloudReturn,
+} from '../local/cloud-return';
 import { cloudFailure } from './cloud-failure';
 import { CloudJoin } from './CloudJoin';
 import { StatusLine, type Status } from './StatusLine';
@@ -297,7 +302,14 @@ export function CloudSection() {
     let active = true;
     void (async () => {
       const back = await takeCloudReturn('connect');
-      if (!active || back === null) return;
+      if (back === null) {
+        const failed = await takeCloudFailure('connect');
+        if (!active || failed === null) return;
+        clearCloudReturn('connect');
+        setError({ kind: 'error', text: texts.failed(providerName(failed)) });
+        return;
+      }
+      if (!active) return;
       clearCloudReturn('connect');
       setStep({ kind: 'checking', provider: back.provider });
       try {

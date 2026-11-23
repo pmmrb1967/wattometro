@@ -19,8 +19,8 @@ import {
   type LocalStatus,
 } from '../local/backup';
 import { signInToCloud } from '../cloud/cloud-drives';
-import { providerName } from '../cloud/providers';
-import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
+import { providerAvailable, providerName, type CloudProvider } from '../cloud/providers';
+import { clearCloudReturn, takeCloudFailure, takeCloudReturn } from '../local/cloud-return';
 import {
   clearRemovedMark,
   CLOUD_CHANGED,
@@ -88,26 +88,48 @@ function useLocalStatus(): BannerState {
   return status;
 }
 
-/** The sync runs while the local mode is open and linked; back from "Ligar de novo", it continues. */
-function useCloudRunner(): void {
+/**
+ * The sync runs while the local mode is open and linked; back from "Ligar de
+ * novo", it continues. Gives the service whose sign-in or relink failed, if any.
+ */
+function useCloudRunner(): [CloudProvider | null, (provider: CloudProvider | null) => void] {
+  const [failed, setFailed] = useState<CloudProvider | null>(null);
   useEffect(() => {
     let active = true;
     const stop = runWhileLinked();
-    void takeCloudReturn('reconnect').then((back) => {
+    void takeCloudReturn('reconnect').then(async (back) => {
       // StrictMode runs this twice: only the run still mounted takes the sign-in.
-      if (!active || !back) return;
+      if (!active) return;
+      if (!back) {
+        const refused = await takeCloudFailure('reconnect');
+        if (!active || refused === null) return;
+        clearCloudReturn('reconnect');
+        setFailed(refused);
+        return;
+      }
       clearCloudReturn('reconnect');
-      void relinkAccount(back);
+      relinkAccount(back).catch(() => {
+        if (active) setFailed(back.provider);
+      });
     });
     return () => {
       active = false;
       stop();
     };
   }, []);
+  return [failed, setFailed];
 }
 
 /** What stops the sync, above the copy reminder; null when nothing does. */
-function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean }) {
+function CloudProblem({
+  cloud,
+  removed,
+  onFailed,
+}: {
+  cloud: CloudStatus;
+  removed: boolean;
+  onFailed: (provider: CloudProvider | null) => void;
+}) {
   if (removed && !cloud.linked) {
     return (
       <p className="server-banner" role="alert">
@@ -122,6 +144,15 @@ function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean
   const service = providerName(cloud.provider);
   switch (cloud.error) {
     case 'needs_reconnect':
+      if (!providerAvailable(cloud.provider)) {
+        // This build no longer offers the link's service: signing in again is not possible here.
+        return (
+          <p className="server-banner" role="alert">
+            {cloudTexts.needs_reconnect(service)}{' '}
+            <Link to="/definicoes#nuvem">{cloudTexts.settingsLink}</Link>
+          </p>
+        );
+      }
       return (
         <p className="server-banner" role="alert">
           {cloudTexts.needs_reconnect(service)}{' '}
@@ -129,7 +160,10 @@ function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean
             type="button"
             className="link-button"
             // The link's own service: a return from another one never changes the link.
-            onClick={() => void signInToCloud(cloud.provider, 'reconnect')}
+            onClick={() => {
+              onFailed(null);
+              signInToCloud(cloud.provider, 'reconnect').catch(() => onFailed(cloud.provider));
+            }}
           >
             {cloudTexts.reconnect(service)}
           </button>
@@ -175,7 +209,7 @@ function message(status: LocalStatus): string {
 
 export function LocalBanner() {
   const { local: status, cloud, removed, syncedAt } = useLocalStatus();
-  useCloudRunner();
+  const [failed, setFailed] = useCloudRunner();
   if (status.kind === 'unreadable') {
     return (
       <p className="server-banner" role="alert">
@@ -186,7 +220,12 @@ export function LocalBanner() {
   // A working cloud counts as the copy: the banner shows the sync instead.
   return (
     <>
-      <CloudProblem cloud={cloud} removed={removed} />
+      <CloudProblem cloud={cloud} removed={removed} onFailed={setFailed} />
+      {failed !== null && (
+        <p className="server-banner" role="alert">
+          {t.cloud.failed(providerName(failed))}
+        </p>
+      )}
       <div className="demo-banner" role="status">
         <span>
           {syncedAt !== undefined && cloud.linked && status.kind !== 'empty'

@@ -118,6 +118,7 @@ export const cloudTexts = {
         `Não foi possível sincronizar com o ${service}. Abre Definições › Dados para ver o que se passa.`,
       removed: 'A casa na cloud foi apagada ou substituída. Liga de novo para continuar.',
       removedLink: 'Ligar de novo',
+      settingsLink: 'Abrir Definições',
       close: 'Fechar',
     },
   },
