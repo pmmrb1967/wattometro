@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// Back from a cloud sign-in (Microsoft, Google, Dropbox): put the address back before the router reads it.
+import './app/cloud-return-start';
 import '@fontsource-variable/bricolage-grotesque';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -8,14 +10,11 @@ import { listenForInstall } from './app/install';
 import { router } from './app/router';
 import { applyTheme, readTheme } from './app/theme';
 import './index.css';
-import { startCloudReturn } from './local/cloud-return';
 
 applyTheme(readTheme());
 registerSW({ immediate: true });
 // Before the browser fires beforeinstallprompt (install.ts).
 listenForInstall();
-// Back from a cloud sign-in (Microsoft, Google, Dropbox): finished before the pages that left for it ask (cloud-return.ts).
-startCloudReturn();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
