@@ -4,6 +4,8 @@ A sincronização do modo sem conta pelo OneDrive (`docs/local-mode.md`) precisa
 
 Sem id, a app não mostra a opção OneDrive e tudo o resto funciona igual.
 
+O Google Drive e o Dropbox têm o seu registo próprio, também feito uma vez pelo responsável: `docs/google-drive.md` e `docs/dropbox.md`. A app oferece só os serviços que tiverem id.
+
 **Registo atual** (2026-11-23): id `9c75a57c-b9b8-4d1f-943a-8cf8778a1adb`, em `src/cloud/cloud-config.ts`. Não ponhas no repositório (público) o email da conta do portal nem outros dados pessoais.
 
 ## Que conta usar
