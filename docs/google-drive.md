@@ -5,6 +5,7 @@ A sincronização do modo sem conta pelo Google Drive (`docs/local-mode.md`) pre
 Ao contrário do OneDrive e do Dropbox, há **um segredo**. A Google só dá acesso duradouro a quem tem o segredo do cliente, e por isso:
 
 - o **Client ID** não é secreto e vai para a app (`PROJECT_GOOGLE_CLIENT_ID` em `src/cloud/cloud-config.ts`) e para o Worker (`GOOGLE_CLIENT_ID` em `[vars]` de `server/wrangler.toml`);
+- as três peças **têm de estar definidas em conjunto**: `VITE_GOOGLE_CLIENT_ID` ou `PROJECT_GOOGLE_CLIENT_ID` na app, `GOOGLE_CLIENT_ID` no Worker e o segredo `GOOGLE_CLIENT_SECRET`; se faltar o do Worker, a app oferece o Google Drive mas a troca do código falha (404) e a ligação não se faz;
 - o **Client secret** vai **só para os secrets do Worker** (`wrangler secret put`), nunca para o repositório nem para a app;
 - a troca do código e as renovações passam pelo Worker (`POST /v1/google/token`, `server/src/google-token.ts`). O Worker junta o segredo e envia o pedido à Google, sem guardar nem registar nada. Passam só códigos e tokens, nunca dados da casa. É **um único segredo para todos os utilizadores**; o modo sem conta não tem conta, por isso a rota não exige sessão, só que o pedido venha da própria app (cabeçalho `Origin`) e que o endereço de regresso seja `<origem>/nuvem-retorno` da app (ou `http://localhost:5173/nuvem-retorno`, ou uma das `ALLOWED_ORIGINS`).
 
