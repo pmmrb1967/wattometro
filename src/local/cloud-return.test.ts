@@ -10,22 +10,23 @@ const dropAllFreshTokens = vi.fn();
 const offered = new Set<CloudProvider>(['onedrive', 'dropbox']);
 vi.mock('../cloud/cloud-drives', () => ({ completeCloudSignIn }));
 vi.mock('../cloud/cloud-tokens', () => ({ dropAllFreshTokens }));
-vi.mock('../cloud/oauth', () => ({ takeOAuthReturn }));
+vi.mock('../cloud/oauth', () => ({ takeOAuthReturn, CLOUD_RETURN_PATH: '/nuvem-retorno' }));
 vi.mock('../cloud/providers', () => ({
   cloudAvailable: () => offered.size > 0,
   providerAvailable: (provider: CloudProvider) => offered.has(provider),
 }));
 
 const replaceState = vi.fn();
-vi.stubGlobal('window', {
-  location: { href: 'https://app.example/definicoes' },
-  history: { replaceState },
-});
+const location = { href: 'https://app.example/definicoes', pathname: '/definicoes' };
+vi.stubGlobal('window', { location, history: { replaceState } });
 
-const { clearCloudReturn, startCloudReturn, takeCloudReturn } = await import('./cloud-return');
+const { clearCloudReturn, startCloudReturn, takeCloudFailure, takeCloudReturn } =
+  await import('./cloud-return');
 
 beforeEach(() => {
   vi.clearAllMocks();
+  location.href = 'https://app.example/definicoes';
+  location.pathname = '/definicoes';
   offered.clear();
   offered.add('onedrive');
   offered.add('dropbox');
@@ -133,5 +134,59 @@ describe('startCloudReturn', () => {
     expect(dropAllFreshTokens).not.toHaveBeenCalled();
     expect(takeOAuthReturn).not.toHaveBeenCalled();
     expect(completeCloudSignIn).not.toHaveBeenCalled();
+  });
+});
+
+describe('the return address', () => {
+  beforeEach(() => {
+    location.href = 'https://app.example/nuvem-retorno?code=c&state=s';
+    location.pathname = '/nuvem-retorno';
+  });
+
+  it('is replaced by the start page when the return cannot be read', () => {
+    takeOAuthReturn.mockImplementation(() => {
+      throw new Error('no sessionStorage');
+    });
+    startCloudReturn();
+    expect(replaceState).toHaveBeenCalledWith(null, '', '/');
+  });
+
+  it('is replaced by the start page where no service is offered', () => {
+    offered.clear();
+    startCloudReturn();
+    expect(replaceState).toHaveBeenCalledWith(null, '', '/');
+  });
+
+  it('is left alone on any other page', () => {
+    location.pathname = '/definicoes';
+    startCloudReturn();
+    expect(replaceState).not.toHaveBeenCalled();
+  });
+});
+
+describe('takeCloudFailure', () => {
+  it('gives the service of a failed sign-in for its intent, until the flow takes it', async () => {
+    completeCloudSignIn.mockResolvedValue({ provider: 'dropbox', intent: 'connect', error: 'x' });
+    startCloudReturn();
+    expect(await takeCloudFailure('reconnect')).toBeNull();
+    expect(await takeCloudFailure('connect')).toBe('dropbox');
+    expect(await takeCloudFailure('connect')).toBe('dropbox');
+    clearCloudReturn('connect');
+    expect(await takeCloudFailure('connect')).toBeNull();
+  });
+
+  it('stays silent when the user cancelled', async () => {
+    completeCloudSignIn.mockResolvedValue({
+      provider: 'dropbox',
+      intent: 'connect',
+      error: 'access_denied',
+    });
+    startCloudReturn();
+    expect(await takeCloudFailure('connect')).toBeNull();
+  });
+
+  it('gives nothing for a sign-in that worked', async () => {
+    startCloudReturn();
+    expect(await takeCloudFailure('connect')).toBeNull();
   });
 });

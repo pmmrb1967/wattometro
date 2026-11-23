@@ -10,7 +10,7 @@
  */
 import { completeCloudSignIn, type CloudSignIn } from '../cloud/cloud-drives';
 import { dropAllFreshTokens } from '../cloud/cloud-tokens';
-import { takeOAuthReturn, type OAuthReturn } from '../cloud/oauth';
+import { CLOUD_RETURN_PATH, takeOAuthReturn, type OAuthReturn } from '../cloud/oauth';
 import { cloudAvailable, providerAvailable, type CloudProvider } from '../cloud/providers';
 
 /** Linking this browser from Settings › Dados; signing in again from the banner; opening a house from the landing page. */
@@ -32,7 +32,12 @@ function returnAddress(oauth: OAuthReturn): string {
 
 /** On start, before the router: nothing happens unless a sign-in just came back. */
 export function startCloudReturn(): void {
-  if (!cloudAvailable()) return;
+  const onReturnPath = window.location.pathname === CLOUD_RETURN_PATH;
+  if (!cloudAvailable()) {
+    // The code and state never stay in the address (or the history), whatever the build offers.
+    if (onReturnPath) window.history.replaceState(null, '', '/');
+    return;
+  }
   cleared.clear();
   // Sign-ins left in this tab (cancelled, abandoned) go before a new one is held.
   dropAllFreshTokens();
@@ -43,6 +48,7 @@ export function startCloudReturn(): void {
     // No sessionStorage: not a return this tab can finish.
   }
   if (oauth) window.history.replaceState(null, '', returnAddress(oauth));
+  else if (onReturnPath) window.history.replaceState(null, '', '/');
   // Without a PKCE return only MSAL can have one, and only where OneDrive is offered.
   pending =
     oauth || providerAvailable('onedrive')
@@ -61,6 +67,17 @@ export async function takeCloudReturn(intent: CloudIntent): Promise<CloudReturn 
     return null;
   }
   return { provider: back.provider, accountId: back.accountId };
+}
+
+/**
+ * The service whose sign-in for `intent` failed (the code was refused, the
+ * exchange failed); null when it worked, came for another intent, or the user
+ * only cancelled at the service. Same clear semantics as `takeCloudReturn`.
+ */
+export async function takeCloudFailure(intent: CloudIntent): Promise<CloudProvider | null> {
+  const back = await pending;
+  if (cleared.has(intent) || !back || back.intent !== intent || !('error' in back)) return null;
+  return back.error === 'access_denied' ? null : back.provider;
 }
 
 /** The flow for `intent` has the sign-in: later calls get null (another visit to the page). */
