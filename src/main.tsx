@@ -14,7 +14,7 @@ applyTheme(readTheme());
 registerSW({ immediate: true });
 // Before the browser fires beforeinstallprompt (install.ts).
 listenForInstall();
-// Back from the Microsoft sign-in: finished before the pages that left for it ask (cloud-return.ts).
+// Back from a cloud sign-in (Microsoft, Google, Dropbox): finished before the pages that left for it ask (cloud-return.ts).
 startCloudReturn();
 
 const root = document.getElementById('root');

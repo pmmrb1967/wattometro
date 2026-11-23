@@ -6,17 +6,24 @@
  */
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { signInToOneDrive } from '../cloud/onedrive-auth';
-import { oneDriveAvailable } from '../cloud/providers';
+import { signInToCloud } from '../cloud/cloud-drives';
+import {
+  availableProviders,
+  cloudAvailable,
+  providerCompany,
+  providerName,
+  type CloudProvider,
+} from '../cloud/providers';
 import { InstallSection } from '../components/InstallSection';
 import { t } from '../i18n/pt-PT';
-import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
+import { clearCloudReturn, takeCloudReturn, type CloudReturn } from '../local/cloud-return';
 import type { Me } from './api';
 import { LandingJoin } from './CloudJoin';
 import { LandingDay } from './LandingDay';
 import { Login } from './Login';
 
 const copy = t.landing;
+const joinTexts = t.cloud.landingJoin;
 
 export const SIGN_IN_PATH = '/entrar';
 
@@ -30,17 +37,20 @@ export function Landing({
   onLocal: () => void;
 }) {
   const { pathname } = useLocation();
-  // Back from the Microsoft sign-in with "Tenho a casa no OneDrive": the account to open.
-  const [joining, setJoining] = useState<string | null>(null);
-  const [leaving, setLeaving] = useState(false);
+  // Back from the cloud sign-in with "Tenho a casa na cloud": the account to open.
+  const [joining, setJoining] = useState<CloudReturn | null>(null);
+  /** The service whose sign-in page is opening. */
+  const [leaving, setLeaving] = useState<CloudProvider | null>(null);
+  /** With more than one service: "Tenho a casa na cloud" shows one button per service. */
+  const [choosing, setChoosing] = useState(false);
 
   useEffect(() => {
-    if (!oneDriveAvailable()) return;
+    if (!cloudAvailable()) return;
     let active = true;
     void takeCloudReturn('join').then((back) => {
       if (!active || back === null) return;
       clearCloudReturn('join');
-      setJoining(back.accountId);
+      setJoining(back);
     });
     return () => {
       active = false;
@@ -50,10 +60,16 @@ export function Landing({
   if (joining !== null) {
     return (
       <section className="card">
-        <LandingJoin accountId={joining} onDone={onLocal} onCancel={() => setJoining(null)} />
+        <LandingJoin signIn={joining} onDone={onLocal} onCancel={() => setJoining(null)} />
       </section>
     );
   }
+
+  const providers = availableProviders();
+  const join = (provider: CloudProvider) => {
+    setLeaving(provider);
+    void signInToCloud(provider, 'join').catch(() => setLeaving(null));
+  };
 
   if (pathname === SIGN_IN_PATH) {
     return (
@@ -79,19 +95,34 @@ export function Landing({
             <button type="button" className="secondary" onClick={onLocal}>
               {t.local.title}
             </button>
-            {oneDriveAvailable() && (
+            {providers.length > 0 && !choosing && (
               <button
                 type="button"
                 className="secondary"
-                disabled={leaving}
+                disabled={leaving !== null}
                 onClick={() => {
-                  setLeaving(true);
-                  void signInToOneDrive('join').catch(() => setLeaving(false));
+                  const [only] = providers;
+                  if (only !== undefined && providers.length === 1) join(only);
+                  else setChoosing(true);
                 }}
               >
-                {leaving ? t.cloud.landingJoin.leaving : t.cloud.landingJoin.button}
+                {leaving !== null ? joinTexts.leaving(providerCompany(leaving)) : joinTexts.button}
               </button>
             )}
+            {choosing &&
+              providers.map((provider) => (
+                <button
+                  key={provider}
+                  type="button"
+                  className="secondary"
+                  disabled={leaving !== null}
+                  onClick={() => join(provider)}
+                >
+                  {leaving === provider
+                    ? joinTexts.leaving(providerCompany(provider))
+                    : joinTexts.from(providerName(provider))}
+                </button>
+              ))}
             <a href="#como-funciona" className="secondary button-link">
               {copy.howItWorksLink}
             </a>

@@ -2,7 +2,7 @@
 /**
  * The local mode's line at the top of every page: the household is only in this
  * browser, whether it has a copy, and whether it could be read at all; with
- * OneDrive linked, the sync and what stops it. Also where persistent storage is
+ * the cloud linked, the sync and what stops it. Also where persistent storage is
  * asked for, once there is something to protect, and where the sync runner
  * lives while the local mode is open (src/local/cloud-runner.ts).
  */
@@ -18,7 +18,8 @@ import {
   watchOtherTabs,
   type LocalStatus,
 } from '../local/backup';
-import { signInToOneDrive } from '../cloud/onedrive-auth';
+import { signInToCloud } from '../cloud/cloud-drives';
+import { providerName } from '../cloud/providers';
 import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
 import {
   clearRemovedMark,
@@ -96,7 +97,7 @@ function useCloudRunner(): void {
       // StrictMode runs this twice: only the run still mounted takes the sign-in.
       if (!active || !back) return;
       clearCloudReturn('reconnect');
-      void relinkAccount(back.accountId);
+      void relinkAccount(back);
     });
     return () => {
       active = false;
@@ -110,7 +111,7 @@ function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean
   if (removed && !cloud.linked) {
     return (
       <p className="server-banner" role="alert">
-        {cloudTexts.removed} <Link to="/definicoes#onedrive">{cloudTexts.removedLink}</Link>{' '}
+        {cloudTexts.removed} <Link to="/definicoes#nuvem">{cloudTexts.removedLink}</Link>{' '}
         <button type="button" className="link-button" onClick={clearRemovedMark}>
           {cloudTexts.close}
         </button>
@@ -118,21 +119,28 @@ function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean
     );
   }
   if (!cloud.linked) return null;
+  const service = providerName(cloud.provider);
   switch (cloud.error) {
     case 'needs_reconnect':
       return (
         <p className="server-banner" role="alert">
-          {cloudTexts.needs_reconnect}{' '}
+          {cloudTexts.needs_reconnect(service)}{' '}
           <button
             type="button"
             className="link-button"
-            onClick={() => void signInToOneDrive('reconnect')}
+            // The link's own service: a return from another one never changes the link.
+            onClick={() => void signInToCloud(cloud.provider, 'reconnect')}
           >
-            {cloudTexts.reconnect}
+            {cloudTexts.reconnect(service)}
           </button>
         </p>
       );
     case 'quota_full':
+      return (
+        <p className="server-banner" role="alert">
+          {cloudTexts.quota_full(service)}
+        </p>
+      );
     case 'newer_app':
     case 'unreadable_device':
       return (
@@ -149,7 +157,7 @@ function CloudProblem({ cloud, removed }: { cloud: CloudStatus; removed: boolean
       // Anything else that lasts (a damaged chave.json, a conflict…): the sync stopped.
       return (
         <p className="server-banner" role="alert">
-          {cloudTexts.failed}
+          {cloudTexts.failed(service)}
         </p>
       );
   }
@@ -181,8 +189,8 @@ export function LocalBanner() {
       <CloudProblem cloud={cloud} removed={removed} />
       <div className="demo-banner" role="status">
         <span>
-          {syncedAt !== undefined && status.kind !== 'empty'
-            ? cloudTexts.synced(formatLisbonDateTime(syncedAt))
+          {syncedAt !== undefined && cloud.linked && status.kind !== 'empty'
+            ? cloudTexts.synced(providerName(cloud.provider), formatLisbonDateTime(syncedAt))
             : message(status)}
         </span>
         {status.kind !== 'empty' && syncedAt === undefined && (

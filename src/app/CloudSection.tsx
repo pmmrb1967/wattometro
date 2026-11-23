@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Settings › Dados, in the local mode: syncing the house through the user's
- * OneDrive (docs/superpowers/specs/2026-11-22-local-cloud-sync-design.md,
+ * OneDrive, Google Drive or Dropbox (docs/superpowers/specs/2026-11-22-local-cloud-sync-design.md,
  * "Ligar", "Aparelho novo", "Interface"). The work is in src/local/cloud-runner.ts.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { signInToOneDrive } from '../cloud/onedrive-auth';
-import { oneDriveAvailable } from '../cloud/providers';
+import { signInToCloud } from '../cloud/cloud-drives';
+import {
+  availableProviders,
+  cloudAvailable,
+  providerCompany,
+  providerName,
+  type CloudProvider,
+} from '../cloud/providers';
 import { t } from '../i18n/pt-PT';
 import { formatLisbonDateTime, formatLocalDate } from '../lib/time';
 import { CloudKeyError } from '../local/cloud-files';
@@ -23,7 +29,7 @@ import {
   unlinkCloud,
   type CloudStatus,
 } from '../local/cloud-runner';
-import { clearCloudReturn, takeCloudReturn } from '../local/cloud-return';
+import { clearCloudReturn, takeCloudReturn, type CloudReturn } from '../local/cloud-return';
 import { cloudFailure } from './cloud-failure';
 import { CloudJoin } from './CloudJoin';
 import { StatusLine, type Status } from './StatusLine';
@@ -35,10 +41,10 @@ const MIN_PASSWORD_LENGTH = 12;
 
 type Step =
   | { kind: 'idle' }
-  | { kind: 'checking' }
-  | { kind: 'create'; accountId: string }
+  | { kind: 'checking'; provider: CloudProvider }
+  | { kind: 'create'; signIn: CloudReturn }
   | { kind: 'recovery'; recoveryKey: string }
-  | { kind: 'join'; accountId: string };
+  | { kind: 'join'; signIn: CloudReturn };
 
 function useCloudStatus(): CloudStatus | null {
   const [status, setStatus] = useState<CloudStatus | null>(null);
@@ -59,12 +65,12 @@ function useCloudStatus(): CloudStatus | null {
 }
 
 function CreateForm({
-  accountId,
+  signIn,
   onCreated,
   onExists,
   onCancel,
 }: {
-  accountId: string;
+  signIn: CloudReturn;
   onCreated: (recoveryKey: string) => void;
   onExists: () => void;
   onCancel: () => void;
@@ -86,19 +92,19 @@ function CreateForm({
     }
     setStatus({ kind: 'busy' });
     try {
-      const { recoveryKey } = await linkFirstDevice(accountId, password);
+      const { recoveryKey } = await linkFirstDevice(signIn, password);
       onCreated(recoveryKey);
     } catch (error) {
       // Another device linked the folder meanwhile: this one joins it.
       if (error instanceof CloudKeyError && error.code === 'exists') onExists();
-      else setStatus({ kind: 'error', text: cloudFailure(error) });
+      else setStatus({ kind: 'error', text: cloudFailure(error, signIn.provider) });
     }
   }
 
   return (
     <form className="form" onSubmit={submit}>
       <h3>{form.title}</h3>
-      <p className="hint">{form.hint}</p>
+      <p className="hint">{form.hint(providerCompany(signIn.provider))}</p>
       <label>
         {form.password(MIN_PASSWORD_LENGTH)}
         <input
@@ -156,7 +162,7 @@ function RecoveryKey({ value, onSaved }: { value: string; onSaved: () => void })
   );
 }
 
-function CloudBackups() {
+function CloudBackups({ service }: { service: string }) {
   const [backups, setBackups] = useState<
     { name: string; day: string; size: number }[] | 'loading' | 'failed'
   >('loading');
@@ -179,7 +185,7 @@ function CloudBackups() {
   }, []);
 
   async function restore(name: string, day: string) {
-    if (!window.confirm(list.restoreConfirm(formatLocalDate(day)))) return;
+    if (!window.confirm(list.restoreConfirm(formatLocalDate(day), service))) return;
     setStatus({ kind: 'busy' });
     const data = await readCloudBackup(name).catch(() => null);
     if (data === null) {
@@ -196,7 +202,7 @@ function CloudBackups() {
 
   return (
     <>
-      <h3>{list.title}</h3>
+      <h3>{list.title(service)}</h3>
       {backups === 'loading' ? (
         <p className="hint">{list.loading}</p>
       ) : backups === 'failed' ? (
@@ -238,10 +244,11 @@ function Linked({ status }: { status: Extract<CloudStatus, { linked: true }> }) 
     return () => window.removeEventListener(CLOUD_CHANGED, done);
   }, []);
 
+  const service = providerName(status.provider);
   async function unlink() {
-    if (!window.confirm(texts.disconnectConfirm)) return;
+    if (!window.confirm(texts.disconnectConfirm(service))) return;
     if (!(await unlinkCloud({ removeCloud: false }))) {
-      setError({ kind: 'error', text: texts.disconnectFailed });
+      setError({ kind: 'error', text: texts.disconnectFailed(service) });
     }
   }
 
@@ -249,7 +256,13 @@ function Linked({ status }: { status: Extract<CloudStatus, { linked: true }> }) 
     status.lastSyncAt === undefined ? texts.neverSynced : formatLisbonDateTime(status.lastSyncAt);
   return (
     <>
-      <p>{texts.linked(status.accountLabel ?? texts.someAccount, when)}</p>
+      <p>
+        {texts.linked(
+          service,
+          status.accountLabel ?? texts.someAccount(providerCompany(status.provider)),
+          when,
+        )}
+      </p>
       <div className="actions">
         <button
           type="button"
@@ -267,7 +280,7 @@ function Linked({ status }: { status: Extract<CloudStatus, { linked: true }> }) 
         </button>
       </div>
       <StatusLine status={error} />
-      <CloudBackups />
+      <CloudBackups service={service} />
     </>
   );
 }
@@ -276,22 +289,24 @@ export function CloudSection() {
   const status = useCloudStatus();
   const [step, setStep] = useState<Step>({ kind: 'idle' });
   const [error, setError] = useState<Status>({ kind: 'idle' });
+  /** The service whose sign-in page is opening, or whose sign-in failed. */
+  const [chosen, setChosen] = useState<CloudProvider | null>(null);
 
   useEffect(() => {
-    if (!oneDriveAvailable()) return;
+    if (!cloudAvailable()) return;
     let active = true;
     void (async () => {
       const back = await takeCloudReturn('connect');
       if (!active || back === null) return;
       clearCloudReturn('connect');
-      setStep({ kind: 'checking' });
+      setStep({ kind: 'checking', provider: back.provider });
       try {
-        const exists = await cloudHasHouse(back.accountId);
-        if (active) setStep({ kind: exists ? 'join' : 'create', accountId: back.accountId });
+        const exists = await cloudHasHouse(back);
+        if (active) setStep({ kind: exists ? 'join' : 'create', signIn: back });
       } catch (caught) {
         if (!active) return;
         setStep({ kind: 'idle' });
-        setError({ kind: 'error', text: cloudFailure(caught) });
+        setError({ kind: 'error', text: cloudFailure(caught, back.provider) });
       }
     })();
     return () => {
@@ -299,7 +314,7 @@ export function CloudSection() {
     };
   }, []);
 
-  if (!oneDriveAvailable() || status === null) return null;
+  if (!cloudAvailable() || status === null) return null;
 
   const idle = () => setStep({ kind: 'idle' });
   const joined = () => {
@@ -310,13 +325,13 @@ export function CloudSection() {
 
   let body;
   if (step.kind === 'checking') {
-    body = <p className="hint">{texts.checking}</p>;
+    body = <p className="hint">{texts.checking(providerName(step.provider))}</p>;
   } else if (step.kind === 'create') {
     body = (
       <CreateForm
-        accountId={step.accountId}
+        signIn={step.signIn}
         onCreated={(recoveryKey) => setStep({ kind: 'recovery', recoveryKey })}
-        onExists={() => setStep({ kind: 'join', accountId: step.accountId })}
+        onExists={() => setStep({ kind: 'join', signIn: step.signIn })}
         onCancel={idle}
       />
     );
@@ -331,33 +346,42 @@ export function CloudSection() {
       />
     );
   } else if (step.kind === 'join') {
-    body = <CloudJoin accountId={step.accountId} onDone={joined} onCancel={idle} />;
+    body = <CloudJoin signIn={step.signIn} onDone={joined} onCancel={idle} />;
   } else if (status.linked) {
     body = <Linked status={status} />;
   } else {
+    const leaving = error.kind === 'busy';
     body = (
       <>
         <StatusLine status={error} />
-        <button
-          type="button"
-          className="primary"
-          disabled={error.kind === 'busy'}
-          onClick={() => {
-            setError({ kind: 'busy' });
-            void signInToOneDrive('connect').catch(() =>
-              setError({ kind: 'error', text: texts.failed }),
-            );
-          }}
-        >
-          {error.kind === 'busy' ? texts.leaving : texts.connect}
-        </button>
+        <div className="actions">
+          {availableProviders().map((provider) => (
+            <button
+              key={provider}
+              type="button"
+              className="primary"
+              disabled={leaving}
+              onClick={() => {
+                setChosen(provider);
+                setError({ kind: 'busy' });
+                void signInToCloud(provider, 'connect').catch(() =>
+                  setError({ kind: 'error', text: texts.failed(providerName(provider)) }),
+                );
+              }}
+            >
+              {leaving && chosen === provider
+                ? texts.leaving(providerCompany(provider))
+                : texts.connect(providerName(provider))}
+            </button>
+          ))}
+        </div>
       </>
     );
   }
 
   return (
-    <section className="card" id="onedrive">
-      <h2>{texts.title}</h2>
+    <section className="card" id="nuvem">
+      <h2>{status.linked ? texts.titleLinked(providerName(status.provider)) : texts.title}</h2>
       <p className="hint">{texts.intro}</p>
       {body}
     </section>

@@ -10,11 +10,19 @@
  * `throttled` nothing runs until the drive's `Retry-After` has passed. Each
  * cycle's result goes to the window as CLOUD_CHANGED.
  */
-import { OneDrive } from '../cloud/onedrive';
-import { oneDriveAccountLabel, oneDriveToken, signOutOfOneDrive } from '../cloud/onedrive-auth';
-import { oneDriveAvailable } from '../cloud/providers';
+import {
+  cloudAccountLabel,
+  forgetSignIn,
+  linkedDrive,
+  signedInDrive,
+  signedInLink,
+  signOutOfCloud,
+} from '../cloud/cloud-drives';
+import { CloudError, type CloudDrive } from '../cloud/drive';
+import { cloudAvailable, type CloudProvider } from '../cloud/providers';
 import { markBackup, markChanged } from './backup';
 import { BACKUPS_FOLDER, decodeHouse, parseBackupName, readKeyFile } from './cloud-files';
+import type { CloudReturn } from './cloud-return';
 import { browserCloudLinkStore, type CloudLink, type CloudLinkStore } from './cloud-state';
 import {
   connectFirst,
@@ -24,6 +32,7 @@ import {
   REMOVED_KEY,
   resetSnapshotCache,
   syncOnce,
+  type LinkAccount,
   type SyncDeps,
   type SyncResult,
 } from './cloud-sync';
@@ -46,7 +55,13 @@ const NOTHING: SyncResult = { pulled: 0, pushed: false, backup: false };
 
 export type CloudStatus =
   | { linked: false }
-  | { linked: true; accountLabel?: string; lastSyncAt?: number; error?: CloudLink['error'] };
+  | {
+      linked: true;
+      provider: CloudProvider;
+      accountLabel?: string;
+      lastSyncAt?: number;
+      error?: CloudLink['error'];
+    };
 
 const seconds = (ms: number) => Math.floor(ms / 1000);
 
@@ -61,17 +76,10 @@ function acrossTabs<T>(task: () => Promise<T>): Promise<T> {
   return locks ? (locks.request(LOCK, task) as Promise<T>) : task();
 }
 
-/** The OneDrive of the linked account (the last signed-in one when not given). */
-function oneDriveFor(accountId?: string): OneDrive {
-  return new OneDrive(() => oneDriveToken(accountId), {
-    label: () => oneDriveAccountLabel(accountId),
-  });
-}
-
-/** What a cycle needs in the app: OneDrive, the house in IndexedDB, the local server's queue. */
-export function browserSyncDeps(accountId?: string): SyncDeps {
+/** What a cycle needs in the app: the drive, the house in IndexedDB, the local server's queue. */
+export function browserSyncDeps(drive: CloudDrive): SyncDeps {
   return {
-    drive: oneDriveFor(accountId),
+    drive,
     house: browserStore,
     links: browserCloudLinkStore,
     exclusive: localExclusive,
@@ -87,7 +95,7 @@ export function browserSyncDeps(accountId?: string): SyncDeps {
 async function browserRun(): Promise<SyncResult> {
   const link = await browserCloudLinkStore.load();
   if (!link) return NOTHING;
-  return syncOnce(browserSyncDeps(link.accountId));
+  return syncOnce(browserSyncDeps(linkedDrive(link)));
 }
 
 interface Runner {
@@ -213,7 +221,7 @@ export function startCloudRunner(
  * when it goes (disconnected, or the cloud house removed). For the local mode only.
  */
 export function runWhileLinked(): () => void {
-  if (!oneDriveAvailable()) return () => undefined;
+  if (!cloudAvailable()) return () => undefined;
   let active = true;
   let stop: (() => void) | null = null;
   const check = async () => {
@@ -240,16 +248,16 @@ export function runWhileLinked(): () => void {
 
 /**
  * The link of this browser; never linked (and its IndexedDB never opened)
- * where OneDrive is not offered.
+ * where no cloud service is offered.
  */
 export async function cloudStatus(
-  available: () => boolean = oneDriveAvailable,
+  available: () => boolean = cloudAvailable,
   links: CloudLinkStore = browserCloudLinkStore,
 ): Promise<CloudStatus> {
   if (!available()) return { linked: false };
   const link = await links.load();
   if (!link) return { linked: false };
-  const status: CloudStatus = { linked: true };
+  const status: CloudStatus = { linked: true, provider: link.provider };
   if (link.accountLabel !== undefined) status.accountLabel = link.accountLabel;
   if (link.lastSyncAt !== undefined) status.lastSyncAt = link.lastSyncAt;
   if (link.error !== undefined) status.error = link.error;
@@ -296,7 +304,7 @@ export async function restoreHouse(data: LocalData): Promise<boolean> {
 export async function listCloudBackups(): Promise<{ name: string; day: string; size: number }[]> {
   const link = await browserCloudLinkStore.load();
   if (!link) return [];
-  const entries = await oneDriveFor(link.accountId).list(BACKUPS_FOLDER);
+  const entries = await linkedDrive(link).list(BACKUPS_FOLDER);
   return entries
     .flatMap((entry) => {
       const parsed = parseBackupName(entry.name);
@@ -309,31 +317,60 @@ export async function listCloudBackups(): Promise<{ name: string; day: string; s
 export async function readCloudBackup(name: string): Promise<LocalData | null> {
   const link = await browserCloudLinkStore.load();
   if (!link || parseBackupName(name) === null) return null;
-  const file = await oneDriveFor(link.accountId).read(`${BACKUPS_FOLDER}/${name}`);
+  const file = await linkedDrive(link).read(`${BACKUPS_FOLDER}/${name}`);
   if (file === null) return null;
   const decoded = await decodeHouse({ keyId: link.keyId, masterKey: link.masterKey }, file.bytes);
   return decoded.kind === 'ok' ? decoded.payload.data : null;
 }
 
-/** Whether the signed-in account's folder already has a house (`chave.json`). */
-export async function cloudHasHouse(accountId: string): Promise<boolean> {
-  return (await readKeyFile(oneDriveFor(accountId))) !== null;
+const driveOf = (signIn: CloudReturn): CloudDrive =>
+  signedInDrive(signIn.provider, signIn.accountId);
+
+/**
+ * What a link saved from this sign-in follows: OneDrive keeps the MSAL account;
+ * Dropbox and Google Drive keep the lasting link held for this tab (no accountId).
+ */
+async function linkAccount(signIn: CloudReturn, drive: CloudDrive): Promise<LinkAccount> {
+  const account: LinkAccount = { provider: signIn.provider };
+  if (signIn.provider === 'onedrive') {
+    account.id = signIn.accountId;
+  } else {
+    const refreshToken = signedInLink(signIn.provider, signIn.accountId);
+    // This tab no longer holds the sign-in (its sessionStorage was refused or cleared).
+    if (!refreshToken) throw new CloudError('needs_reconnect');
+    account.refreshToken = refreshToken;
+  }
+  const label = await cloudAccountLabel(drive);
+  if (label !== undefined) account.label = label;
+  return account;
 }
 
-/** Back from "Ligar de novo ao OneDrive": the link follows that account, and a cycle runs. */
-export async function relinkAccount(accountId: string): Promise<void> {
-  const label = await oneDriveAccountLabel(accountId).catch(() => undefined);
+/** Whether the signed-in account's folder already has a house (`chave.json`). */
+export async function cloudHasHouse(signIn: CloudReturn): Promise<boolean> {
+  return (await readKeyFile(driveOf(signIn))) !== null;
+}
+
+/**
+ * Back from "Ligar de novo": the link follows that account, and a cycle runs.
+ * A sign-in to another service than the link's changes nothing.
+ */
+export async function relinkAccount(signIn: CloudReturn): Promise<void> {
+  const before = await browserCloudLinkStore.load();
+  if (!before || before.provider !== signIn.provider) return;
+  const account = await linkAccount(signIn, driveOf(signIn));
   // In the cycles' lock: a cycle mid-way cannot put the old account's error back.
   const relinked = await acrossTabs(async () => {
     const link = await browserCloudLinkStore.load();
-    if (!link) return false;
-    const next: CloudLink = { ...link, accountId };
-    if (label !== undefined) next.accountLabel = label;
+    if (!link || link.provider !== account.provider) return false;
+    const next: CloudLink = { ...link };
+    if (account.id !== undefined) next.accountId = account.id;
+    if (account.refreshToken !== undefined) next.refreshToken = account.refreshToken;
+    if (account.label !== undefined) next.accountLabel = account.label;
     delete next.error;
-    await browserCloudLinkStore.save(next);
-    return true;
+    return browserCloudLinkStore.save(next);
   });
   if (!relinked) return;
+  forgetSignIn(signIn.provider, signIn.accountId);
   emit(null);
   requestSync();
 }
@@ -357,18 +394,16 @@ export function clearRemovedMark(): void {
   emit(null);
 }
 
-async function account(accountId: string): Promise<{ id: string; label?: string }> {
-  const label = await oneDriveAccountLabel(accountId).catch(() => undefined);
-  return label === undefined ? { id: accountId } : { id: accountId, label };
-}
-
 /** The first device of a folder without a house; CloudKeyError 'exists' when it has one. */
 export async function linkFirstDevice(
-  accountId: string,
+  signIn: CloudReturn,
   password: string,
 ): Promise<{ recoveryKey: string }> {
-  const who = await account(accountId);
-  const result = await acrossTabs(() => connectFirst(browserSyncDeps(accountId), password, who));
+  const drive = driveOf(signIn);
+  const who = await linkAccount(signIn, drive);
+  const result = await acrossTabs(() => connectFirst(browserSyncDeps(drive), password, who));
+  // The house keeps the link now: the copy held in this tab goes.
+  forgetSignIn(signIn.provider, signIn.accountId);
   // Linked again: the removed mark goes, and the runner starts (runWhileLinked).
   clearRemovedMark();
   return result;
@@ -376,33 +411,35 @@ export async function linkFirstDevice(
 
 /** Another device of a folder with a house (CloudKeyError 'wrong_secret' when the secret is wrong). */
 export async function joinFromCloud(
-  accountId: string,
+  signIn: CloudReturn,
   secret: { password: string } | { recoveryKey: string },
   mode: 'join' | 'replace',
 ): Promise<void> {
-  const who = await account(accountId);
-  await acrossTabs(() => joinCloud(browserSyncDeps(accountId), secret, mode, who));
+  const drive = driveOf(signIn);
+  const who = await linkAccount(signIn, drive);
+  await acrossTabs(() => joinCloud(browserSyncDeps(drive), secret, mode, who));
+  forgetSignIn(signIn.provider, signIn.accountId);
   clearRemovedMark();
 }
 
 /**
  * Unlinks this browser: removes its snapshot (or, with `removeCloud`, the whole
- * house in the cloud) and forgets the Microsoft sign-in here. Without
+ * house in the cloud) and forgets the sign-in here (MSAL's, for OneDrive). Without
  * `removeCloud` a drive that cannot be reached still unlinks (false: its
  * snapshot stays in the folder); with it, the error comes back and nothing here changes.
  */
 export async function unlinkCloud(options: { removeCloud: boolean }): Promise<boolean> {
   // No new cycle from here; one already running ends before the lock is ours.
   current?.stop();
-  let outcome: { reached: boolean; accountId?: string };
+  let outcome: { reached: boolean; link: CloudLink | null };
   try {
     outcome = await acrossTabs(async () => {
       const link = await browserCloudLinkStore.load();
-      const accountId = link?.accountId;
-      const done = (reached: boolean) =>
-        accountId === undefined ? { reached } : { reached, accountId };
+      const done = (reached: boolean) => ({ reached, link });
+      // Already unlinked (another tab): no drive to reach.
+      if (!link) return done(true);
       try {
-        await disconnect(browserSyncDeps(accountId), options);
+        await disconnect(browserSyncDeps(linkedDrive(link)), options);
       } catch (error) {
         if (options.removeCloud) throw error;
         await browserCloudLinkStore.clear();
@@ -416,7 +453,10 @@ export async function unlinkCloud(options: { removeCloud: boolean }): Promise<bo
     emit(null);
     throw error;
   }
-  await signOutOfOneDrive(outcome.accountId).catch(() => undefined);
+  // Microsoft forgets the account here; a Dropbox or Google link went with the link itself.
+  if (outcome.link) {
+    await signOutOfCloud(outcome.link.provider, outcome.link.accountId).catch(() => undefined);
+  }
   emit(null);
   return outcome.reached;
 }

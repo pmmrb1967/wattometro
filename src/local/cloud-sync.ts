@@ -11,6 +11,7 @@
  * link and returned; the house here keeps every change until the next cycle.
  */
 import { CloudError, type CloudDrive } from '../cloud/drive';
+import type { CloudProvider } from '../cloud/providers';
 import { UNKNOWN_INSTALLATION } from '../domain/installation';
 import {
   BACKUPS_FOLDER,
@@ -248,7 +249,9 @@ async function sameLink(links: CloudLinkStore, link: CloudLink): Promise<boolean
     latest !== null &&
     latest.deviceId === link.deviceId &&
     latest.keyId === link.keyId &&
-    latest.accountId === link.accountId
+    latest.provider === link.provider &&
+    latest.accountId === link.accountId &&
+    latest.refreshToken === link.refreshToken
   );
 }
 
@@ -339,14 +342,26 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncResult> {
   }
 }
 
-function newLink(key: CloudKey, account: { id?: string; label?: string }): CloudLink {
+/**
+ * The account a new link follows: OneDrive by its MSAL account (`id`), Dropbox
+ * and Google Drive by their lasting link (`refreshToken`).
+ */
+export interface LinkAccount {
+  provider: CloudProvider;
+  id?: string;
+  refreshToken?: string;
+  label?: string;
+}
+
+function newLink(key: CloudKey, account: LinkAccount): CloudLink {
   const link: CloudLink = {
-    provider: 'onedrive',
+    provider: account.provider,
     deviceId: crypto.randomUUID(),
     keyId: key.keyId,
     masterKey: key.masterKey,
   };
   if (account.id !== undefined) link.accountId = account.id;
+  if (account.refreshToken !== undefined) link.refreshToken = account.refreshToken;
   if (account.label !== undefined) link.accountLabel = account.label;
   return link;
 }
@@ -369,7 +384,7 @@ async function readableHouse(store: LocalStore): Promise<{ data: LocalData; meta
 export async function connectFirst(
   deps: SyncDeps,
   password: string,
-  account: { id?: string; label?: string },
+  account: LinkAccount,
   iterations?: number,
 ): Promise<{ recoveryKey: string }> {
   await readableHouse(deps.house);
@@ -401,7 +416,7 @@ export async function joinCloud(
   deps: SyncDeps,
   secret: { password: string } | { recoveryKey: string },
   mode: 'join' | 'replace',
-  account: { id?: string; label?: string },
+  account: LinkAccount,
 ): Promise<void> {
   await readableHouse(deps.house);
   const key = await unlockKeyFile(deps.drive, secret);

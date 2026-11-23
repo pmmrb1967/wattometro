@@ -34,11 +34,6 @@ export function providerAvailable(provider: CloudProvider): boolean {
   return providerClientId(provider) !== '';
 }
 
-/** OneDrive is offered only when the app is registered with Microsoft. */
-export function oneDriveAvailable(): boolean {
-  return providerAvailable('onedrive');
-}
-
 export const PROVIDER_ORDER: readonly CloudProvider[] = ['onedrive', 'gdrive', 'dropbox'];
 
 export function availableProviders(): CloudProvider[] {

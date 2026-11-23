@@ -7,13 +7,20 @@
  * removes this and leaves the house.
  */
 import type { CloudErrorCode } from '../cloud/drive';
+import { PROVIDER_ORDER, type CloudProvider } from '../cloud/providers';
 
 export interface CloudLink {
-  provider: 'onedrive';
+  provider: CloudProvider;
   deviceId: string;
   keyId: string;
   masterKey: CryptoKey;
+  /** OneDrive: the MSAL account of the link. */
   accountId?: string;
+  /**
+   * Dropbox and Google Drive: the lasting link (refresh token), kept as it is,
+   * with the same protection as MSAL's own in localStorage.
+   */
+  refreshToken?: string;
   accountLabel?: string;
   /** Epoch seconds of the last cycle that ended without an error. */
   lastSyncAt?: number;
@@ -66,11 +73,15 @@ async function withStore<T>(
   });
 }
 
-function isLink(value: unknown): value is CloudLink {
+export function isLink(value: unknown): value is CloudLink {
   if (typeof value !== 'object' || value === null) return false;
   const link = value as Partial<CloudLink>;
+  const provider = link.provider;
+  if (provider === undefined || !PROVIDER_ORDER.includes(provider)) return false;
+  if (provider !== 'onedrive' && (typeof link.refreshToken !== 'string' || !link.refreshToken)) {
+    return false;
+  }
   return (
-    link.provider === 'onedrive' &&
     typeof link.deviceId === 'string' &&
     typeof link.keyId === 'string' &&
     typeof CryptoKey !== 'undefined' &&

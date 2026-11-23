@@ -2,10 +2,11 @@
 /**
  * Settings → Dados, in the local mode: the household is only in this browser
  * (src/local/), so a copy in a file, putting one back, and removing it; and,
- * where OneDrive is offered, its sync (CloudSection).
+ * where a cloud service is offered, its sync (CloudSection).
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import { forgetAiData } from '../ai/settings';
+import { providerName } from '../cloud/providers';
 import { t } from '../i18n/pt-PT';
 import { clearBackupMarks, markBackup } from '../local/backup';
 import { CLOUD_CHANGED, cloudStatus, restoreHouse, unlinkCloud } from '../local/cloud-runner';
@@ -25,10 +26,12 @@ const nowSeconds = () => Math.floor(Date.now() / 1000);
 export function LocalDataSection() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [unreadable, setUnreadable] = useState(false);
-  /** Null until the cloud status is known: "Apagar" and "Repor" wait for it. */
-  const [linked, setLinked] = useState<boolean | null>(null);
+  /** The linked service's name, false when not linked; null until known ("Apagar" and "Repor" wait for it). */
+  const [linked, setLinked] = useState<string | false | null>(null);
   /** With the cloud linked, "Apagar" first asks where from. */
   const [removing, setRemoving] = useState<'idle' | 'choice' | 'cloud'>('idle');
+  /** The linked service, in the texts only shown while linked. */
+  const service = linked || '';
 
   useEffect(() => {
     let active = true;
@@ -37,7 +40,7 @@ export function LocalDataSection() {
     });
     const refresh = () =>
       void cloudStatus().then((status) => {
-        if (active) setLinked(status.linked);
+        if (active) setLinked(status.linked && providerName(status.provider));
       });
     refresh();
     window.addEventListener(CLOUD_CHANGED, refresh);
@@ -74,7 +77,7 @@ export function LocalDataSection() {
       setStatus({ kind: 'error', text: texts.badFile });
       return;
     }
-    if (!window.confirm(linked ? cloudTexts.restoreConfirm : texts.restoreConfirm)) return;
+    if (!window.confirm(linked ? cloudTexts.restoreConfirm(linked) : texts.restoreConfirm)) return;
     // The house is now what that file holds, on every linked device too; counts as a copy.
     if (!(await restoreHouse(read.data))) {
       setStatus({ kind: 'error', text: texts.notKept });
@@ -99,7 +102,7 @@ export function LocalDataSection() {
     try {
       await unlinkCloud({ removeCloud });
     } catch {
-      setStatus({ kind: 'error', text: cloudTexts.cloudNotRemoved });
+      setStatus({ kind: 'error', text: cloudTexts.cloudNotRemoved(service) });
       return;
     }
     await clearHere();
@@ -161,7 +164,7 @@ export function LocalDataSection() {
         )}
         {removing === 'choice' && (
           <>
-            <p>{cloudTexts.removeChoice}</p>
+            <p>{cloudTexts.removeChoice(service)}</p>
             <div className="actions">
               <button
                 type="button"

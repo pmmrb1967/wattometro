@@ -32,6 +32,7 @@ const T0 = 1_800_000_000 - (1_800_000_000 % DAY);
 const Q = 1_768_435_200; // a quarter start
 
 const PASSWORD = 'segredo-forte';
+const ONEDRIVE = { provider: 'onedrive' } as const;
 
 let clock = T0;
 
@@ -95,7 +96,7 @@ const backups = (drive: MemoryDrive) =>
 async function connected(patch: Partial<LocalData> = { quarters: quarters(Q) }) {
   const drive = new MemoryDrive();
   const a = device(drive, house(patch));
-  await connectFirst(a, PASSWORD, { label: 'paulo@example.com' }, ITER);
+  await connectFirst(a, PASSWORD, { provider: 'onedrive', label: 'paulo@example.com' }, ITER);
   return { drive, a };
 }
 
@@ -109,7 +110,7 @@ describe('syncOnce', () => {
     const { drive, a } = await connected();
     clock += 60;
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     expect((await houseOf(b))?.quarters).toEqual(quarters(Q));
 
     clock += 60;
@@ -131,7 +132,7 @@ describe('syncOnce', () => {
   it('an unreadable local house writes nothing', async () => {
     const { drive, a } = await connected();
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     clock += 60;
     await edit(b, (data) => ({ ...data, zone: 'C' }));
     await syncOnce(b);
@@ -175,7 +176,7 @@ describe('syncOnce', () => {
   it('a corrupt snapshot of one device does not stop the others', async () => {
     const { drive, a } = await connected();
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     drive.files.set(housePath('zzz'), { bytes: new TextEncoder().encode('lixo'), etag: 'x1' });
     clock += 60;
     await edit(b, (data) => ({ ...data, zone: 'B' }));
@@ -230,7 +231,7 @@ describe('syncOnce', () => {
     expect((await linkOf(a)).error).toBeUndefined();
 
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     expect((await houseOf(b))?.zone).toBe('A');
   });
 
@@ -300,7 +301,7 @@ describe('syncOnce', () => {
     };
     // Another device's snapshot, so the cycle reads one.
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     resetSnapshotCache();
     const result = await syncOnce({ ...a, drive: failing });
     expect(result.error).toBe('offline');
@@ -336,14 +337,14 @@ describe('syncOnce', () => {
     expect((await syncOnce(a)).pushed).toBe(true);
 
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     expect((await houseOf(b))?.tariffs).toEqual([tariff('2026-01-01')]);
   });
 
   it("a peer's clock ahead does not stop this device's own edits from being pushed", async () => {
     const { drive, a } = await connected();
     const b = { ...device(drive), now: () => clock + 3_600 };
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     clock += 60;
     const read = await b.house.load();
     const before = read.kind === 'ok' ? read.data : emptyLocalData();
@@ -363,7 +364,7 @@ describe('syncOnce', () => {
   it('reads again only the snapshots whose etag changed', async () => {
     const { drive, a } = await connected();
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     resetSnapshotCache();
     expect((await syncOnce(a)).pulled).toBe(1);
     expect((await syncOnce(a)).pulled).toBe(0);
@@ -377,7 +378,7 @@ describe('syncOnce', () => {
   it('merged house is written through exclusive', async () => {
     const { drive, a } = await connected();
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     clock += 60;
     await edit(b, (data) => ({ ...data, zone: 'B' }));
     await syncOnce(b);
@@ -424,7 +425,7 @@ describe('joinCloud', () => {
       zone: 'A',
     }));
     clock += 60;
-    await joinCloud(b, { password: PASSWORD }, 'join', {});
+    await joinCloud(b, { password: PASSWORD }, 'join', ONEDRIVE);
     clock += 60;
     await syncOnce(a);
 
@@ -445,7 +446,7 @@ describe('joinCloud', () => {
     const kept = await houseOf(a);
     clock += 60;
     const b = device(drive, emptyLocalData());
-    await joinCloud(b, { password: PASSWORD }, 'join', {});
+    await joinCloud(b, { password: PASSWORD }, 'join', ONEDRIVE);
     clock += 60;
     await syncOnce(a);
     expect(await houseOf(a)).toEqual(kept);
@@ -459,7 +460,7 @@ describe('joinCloud', () => {
     resetSnapshotCache();
     const kept = house({ zone: 'C', quarters: quarters(Q + 900) });
     const b = device(drive, kept);
-    await expect(joinCloud(b, { password: PASSWORD }, 'replace', {})).rejects.toMatchObject({
+    await expect(joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE)).rejects.toMatchObject({
       code: 'no_cloud_house',
     });
     expect(await houseOf(b)).toEqual(kept);
@@ -471,7 +472,7 @@ describe('joinCloud', () => {
   it('a wrong password is refused and links nothing', async () => {
     const { drive } = await connected();
     const b = device(drive);
-    await expect(joinCloud(b, { password: 'errada' }, 'join', {})).rejects.toMatchObject({
+    await expect(joinCloud(b, { password: 'errada' }, 'join', ONEDRIVE)).rejects.toMatchObject({
       code: 'wrong_secret',
     });
     expect(await b.links.load()).toBeNull();
@@ -487,7 +488,7 @@ describe('backups', () => {
 
     clock = T0 + DAY + 3_600;
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     const idB = (await linkOf(b)).deviceId;
 
     clock = T0 + 3 * DAY + 3_600;
@@ -514,7 +515,7 @@ describe('backups', () => {
     const other = `${BACKUPS_FOLDER}/${backupName(day1, 'other')}`;
     drive.files.set(other, { bytes: new Uint8Array([1]), etag: 'o' });
     const a = device(drive, house({ quarters: quarters(Q) }));
-    await connectFirst(a, PASSWORD, {}, ITER);
+    await connectFirst(a, PASSWORD, ONEDRIVE, ITER);
     // Every change of the house is older than the day of that backup.
     clock = T0 + 9 * DAY;
     expect((await syncOnce(a)).backup).toBe(false);
@@ -530,7 +531,7 @@ describe('backups', () => {
       drive.files.set(`${BACKUPS_FOLDER}/${name}`, { bytes: new Uint8Array([1]), etag: name });
     }
     const a = device(drive, house({ quarters: quarters(Q) }));
-    await connectFirst(a, PASSWORD, {}, ITER);
+    await connectFirst(a, PASSWORD, ONEDRIVE, ITER);
 
     const idA = (await linkOf(a)).deviceId;
     const today = new Date(T0 * 1000).toISOString().slice(0, 10);
@@ -546,7 +547,7 @@ describe('disconnect', () => {
   async function two() {
     const { drive, a } = await connected();
     const b = device(drive);
-    await joinCloud(b, { password: PASSWORD }, 'replace', {});
+    await joinCloud(b, { password: PASSWORD }, 'replace', ONEDRIVE);
     drive.files.set(`${BACKUPS_FOLDER}/notas.txt`, { bytes: new Uint8Array([1]), etag: 'n' });
     return { drive, a, b, idA: (await linkOf(a)).deviceId, idB: (await linkOf(b)).deviceId };
   }

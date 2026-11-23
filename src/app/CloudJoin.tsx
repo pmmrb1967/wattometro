@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Opening a house that already lives in the user's OneDrive: unlock its key,
+ * Opening a house that already lives in the user's cloud: unlock its key,
  * then join or replace this browser's house. Used by Settings › Dados and by
  * the landing page (a new device).
  */
 import { useEffect, useState, type FormEvent } from 'react';
+import { providerName } from '../cloud/providers';
 import { t } from '../i18n/pt-PT';
 import { lisbonToday } from '../lib/time';
+import type { CloudReturn } from '../local/cloud-return';
 import { cloudHasHouse, joinFromCloud, localHouseHasData } from '../local/cloud-runner';
 import { cloudFailure } from './cloud-failure';
 import { browserStore } from '../local/store';
@@ -17,11 +19,11 @@ const texts = t.cloud;
 
 /** A folder that already has a house: unlock its key, and join or replace this browser's. */
 export function CloudJoin({
-  accountId,
+  signIn,
   onDone,
   onCancel,
 }: {
-  accountId: string;
+  signIn: CloudReturn;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -58,17 +60,17 @@ export function CloudJoin({
         const read = await browserStore.load();
         if (read.kind === 'ok') download(read.data, t.local.data.fileName(lisbonToday()));
       }
-      await joinFromCloud(accountId, secret, mode);
+      await joinFromCloud(signIn, secret, mode);
       onDone();
     } catch (error) {
-      setStatus({ kind: 'error', text: cloudFailure(error) });
+      setStatus({ kind: 'error', text: cloudFailure(error, signIn.provider) });
     }
   }
 
   const busy = status.kind === 'busy';
   return (
     <form className="form" onSubmit={submit}>
-      <h3>{form.title}</h3>
+      <h3>{form.title(providerName(signIn.provider))}</h3>
       <p className="hint">{form.intro}</p>
       <label>
         {byRecovery ? form.recoveryKey : form.password}
@@ -115,16 +117,16 @@ export function CloudJoin({
 }
 
 /**
- * A new device, back from the Microsoft sign-in on the landing page: looks at the
+ * A new device, back from the cloud sign-in on the landing page: looks at the
  * folder, then asks for the key. A folder without a house is never started here
  * (that is Settings › Dados, once the local mode is in use).
  */
 export function LandingJoin({
-  accountId,
+  signIn,
   onDone,
   onCancel,
 }: {
-  accountId: string;
+  signIn: CloudReturn;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -132,7 +134,7 @@ export function LandingJoin({
 
   useEffect(() => {
     let active = true;
-    cloudHasHouse(accountId).then(
+    cloudHasHouse(signIn).then(
       (exists) => {
         if (active) setFound(exists ? 'house' : 'empty');
       },
@@ -143,16 +145,16 @@ export function LandingJoin({
     return () => {
       active = false;
     };
-  }, [accountId]);
+  }, [signIn]);
 
-  if (found === 'house')
-    return <CloudJoin accountId={accountId} onDone={onDone} onCancel={onCancel} />;
+  if (found === 'house') return <CloudJoin signIn={signIn} onDone={onDone} onCancel={onCancel} />;
+  const service = providerName(signIn.provider);
   const message =
     found === 'checking'
-      ? texts.checking
+      ? texts.checking(service)
       : found === 'empty'
-        ? texts.landingJoin.noHouse
-        : texts.failed;
+        ? texts.landingJoin.noHouse(service)
+        : texts.failed(service);
   return (
     <div className="form">
       <p className="hint" role={found === 'checking' ? 'status' : 'alert'}>

@@ -1,41 +1,66 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Coming back from the Microsoft sign-in (a full-page redirect): main.tsx
+ * Coming back from a cloud sign-in page (a full-page redirect): main.tsx
  * starts finishing it before the router renders, and the part of the app that
- * left for it (Settings › Dados, or the banner's "Ligar de novo") takes the
- * result once, by the intent it gave to `signInToOneDrive`.
+ * left for it (Settings › Dados, the banner's "Ligar de novo", the landing
+ * page) takes the result once, by the intent it gave to `signInToCloud`.
+ * Microsoft comes back through MSAL; Dropbox and Google to /nuvem-retorno,
+ * whose address is put back to the page that left before the router reads it
+ * (adapted from Faturómetro, src/features/sync/cloud-return.ts).
  */
-import { completeOneDriveSignIn } from '../cloud/onedrive-auth';
-import { oneDriveAvailable } from '../cloud/providers';
+import { completeCloudSignIn, type CloudSignIn } from '../cloud/cloud-drives';
+import { dropAllFreshTokens } from '../cloud/cloud-tokens';
+import { takeOAuthReturn, type OAuthReturn } from '../cloud/oauth';
+import { cloudAvailable, providerAvailable, type CloudProvider } from '../cloud/providers';
 
 /** Linking this browser from Settings › Dados; signing in again from the banner; opening a house from the landing page. */
 export type CloudIntent = 'connect' | 'reconnect' | 'join';
 
 export interface CloudReturn {
-  intent: string;
+  provider: CloudProvider;
   accountId: string;
 }
 
-let pending: Promise<CloudReturn | null> = Promise.resolve(null);
+let pending: Promise<CloudSignIn | null> = Promise.resolve(null);
 /** The intents whose flow has taken the sign-in. */
 const cleared = new Set<CloudIntent>();
 
+/** The page that left for the sign-in; the start page when this tab lost it. */
+function returnAddress(oauth: OAuthReturn): string {
+  return oauth.returnTo ?? '/';
+}
+
 /** On start, before the router: nothing happens unless a sign-in just came back. */
 export function startCloudReturn(): void {
-  if (!oneDriveAvailable()) return;
+  if (!cloudAvailable()) return;
   cleared.clear();
-  pending = completeOneDriveSignIn().catch(() => null);
+  // Sign-ins left in this tab (cancelled, abandoned) go before a new one is held.
+  dropAllFreshTokens();
+  let oauth: OAuthReturn | null = null;
+  try {
+    oauth = takeOAuthReturn(new URL(window.location.href));
+  } catch {
+    // No sessionStorage: not a return this tab can finish.
+  }
+  if (oauth) window.history.replaceState(null, '', returnAddress(oauth));
+  // Without a PKCE return only MSAL can have one, and only where OneDrive is offered.
+  pending =
+    oauth || providerAvailable('onedrive')
+      ? completeCloudSignIn(oauth).catch(() => null)
+      : Promise.resolve(null);
 }
 
 /**
- * The sign-in that came back for `intent`; null for any other or none. The same
- * answer on every call (React's StrictMode runs effects twice) until
- * `clearCloudReturn` says the flow has taken it.
+ * The sign-in that came back for `intent`; null for any other, a refused one
+ * or none. The same answer on every call (React's StrictMode runs effects
+ * twice) until `clearCloudReturn` says the flow has taken it.
  */
-export async function takeCloudReturn(intent: CloudIntent): Promise<{ accountId: string } | null> {
+export async function takeCloudReturn(intent: CloudIntent): Promise<CloudReturn | null> {
   const back = await pending;
-  if (cleared.has(intent) || back?.intent !== intent) return null;
-  return { accountId: back.accountId };
+  if (cleared.has(intent) || !back || back.intent !== intent || !('accountId' in back)) {
+    return null;
+  }
+  return { provider: back.provider, accountId: back.accountId };
 }
 
 /** The flow for `intent` has the sign-in: later calls get null (another visit to the page). */

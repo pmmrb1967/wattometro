@@ -16,6 +16,7 @@ import { memoryStore, type LocalStore } from './store';
 
 const DONE: SyncResult = { pulled: 0, pushed: false, backup: false };
 const DAY = 86_400;
+const LINKED = { linked: true, provider: 'onedrive' } as const;
 
 describe('startCloudRunner', () => {
   let stop: () => void = () => undefined;
@@ -105,20 +106,18 @@ describe('startCloudRunner', () => {
 describe('cloudWorking', () => {
   const NOW = 1_800_000_000;
   it('is a link without an error that synced in the last 30 days', () => {
-    expect(cloudWorking({ linked: true, lastSyncAt: NOW - 29 * DAY }, NOW)).toBe(true);
-    expect(cloudWorking({ linked: true, lastSyncAt: NOW - 31 * DAY }, NOW)).toBe(false);
-    expect(cloudWorking({ linked: true }, NOW)).toBe(false);
-    expect(cloudWorking({ linked: true, lastSyncAt: NOW, error: 'needs_reconnect' }, NOW)).toBe(
-      false,
-    );
+    expect(cloudWorking({ ...LINKED, lastSyncAt: NOW - 29 * DAY }, NOW)).toBe(true);
+    expect(cloudWorking({ ...LINKED, lastSyncAt: NOW - 31 * DAY }, NOW)).toBe(false);
+    expect(cloudWorking(LINKED, NOW)).toBe(false);
+    expect(cloudWorking({ ...LINKED, lastSyncAt: NOW, error: 'needs_reconnect' }, NOW)).toBe(false);
     expect(cloudWorking({ linked: false }, NOW)).toBe(false);
   });
 
   it('ignores offline and throttled while the last sync is recent', () => {
     const recent = NOW - DAY;
-    expect(cloudWorking({ linked: true, lastSyncAt: recent, error: 'offline' }, NOW)).toBe(true);
-    expect(cloudWorking({ linked: true, lastSyncAt: recent, error: 'throttled' }, NOW)).toBe(true);
-    expect(cloudWorking({ linked: true, lastSyncAt: NOW - 31 * DAY, error: 'offline' }, NOW)).toBe(
+    expect(cloudWorking({ ...LINKED, lastSyncAt: recent, error: 'offline' }, NOW)).toBe(true);
+    expect(cloudWorking({ ...LINKED, lastSyncAt: recent, error: 'throttled' }, NOW)).toBe(true);
+    expect(cloudWorking({ ...LINKED, lastSyncAt: NOW - 31 * DAY, error: 'offline' }, NOW)).toBe(
       false,
     );
     for (const error of [
@@ -130,7 +129,7 @@ describe('cloudWorking', () => {
       'unexpected',
       'conflict',
     ] as const) {
-      expect(cloudWorking({ linked: true, lastSyncAt: recent, error }, NOW)).toBe(false);
+      expect(cloudWorking({ ...LINKED, lastSyncAt: recent, error }, NOW)).toBe(false);
     }
   });
 });
@@ -180,7 +179,7 @@ describe('localHouseHasData', () => {
 describe('cloudStatus', () => {
   const link = { provider: 'onedrive', deviceId: 'd', keyId: 'k' } as unknown as CloudLink;
 
-  it('is not linked, without reading the link, where OneDrive is not offered', async () => {
+  it('is not linked, without reading the link, where no cloud service is offered', async () => {
     const links = memoryCloudLinkStore(link);
     const load = vi.spyOn(links, 'load');
     expect(await cloudStatus(() => false, links)).toEqual({ linked: false });
@@ -188,12 +187,18 @@ describe('cloudStatus', () => {
     expect(cloudWorking(await cloudStatus(() => false, links), 0)).toBe(false);
   });
 
-  it('reads the link where OneDrive is offered', async () => {
+  it('reads the link where a cloud service is offered', async () => {
     const links = memoryCloudLinkStore({ ...link, lastSyncAt: 100, accountLabel: 'a@example.com' });
     expect(await cloudStatus(() => true, links)).toEqual({
       linked: true,
+      provider: 'onedrive',
       lastSyncAt: 100,
       accountLabel: 'a@example.com',
     });
+  });
+
+  it("reports the link's service", async () => {
+    const links = memoryCloudLinkStore({ ...link, provider: 'gdrive', refreshToken: 'r' });
+    expect(await cloudStatus(() => true, links)).toEqual({ linked: true, provider: 'gdrive' });
   });
 });
