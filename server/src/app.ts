@@ -7,6 +7,9 @@
  *   GET  /v1/health            → {status: 'ok' | 'degraded', database: boolean}; past D1's
  *                              daily limit also limit: {resetsAt} (503)
  *
+ *   POST /v1/google/token      (no account, local mode) Google Drive sign-in: adds the app's
+ *                              secret and passes the request to Google (routes/google.ts)
+ *
  * The routes live by area in routes/ (each file lists its own); routes/context.ts
  * holds what they share.
  *
@@ -33,6 +36,7 @@ import { nilmRoutes } from './routes/nilm';
 import { solarRoutes } from './routes/solar';
 import { equipmentRoutes } from './routes/equipment';
 import { energyRoutes } from './routes/energy';
+import { googleRoutes } from './routes/google';
 
 export { DEFAULT_ROWS_READ_LIMIT } from './routes/context';
 export { MAX_IMPORT_QUARTERS } from './routes/energy';
@@ -81,6 +85,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   solarRoutes(app, context);
   equipmentRoutes(app, context);
   energyRoutes(app, context);
+  googleRoutes(app, context);
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
   app.onError((error, c) => {

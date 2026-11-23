@@ -2,6 +2,7 @@
 /** Worker environment (server/wrangler.toml). Limits are variables there. */
 import type { WorkersAi } from './ai-free';
 import type { D1Like } from './db';
+import type { GoogleApp } from './google-token';
 import type { VapidKeys } from './webpush';
 
 export interface Env {
@@ -33,6 +34,9 @@ export interface Env {
    * comma-separated; they see the server's panel in Definições (docs/admin.md).
    */
   ADMIN_EMAILS?: string;
+  /** Google Drive sign-in in the local mode (docs/google-drive.md): the client id (a variable) and the secret. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
 /** The VAPID keys, or undefined when the Worker has none (no alerts then). */
@@ -43,6 +47,12 @@ export function vapidKeys(env: Env): VapidKeys | undefined {
     privateKey: env.VAPID_PRIVATE_KEY,
     subject: env.VAPID_SUBJECT || 'mailto:wattometro@outlook.com',
   };
+}
+
+/** The Google OAuth client, or undefined when the Worker has none (no Google Drive then). */
+export function googleApp(env: Env): GoogleApp | undefined {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) return undefined;
+  return { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
 }
 
 export function adminEmails(env: Env): string[] {

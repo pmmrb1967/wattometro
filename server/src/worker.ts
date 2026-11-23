@@ -3,7 +3,14 @@
 import { checkAlerts } from './alerts';
 import { createApp, DEFAULT_ROWS_READ_LIMIT } from './app';
 import { d1, type Sql } from './db';
-import { adminEmails, allowedOrigins, positiveInteger, vapidKeys, type Env } from './env';
+import {
+  adminEmails,
+  allowedOrigins,
+  googleApp,
+  positiveInteger,
+  vapidKeys,
+  type Env,
+} from './env';
 import { listHouseholdIds } from './repo/households';
 import { addUsage, utcDay } from './repo/usage';
 import { syncOmie } from './omie';
@@ -41,6 +48,7 @@ export default {
       ...(vapidKeys(env) ? { vapid: vapidKeys(env) } : {}),
       ...(env.AI_KEY_SECRET ? { aiKeySecret: env.AI_KEY_SECRET } : {}),
       ...(env.AI ? { ai: env.AI } : {}),
+      ...(googleApp(env) ? { google: googleApp(env) } : {}),
       allowedOrigins: allowedOrigins(env),
       ingestRequestsPerMinute: positiveInteger(env.INGEST_REQUESTS_PER_MINUTE),
       ...(limitMb !== undefined ? { databaseLimitBytes: limitMb * 1000 * 1000 } : {}),

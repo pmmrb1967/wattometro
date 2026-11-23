@@ -10,7 +10,7 @@ function directive(name: string): string[] {
 }
 
 describe('security headers', () => {
-  it('connect-src lists the Microsoft hosts and nothing else new', () => {
+  it('connect-src lists the Microsoft, Dropbox and Google Drive hosts and nothing else new', () => {
     expect(directive('connect-src')).toEqual([
       "'self'",
       'https://api.anthropic.com',
@@ -24,6 +24,9 @@ describe('security headers', () => {
       'https://*.livefilestore.com',
       'https://my.microsoftpersonalcontent.com',
       'https://*.sharepoint.com',
+      'https://api.dropboxapi.com',
+      'https://content.dropboxapi.com',
+      'https://www.googleapis.com',
     ]);
   });
 

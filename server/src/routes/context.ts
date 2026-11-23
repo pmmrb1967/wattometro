@@ -12,6 +12,7 @@ import { type Sql } from '../db';
 import { type Fetcher, type VapidKeys } from '../webpush';
 import { type BodyFetcher } from '../pvgis';
 import { type WorkersAi } from '../ai-free';
+import { type GoogleApp } from '../google-token';
 import { getHousehold } from '../repo/households';
 import type { User } from '../repo/users';
 
@@ -41,6 +42,10 @@ export interface AppConfig {
   pvgisFetcher?: BodyFetcher;
   /** Workers AI (the `AI` binding): the free AI (ai-free.ts); without it, 503. */
   ai?: WorkersAi;
+  /** The app's Google OAuth client (docs/google-drive.md); without it /v1/google/token answers 404. */
+  google?: GoogleApp;
+  /** For tests: how Google's token endpoint is called. */
+  googleFetch?: typeof fetch;
 }
 
 export const DEFAULT_DATABASE_LIMIT_BYTES = 500 * 1000 * 1000;
