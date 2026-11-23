@@ -14,11 +14,11 @@ export const PROJECT_ONEDRIVE_CLIENT_ID = '9c75a57c-b9b8-4d1f-943a-8cf8778a1adb'
  * Not a secret. VITE_DROPBOX_APP_KEY overrides it at build time. Empty: Dropbox is
  * not offered.
  */
-export const PROJECT_DROPBOX_APP_KEY = '';
+export const PROJECT_DROPBOX_APP_KEY = '0rmr89k0d7e2sg4';
 
 /**
  * The OAuth client id in Google Cloud (see docs/google-drive.md). Not a secret; the
  * client secret lives only in the Worker. VITE_GOOGLE_CLIENT_ID overrides it at
  * build time. Empty: Google Drive is not offered.
  */
-export const PROJECT_GOOGLE_CLIENT_ID = '';
+export const PROJECT_GOOGLE_CLIENT_ID = '136530327915-jk09trobrcu81deuivb9pa78ojfvp17e.apps.googleusercontent.com';

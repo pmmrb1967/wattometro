@@ -4,7 +4,7 @@ A sincronização do modo sem conta pelo Dropbox (`docs/local-mode.md`) precisa 
 
 Sem *App key*, a app não mostra a opção Dropbox e tudo o resto funciona igual.
 
-**Registo atual:** ainda por fazer (2026-11-23). Quando estiver feito, anota aqui a data e a App key (não é secreta). Não ponhas no repositório (público) o email da conta da consola nem outros dados pessoais.
+**Registo atual** (2026-11-23): App key `0rmr89k0d7e2sg4`, em `src/cloud/cloud-config.ts`. Não ponhas no repositório (público) o email da conta da consola nem outros dados pessoais.
 
 ## Passos (consola em inglês)
 

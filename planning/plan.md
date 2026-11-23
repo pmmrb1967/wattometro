@@ -264,8 +264,8 @@ Capacidade medida e opções para abrir a app a outras pessoas: [`docs/hosting.m
   - [ ] Teste real com conta Microsoft (ligar, segundo aparelho, reconectar, repor cópia, desligar; confirmar os anfitriões de descarregamento)
 - [ ] Google Drive e Dropbox na sincronização e cópias do modo local (plano `docs/superpowers/plans/2026-11-23-cloud-gdrive-dropbox.md`; `docs/google-drive.md`, `docs/dropbox.md`):
   - [x] Código: camada de serviços em `src/cloud/`, ligação e páginas sem assumir o OneDrive, rota `POST /v1/google/token` no Worker e CSP
-  - [ ] Registo no Google Cloud (cliente OAuth, ecrã de consentimento publicado, `GOOGLE_CLIENT_ID` em `server/wrangler.toml` e `GOOGLE_CLIENT_SECRET` com `wrangler secret put`, id em `src/cloud/cloud-config.ts`)
-  - [ ] Registo da app "Wattometro" no Dropbox (App folder, permissões, endereços de regresso, App key em `src/cloud/cloud-config.ts`)
+  - [ ] Registo no Google Cloud (cliente OAuth, ecrã de consentimento publicado, `GOOGLE_CLIENT_ID` em `server/wrangler.toml` e `GOOGLE_CLIENT_SECRET` com `wrangler secret put`, id em `src/cloud/cloud-config.ts`) — id e `GOOGLE_CLIENT_ID` postos a 2026-11-23; falta o segredo no Worker e publicar o ecrã de consentimento
+  - [x] Registo da app "Wattometro" no Dropbox (App folder, permissões, endereços de regresso, App key em `src/cloud/cloud-config.ts`) (2026-11-23)
   - [ ] Teste real com Google Drive e com Dropbox (ligar, segundo aparelho, reconectar, repor cópia, desligar)
 
 ### Instalação própria

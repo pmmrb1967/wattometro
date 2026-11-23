@@ -11,7 +11,7 @@ Ao contrário do OneDrive e do Dropbox, há **um segredo**. A Google só dá ace
 
 Sem o Client ID na app, a opção Google Drive não aparece. Sem o Client ID e o segredo no Worker, a rota responde 404 e a entrada falha.
 
-**Registo atual:** ainda por fazer (2026-11-23). Quando estiver feito, anota aqui a data e o Client ID (não é secreto). Não ponhas no repositório (público) o email da conta da consola nem outros dados pessoais.
+**Registo atual** (2026-11-23): Client ID `136530327915-jk09trobrcu81deuivb9pa78ojfvp17e.apps.googleusercontent.com`, em `src/cloud/cloud-config.ts` e em `server/wrangler.toml`; o segredo só nos secrets do Worker `api`. Não ponhas no repositório (público) o email da conta da consola nem outros dados pessoais.
 
 ## Passos (consola em inglês)
 
@@ -44,7 +44,7 @@ Os nomes dos menus mudam com frequência; se algum não bater certo, procura o e
    ```
 
    O segredo fica ativo logo, sem novo deploy. Para o servidor local (`pnpm dev:server`), põe `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` em `server/.dev.vars`, que está no `.gitignore`.
-7. **Pôr o Client ID** em `GOOGLE_CLIENT_ID` de `server/wrangler.toml` (hoje `""`) e na app: `PROJECT_GOOGLE_CLIENT_ID` em `src/cloud/cloud-config.ts` (commit), ou `VITE_GOOGLE_CLIENT_ID` no `.env.local` para testar sem commitar. Faz o deploy do `api` para o `wrangler.toml` valer.
+7. **Pôr o Client ID** em `GOOGLE_CLIENT_ID` de `server/wrangler.toml`  e na app: `PROJECT_GOOGLE_CLIENT_ID` em `src/cloud/cloud-config.ts` (commit), ou `VITE_GOOGLE_CLIENT_ID` no `.env.local` para testar sem commitar. Faz o deploy do `api` para o `wrangler.toml` valer.
 
 ## Testar
 

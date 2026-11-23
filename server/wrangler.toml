@@ -38,7 +38,7 @@ VAPID_SUBJECT = "mailto:wattometro@outlook.com"
 VAPID_PUBLIC_KEY = "BLf-NqBqEYR8G6YN4tEzrvrPL_g4Bkq9sKKDaibw2b0icmYJfcn_VYigkbCPnYRNzmiw_LkWf390DbA-ysFoeJQ"
 # Google Drive in the local mode (docs/google-drive.md): the OAuth client id is public, so it
 # goes here once registered; the client secret is a secret (wrangler secret put GOOGLE_CLIENT_SECRET).
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "136530327915-jk09trobrcu81deuivb9pa78ojfvp17e.apps.googleusercontent.com"
 # Administrators' emails (docs/admin.md): a secret, never here
 # (wrangler secret put ADMIN_EMAILS, comma-separated).
 
