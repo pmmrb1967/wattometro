@@ -12,6 +12,12 @@ export const settingsTexts = {
     powerTitle: 'Potência perto do corte',
     powerBody: (time: string, peak: string, factor: string, contracted: string) =>
       `Às ${time} chegaste a ${peak}, acima de ${factor} × a potência contratada (${contracted}): o contador começou a contar para cortar a luz.`,
+    powerOverTitle: 'Potência acima da contratada',
+    powerOverBody: (time: string, peak: string, contracted: string) =>
+      `Às ${time} chegaste a ${peak}, acima da potência contratada (${contracted}). O contador só começa a contar para cortar acima de 1,2 ×.`,
+    tierTripTitle: (tier: string) => `Com ${tier}, a luz teria ido abaixo`,
+    tierTripBody: (tier: string, time: string, peak: string, seconds: number) =>
+      `Às ${time} chegaste a ${peak} durante ${seconds} s: com ${tier} contratados, o contador teria cortado a luz (curva por omissão da E-Redes). Vê os escalões em Potência.`,
     databaseTitle: 'Base de dados perto do limite diário',
     databaseBody: (percent: number, resetsAt: string) =>
       `Hoje já se leram ${percent} % das linhas que o plano gratuito da Cloudflare permite por dia. Aos 100 %, a app deixa de gravar até às ${resetsAt}.`,
@@ -134,6 +140,7 @@ export const settingsTexts = {
         budget: 'O mês vai passar o orçamento',
         unusualDay: 'Ontem foi fora do habitual',
         backup: 'É altura de guardar uma cópia da casa',
+        tierTrip: 'Com outro escalão, a luz teria ido abaixo',
       },
       kindNotes: {
         stale: 'Ao fim de 15 minutos sem medições, e outra vez quando voltar.',
@@ -152,7 +159,16 @@ export const settingsTexts = {
           'De manhã, quando ontem a casa gastou muito mais (ou muito menos) do que é costume nesse tipo de dia. Só nas casas em que a temperatura não mexe na eletricidade (em Definições › Casa: aquecimento que não é elétrico e sem ar condicionado).',
         backup:
           'Quando a última cópia da casa passa do prazo escolhido em Definições › Dados e Shelly, ou ainda não há nenhuma. De manhã, e de novo uma semana depois enquanto durar.',
+        tierTrip:
+          'Para decidir a potência a contratar: aplica aos valores ao segundo do Shelly a curva de corte do contador com o escalão que escolheres, e avisa quando, com ele, a luz teria ido abaixo. Chega até 5 minutos depois. No máximo um por hora.',
       },
+      powerLevel: 'Avisar a partir de',
+      powerLevels: {
+        100: '1,0 × a potência contratada (passaste a que pagas)',
+        120: '1,2 × (o contador começa a contar para cortar)',
+      },
+      tier: 'Escalão a simular',
+      tierCurrent: (tier: string) => `${tier} (o teu)`,
       saved: 'Escolha guardada.',
       test: 'Enviar aviso de teste',
       testSent: 'Aviso de teste enviado: deve aparecer dentro de segundos.',

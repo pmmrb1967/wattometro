@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-/** push_subscriptions and alert_state (migrations 0015, 0019, 0020, 0023, 0032). */
+/** push_subscriptions and alert_state (migrations 0015, 0019, 0020, 0023, 0032, 0034). */
+import { decodeSeconds, READINGS_1S_BYTES } from '../../../src/lib/readings-1s';
+import type { PeakMinute } from '../../../src/domain/contracted-power';
 import type { Sql } from '../db';
 
 export type AlertKind =
@@ -11,7 +13,8 @@ export type AlertKind =
   | 'tariffReview'
   | 'budget'
   | 'unusualDay'
-  | 'backup';
+  | 'backup'
+  | 'tierTrip';
 export const ALERT_KINDS: readonly AlertKind[] = [
   'stale',
   'power',
@@ -22,15 +25,27 @@ export const ALERT_KINDS: readonly AlertKind[] = [
   'budget',
   'unusualDay',
   'backup',
+  'tierTrip',
 ];
 
 export type AlertChoice = Record<AlertKind, boolean>;
+
+/** How the power alerts are set on this device (migration 0034). */
+export interface AlertOptions {
+  /** The power alert past 100 % or 120 % of the contracted power. */
+  powerPct: 100 | 120;
+  /** The tier the tierTrip alert simulates, VA; null until chosen. */
+  tierVa: number | null;
+}
+
+export const DEFAULT_ALERT_OPTIONS: AlertOptions = { powerPct: 120, tierVa: null };
 
 export interface Subscription {
   endpoint: string;
   p256dh: string;
   auth: string;
   alerts: AlertChoice;
+  options: AlertOptions;
 }
 
 interface SubscriptionRow {
@@ -46,6 +61,9 @@ interface SubscriptionRow {
   alert_budget: number;
   alert_unusual_day: number;
   alert_backup: number;
+  alert_tier_trip: number;
+  alert_power_pct: number;
+  alert_tier_va: number | null;
 }
 
 const fromRow = (row: SubscriptionRow): Subscription => ({
@@ -62,12 +80,18 @@ const fromRow = (row: SubscriptionRow): Subscription => ({
     budget: row.alert_budget === 1,
     unusualDay: row.alert_unusual_day === 1,
     backup: row.alert_backup === 1,
+    tierTrip: row.alert_tier_trip === 1,
+  },
+  options: {
+    powerPct: row.alert_power_pct === 100 ? 100 : 120,
+    tierVa: row.alert_tier_va,
   },
 });
 
 const COLUMNS =
   'endpoint, p256dh, auth, alert_stale, alert_power, alert_database, alert_cheap_hours, ' +
-  'alert_eredes_import, alert_tariff_review, alert_budget, alert_unusual_day, alert_backup';
+  'alert_eredes_import, alert_tariff_review, alert_budget, alert_unusual_day, alert_backup, ' +
+  'alert_tier_trip, alert_power_pct, alert_tier_va';
 
 /** Saves this browser's subscription for the user; the same endpoint again replaces it. */
 export async function saveSubscription(
@@ -76,19 +100,22 @@ export async function saveSubscription(
   subscription: Subscription,
   now: number,
 ): Promise<void> {
-  const { alerts } = subscription;
+  const { alerts, options } = subscription;
   await sql.run(
     `INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth,
        alert_stale, alert_power, alert_database, alert_cheap_hours, alert_eredes_import,
-       alert_tariff_review, alert_budget, alert_unusual_day, alert_backup, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       alert_tariff_review, alert_budget, alert_unusual_day, alert_backup, alert_tier_trip,
+       alert_power_pct, alert_tier_va, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (endpoint) DO UPDATE SET household_id = excluded.household_id,
        user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
        alert_stale = excluded.alert_stale, alert_power = excluded.alert_power,
        alert_database = excluded.alert_database, alert_cheap_hours = excluded.alert_cheap_hours,
        alert_eredes_import = excluded.alert_eredes_import,
        alert_tariff_review = excluded.alert_tariff_review, alert_budget = excluded.alert_budget,
-       alert_unusual_day = excluded.alert_unusual_day, alert_backup = excluded.alert_backup`,
+       alert_unusual_day = excluded.alert_unusual_day, alert_backup = excluded.alert_backup,
+       alert_tier_trip = excluded.alert_tier_trip, alert_power_pct = excluded.alert_power_pct,
+       alert_tier_va = excluded.alert_tier_va`,
     subscription.endpoint,
     user.householdId,
     user.id,
@@ -103,6 +130,9 @@ export async function saveSubscription(
     alerts.budget ? 1 : 0,
     alerts.unusualDay ? 1 : 0,
     alerts.backup ? 1 : 0,
+    alerts.tierTrip ? 1 : 0,
+    options.powerPct,
+    options.tierVa,
     now,
   );
 }
@@ -187,6 +217,7 @@ export async function alertStates(
     budget: QUIET_STATE,
     unusualDay: QUIET_STATE,
     backup: QUIET_STATE,
+    tierTrip: QUIET_STATE,
   };
   for (const row of rows) {
     states[row.kind] = {
@@ -247,4 +278,56 @@ export async function minutePeaksSince(
     }
   }
   return peaks;
+}
+
+/**
+ * The minutes of a channel since `from` whose one-second peak passed
+ * `threshold`, with their seconds where kept: the tierTrip alert runs the
+ * meter's curve over them (src/domain/contracted-power.ts). A minute below it
+ * cannot add to a trip, so it is not read.
+ */
+/** A minute's seconds, or null in a format this version does not read. */
+function readSeconds(data: Uint8Array) {
+  try {
+    return decodeSeconds(data);
+  } catch {
+    return null;
+  }
+}
+
+export async function peakMinutesSince(
+  sql: Sql,
+  householdId: string,
+  deviceId: string,
+  channel: number,
+  from: number,
+  threshold: number,
+): Promise<PeakMinute[]> {
+  const rows = await sql.all<{
+    ts: number;
+    power_max_w: number;
+    apparent_max_va: number | null;
+    data: ArrayBuffer | Uint8Array | null;
+  }>(
+    `SELECT m.ts, m.power_max_w, m.apparent_max_va, s.data FROM readings_1m AS m
+     LEFT JOIN readings_1s AS s ON s.device_id = m.device_id AND s.channel = m.channel
+       AND s.ts = m.ts
+     WHERE m.device_id = ? AND m.channel = ? AND m.ts >= ? AND m.household_id = ?
+       AND COALESCE(m.apparent_max_va, m.power_max_w) > ?
+     ORDER BY m.ts`,
+    deviceId,
+    channel,
+    from,
+    householdId,
+    threshold,
+  );
+  return rows.map((row) => {
+    const data = row.data ? new Uint8Array(row.data) : null;
+    return {
+      ts: row.ts,
+      powerMaxW: row.power_max_w,
+      apparentMaxVa: row.apparent_max_va,
+      seconds: data && data.byteLength === READINGS_1S_BYTES ? readSeconds(data) : null,
+    };
+  });
 }

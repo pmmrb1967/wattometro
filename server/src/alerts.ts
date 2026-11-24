@@ -4,8 +4,11 @@
  * sent by Web Push (webpush.ts) to the devices that asked for each kind:
  * - stale: no minutes from the Shelly for STALE_MINUTES (and again when it is back);
  * - power: a one-second peak above k × the contracted power, where the smart
- *   meter starts counting towards a cut (src/data/power-trip.json); at most
- *   one an hour;
+ *   meter starts counting towards a cut (src/data/power-trip.json), or above
+ *   the contracted power itself, as each device chose; at most one an hour;
+ * - tierTrip: at another tier the device chose, the meter would have cut the
+ *   power (its curve over the seconds: src/domain/contracted-power.ts); at
+ *   most one an hour;
  * - database: D1 has read DATABASE_SHARE of its daily rows; once a UTC day;
  * - cheapHours: tomorrow's cheapest and dearest hours on the market (omie.ts),
  *   once a day when the prices arrive;
@@ -24,6 +27,13 @@
  */
 import trip from '../../src/data/power-trip.json';
 import { isBackupLate } from '../../src/backup/format';
+import {
+  nearTripEpisodes,
+  samplesOf,
+  SINGLE_PHASE,
+  tripThreshold,
+  type NearTripEpisode,
+} from '../../src/domain/contracted-power';
 import { t } from '../../src/i18n/pt-PT';
 import { priceWindows } from '../../src/domain/omie';
 import type { Budget } from '../../src/domain/budget';
@@ -58,6 +68,7 @@ import {
   forgetEndpoint,
   householdSubscriptions,
   minutePeaksSince,
+  peakMinutesSince,
   setAlertState,
   type AlertKind,
   type AlertState,
@@ -98,6 +109,13 @@ interface Decision {
   message: AlertMessage | null;
 }
 
+/** A decision whose message depends on each device's choice (the power alerts). */
+export interface ChoiceDecision {
+  state: AlertState;
+  /** By the choice: a percentage of the contracted power, or a tier in VA. */
+  messages: Map<number, AlertMessage>;
+}
+
 export function decideStale(
   state: AlertState,
   device: { name: string; lastSeenAt: number } | null,
@@ -131,38 +149,110 @@ export function decideStale(
   return { state, message: null };
 }
 
-/** `since` is the minute last announced; `checkedUntil` where the minutes were looked at. */
+/** The power alert's text for a device that chose `pct` (100 or 120) of the contracted power. */
+function powerMessage(
+  pct: number,
+  highest: { ts: number; peak: number },
+  contractedVa: number,
+): AlertMessage {
+  const time = formatLisbonTime(highest.ts);
+  const peak = formatKva(Math.round(highest.peak));
+  const contracted = formatKva(contractedVa);
+  return {
+    title: pct === 100 ? t.alerts.powerOverTitle : t.alerts.powerTitle,
+    body:
+      pct === 100
+        ? t.alerts.powerOverBody(time, peak, contracted)
+        : t.alerts.powerBody(
+            time,
+            peak,
+            new Intl.NumberFormat('pt-PT').format(POWER_FACTOR),
+            contracted,
+          ),
+    tag: 'power',
+    url: '/potencia',
+  };
+}
+
+/** The factor of a choice: 120 % is the meter's k (it starts counting there). */
+export const powerFactor = (pct: number) => (pct === 100 ? 1 : POWER_FACTOR);
+
+/**
+ * `since` is the minute last announced; `checkedUntil` where the minutes were
+ * looked at. Each device chose 100 % or 120 % (`choices`): the lowest decides
+ * whether there is anything new, and each device is told about its own.
+ */
 export function decidePower(
   state: AlertState,
   peaks: readonly { ts: number; peak: number }[],
   contractedVa: number | null,
   now: number,
-): Decision {
+  choices: readonly number[] = [120],
+): ChoiceDecision {
   const checkedUntil = Math.max(state.checkedUntil ?? 0, ...peaks.map((minute) => minute.ts + 60));
   const next = { ...state, checkedUntil };
-  if (contractedVa === null) return { state: next, message: null };
-  const limit = POWER_FACTOR * contractedVa;
-  const over = peaks.filter((minute) => minute.peak > limit && minute.ts > (state.since ?? 0));
-  if (over.length === 0) return { state: next, message: null };
+  const none = new Map<number, AlertMessage>();
+  if (contractedVa === null || choices.length === 0) return { state: next, messages: none };
+  const limit = (pct: number) => powerFactor(pct) * contractedVa;
+  const lowest = Math.min(...choices.map(limit));
+  const over = peaks.filter((minute) => minute.peak > lowest && minute.ts > (state.since ?? 0));
+  if (over.length === 0) return { state: next, messages: none };
   const quiet = state.sentAt !== null && now - state.sentAt < POWER_QUIET_SECONDS;
-  const highest = over.reduce((best, minute) => (minute.peak > best.peak ? minute : best));
   // Announced or not, these minutes are done with.
   const latest = Math.max(...over.map((minute) => minute.ts));
-  if (quiet) return { state: { ...next, since: latest }, message: null };
-  return {
-    state: { ...next, active: true, since: latest, sentAt: now },
-    message: {
-      title: t.alerts.powerTitle,
-      body: t.alerts.powerBody(
-        formatLisbonTime(highest.ts),
-        formatKva(Math.round(highest.peak)),
-        new Intl.NumberFormat('pt-PT').format(POWER_FACTOR),
-        formatKva(contractedVa),
+  if (quiet) return { state: { ...next, since: latest }, messages: none };
+  const messages = new Map<number, AlertMessage>();
+  for (const pct of new Set(choices)) {
+    const mine = over.filter((minute) => minute.peak > limit(pct));
+    if (mine.length === 0) continue;
+    const highest = mine.reduce((best, minute) => (minute.peak > best.peak ? minute : best));
+    messages.set(pct, powerMessage(pct, highest, contractedVa));
+  }
+  return { state: { ...next, active: true, since: latest, sentAt: now }, messages };
+}
+
+/** How far back the tierTrip check runs the curve again: an overload spans Cron runs. */
+export const TIER_LOOKBACK_SECONDS = 30 * 60;
+
+/**
+ * Overloads that would have cut the power at the tiers the devices chose
+ * (`episodes` by tier, from nearTripEpisodes over the last TIER_LOOKBACK_SECONDS).
+ * `since` is the start of the last one announced; at most one alert an hour.
+ */
+export function decideTierTrip(
+  state: AlertState,
+  episodes: ReadonlyMap<number, readonly NearTripEpisode[]>,
+  now: number,
+): ChoiceDecision {
+  const next = { ...state, checkedUntil: now };
+  const none = new Map<number, AlertMessage>();
+  const since = state.since ?? 0;
+  const fresh = [...episodes]
+    .map(
+      ([tierVa, list]) =>
+        [tierVa, list.filter((item) => item.tripped && item.start > since)] as const,
+    )
+    .filter(([, list]) => list.length > 0);
+  if (fresh.length === 0) return { state: next, messages: none };
+  const latest = Math.max(...fresh.flatMap(([, list]) => list.map((item) => item.start)));
+  const quiet = state.sentAt !== null && now - state.sentAt < POWER_QUIET_SECONDS;
+  if (quiet) return { state: { ...next, since: latest }, messages: none };
+  const messages = new Map<number, AlertMessage>();
+  for (const [tierVa, list] of fresh) {
+    const worst = list.reduce((best, item) => (item.peakVa > best.peakVa ? item : best));
+    messages.set(tierVa, {
+      title: t.alerts.tierTripTitle(formatKva(tierVa)),
+      body: t.alerts.tierTripBody(
+        formatKva(tierVa),
+        formatLisbonTime(worst.start),
+        formatKva(worst.peakVa),
+        worst.seconds,
       ),
-      tag: 'power',
+      tag: 'tier-trip',
       url: '/potencia',
-    },
-  };
+    });
+  }
+  return { state: { ...next, active: true, since: latest, sentAt: now }, messages };
 }
 
 export function decideDatabase(
@@ -424,6 +514,19 @@ export interface AlertConfig {
   fetcher?: Fetcher;
 }
 
+async function deliverTo(
+  sql: Sql,
+  subscriptions: readonly Subscription[],
+  message: AlertMessage,
+  config: AlertConfig,
+  now: number,
+): Promise<void> {
+  for (const subscription of subscriptions) {
+    const result = await sendPush(subscription, message, config.vapid, now, config.fetcher);
+    if (result === 'gone') await forgetEndpoint(sql, subscription.endpoint);
+  }
+}
+
 async function deliver(
   sql: Sql,
   subscriptions: readonly Subscription[],
@@ -451,6 +554,8 @@ export async function checkAlerts(
   const states = await alertStates(sql, householdId);
   const wants = (kind: AlertKind) => subscriptions.some((item) => item.alerts[kind]);
   const decisions: [AlertKind, Decision][] = [];
+  /** The power alerts: each device gets the message of its own choice. */
+  const choiceDecisions: [AlertKind, ChoiceDecision, (item: Subscription) => number | null][] = [];
 
   const devices = (await listDevices(sql, householdId)).filter(
     (device) => device.revokedAt === null,
@@ -468,6 +573,7 @@ export async function checkAlerts(
     const tariff = (await listTariffs(sql, householdId))
       .filter((item) => item.validFrom <= today)
       .at(-1);
+    const powerChoice = (item: Subscription) => (item.alerts.power ? item.options.powerPct : null);
     const from =
       Math.max(states.power.checkedUntil ?? now - POWER_LOOKBACK_SECONDS, now - DAY) -
       POWER_LOOKBACK_SECONDS;
@@ -478,7 +584,41 @@ export async function checkAlerts(
       MAX_CHANNEL + 1,
       from,
     );
-    decisions.push(['power', decidePower(states.power, peaks, tariff?.powerVa ?? null, now)]);
+    const choices = subscriptions.flatMap((item) => powerChoice(item) ?? []);
+    choiceDecisions.push([
+      'power',
+      decidePower(states.power, peaks, tariff?.powerVa ?? null, now, choices),
+      powerChoice,
+    ]);
+  }
+
+  const tierChoice = (item: Subscription) =>
+    item.alerts.tierTrip && item.options.tierVa !== null ? item.options.tierVa : null;
+  const tiers = [...new Set(subscriptions.flatMap((item) => tierChoice(item) ?? []))];
+  if (tiers.length > 0) {
+    const from = Math.max(states.tierTrip.checkedUntil ?? now, now - DAY) - TIER_LOOKBACK_SECONDS;
+    // Below the lowest tier's k × Sc no second counts towards a cut.
+    const threshold = Math.min(...tiers.map((tierVa) => tripThreshold(tierVa, 0, SINGLE_PHASE)));
+    const episodes = new Map<number, NearTripEpisode[]>(tiers.map((tierVa) => [tierVa, []]));
+    for (const device of devices) {
+      for (let channel = 0; channel <= MAX_CHANNEL; channel++) {
+        const minutes = await peakMinutesSince(
+          sql,
+          householdId,
+          device.id,
+          channel,
+          from,
+          threshold,
+        );
+        // Only the seconds as measured: a minute's peak held for 60 s would cut too often.
+        const { samples } = samplesOf(minutes.filter((minute) => minute.seconds !== null));
+        if (samples.length === 0) continue;
+        for (const tierVa of tiers) {
+          episodes.get(tierVa)?.push(...nearTripEpisodes(samples, tierVa, SINGLE_PHASE));
+        }
+      }
+    }
+    choiceDecisions.push(['tierTrip', decideTierTrip(states.tierTrip, episodes, now), tierChoice]);
   }
 
   if (wants('database')) {
@@ -537,6 +677,15 @@ export async function checkAlerts(
 
   for (const [kind, decision] of decisions) {
     if (decision.message) await deliver(sql, subscriptions, kind, decision.message, config, now);
+    if (JSON.stringify(decision.state) !== JSON.stringify(states[kind])) {
+      await setAlertState(sql, householdId, kind, decision.state);
+    }
+  }
+  for (const [kind, decision, choice] of choiceDecisions) {
+    for (const [key, message] of decision.messages) {
+      const to = subscriptions.filter((item) => choice(item) === key);
+      await deliverTo(sql, to, message, config, now);
+    }
     if (JSON.stringify(decision.state) !== JSON.stringify(states[kind])) {
       await setAlertState(sql, householdId, kind, decision.state);
     }

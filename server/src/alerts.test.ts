@@ -12,6 +12,7 @@ import {
   decideDatabase,
   decideEredesImport,
   decidePower,
+  decideTierTrip,
   decideStale,
   decideTariffReview,
   decideUnusualDay,
@@ -29,7 +30,8 @@ import { createDevice } from './repo/devices';
 import { createHousehold, setHouseholdBudget, setHouseholdInstallation } from './repo/households';
 import { minuteStatements } from './repo/readings';
 import { saveOmieDay } from './repo/omie';
-import { QUIET_STATE, saveSubscription, type AlertChoice } from './repo/push';
+import { QUIET_STATE, saveSubscription, type AlertChoice, type AlertOptions } from './repo/push';
+import { encodeSeconds } from '../../src/lib/readings-1s';
 import { saveTariff } from './repo/tariffs';
 import { addRowsRead, utcDay } from './repo/usage';
 import { createUser } from './repo/users';
@@ -55,7 +57,9 @@ const NO_ALERTS: AlertChoice = {
   budget: false,
   unusualDay: false,
   backup: false,
+  tierTrip: false,
 };
+const OPTIONS = { powerPct: 120 as const, tierVa: null };
 
 async function vapid() {
   const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
@@ -89,7 +93,7 @@ describe('the decisions', () => {
     ];
     // 1.2 × 6900 VA = 8280 VA.
     const first = decidePower(QUIET_STATE, peaks, 6_900, NOW);
-    expect(first.message?.body).toBe(
+    expect(first.messages.get(120)?.body).toBe(
       'Às 17:57 chegaste a 8,4\u00a0kVA, acima de 1,2 × a potência contratada (6,9\u00a0kVA): o contador começou a contar para cortar a luz.',
     );
     expect(first.state.checkedUntil).toBe(NOW - 60);
@@ -100,13 +104,72 @@ describe('the decisions', () => {
       6_900,
       NOW + 120,
     );
-    expect(again.message).toBeNull();
+    expect(again.messages.size).toBe(0);
     // An hour later, a new peak is announced.
     const later = decidePower(again.state, [{ ts: NOW + 3_700, peak: 8_500 }], 6_900, NOW + 3_800);
-    expect(later.message).not.toBeNull();
+    expect(later.messages.size).toBe(1);
     // Without a tariff there is no limit to compare with.
-    expect(decidePower(QUIET_STATE, peaks, null, NOW).message).toBeNull();
-    expect(decidePower(QUIET_STATE, [{ ts: NOW, peak: 8_280 }], 6_900, NOW).message).toBeNull();
+    expect(decidePower(QUIET_STATE, peaks, null, NOW).messages.size).toBe(0);
+    expect(decidePower(QUIET_STATE, [{ ts: NOW, peak: 8_280 }], 6_900, NOW).messages.size).toBe(0);
+  });
+
+  it('tells each device about its own level: 1.0 × or 1.2 × the contracted power', () => {
+    // 7000 VA: past 6900, not past 8280.
+    const peaks = [{ ts: NOW - 120, peak: 7_000 }];
+    const both = decidePower(QUIET_STATE, peaks, 6_900, NOW, [100, 120]);
+    expect([...both.messages.keys()]).toEqual([100]);
+    expect(both.messages.get(100)).toMatchObject({ title: 'Potência acima da contratada' });
+    expect(both.messages.get(100)?.body).toContain('acima da potência contratada (6,9\u00a0kVA)');
+    expect(decidePower(QUIET_STATE, peaks, 6_900, NOW, [120]).messages.size).toBe(0);
+    const higher = decidePower(
+      QUIET_STATE,
+      [{ ts: NOW - 60, peak: 9_000 }],
+      6_900,
+      NOW,
+      [100, 120],
+    );
+    expect([...higher.messages.keys()].sort()).toEqual([100, 120]);
+  });
+
+  it('says when another tier would have cut the power, once an hour', () => {
+    const episode = (start: number, tripped: boolean) => ({
+      start,
+      seconds: 180,
+      peakVa: 6_900,
+      progressPct: tripped ? 100 : 60,
+      tripped,
+    });
+    const first = decideTierTrip(
+      QUIET_STATE,
+      new Map([
+        [4_600, [episode(NOW - 600, true)]],
+        [5_750, [episode(NOW - 600, false)]],
+      ]),
+      NOW,
+    );
+    expect([...first.messages.keys()]).toEqual([4_600]);
+    expect(first.messages.get(4_600)).toMatchObject({
+      title: 'Com 4,6\u00a0kVA, a luz teria ido abaixo',
+      url: '/potencia',
+    });
+    expect(first.messages.get(4_600)?.body).toContain(
+      'Às 17:50 chegaste a 6,9\u00a0kVA durante 180 s',
+    );
+    expect(first.state).toMatchObject({ since: NOW - 600, sentAt: NOW, checkedUntil: NOW });
+    // The same overload looked at again, and a new one within the hour: quiet.
+    const again = decideTierTrip(
+      first.state,
+      new Map([[4_600, [episode(NOW - 600, true), episode(NOW + 60, true)]]]),
+      NOW + 300,
+    );
+    expect(again.messages.size).toBe(0);
+    expect(again.state.since).toBe(NOW + 60);
+    const later = decideTierTrip(
+      again.state,
+      new Map([[4_600, [episode(NOW + 3_700, true)]]]),
+      NOW + 3_800,
+    );
+    expect(later.messages.size).toBe(1);
   });
 
   it('warns once a UTC day past 80 % of the rows D1 may read', () => {
@@ -335,11 +398,15 @@ describe('a Cron run', () => {
     );
     await sql.batch(statements);
   };
-  const subscribe = (alerts: Partial<AlertChoice> = { stale: true, power: true, database: true }) =>
+  const subscribe = (
+    alerts: Partial<AlertChoice> = { stale: true, power: true, database: true },
+    options: AlertOptions = OPTIONS,
+    endpoint = ENDPOINT,
+  ) =>
     saveSubscription(
       sql,
       user,
-      { endpoint: ENDPOINT, ...DEVICE_KEYS, alerts: { ...NO_ALERTS, ...alerts } },
+      { endpoint, ...DEVICE_KEYS, alerts: { ...NO_ALERTS, ...alerts }, options },
       NOW,
     );
 
@@ -378,6 +445,47 @@ describe('a Cron run', () => {
       fetcher,
     });
     expect(sent).toHaveLength(0);
+  });
+
+  it('runs the meter curve over the seconds for the tier each device chose', async () => {
+    await subscribe({ tierTrip: true }, { powerPct: 120, tierVa: 4600 });
+    await subscribe({ tierTrip: true }, { powerPct: 120, tierVa: 6900 }, `${ENDPOINT}-2`);
+    // Three minutes at 6900 VA: at 4,6 kVA (x 1,2 = 5520) the meter cuts after 50 / 0,3, about 167 s.
+    const second = (power: number) => Array.from({ length: 60 }, () => power);
+    for (let index = 0; index < 3; index++) {
+      const ts = NOW - 10 * 60 + index * 60;
+      await sql.batch(
+        minuteStatements(
+          { id: deviceId, householdId: household },
+          {
+            ts,
+            channel: 0,
+            samples: 60,
+            energyWh: 115,
+            powerAvgW: 6900,
+            powerMinW: 6900,
+            powerMaxW: 6900,
+            voltageMinDv: 2300,
+            voltageAvgDv: 2300,
+            voltageMaxDv: 2300,
+            pfAvgPct: 100,
+            apparentMaxVa: 6900,
+            seconds: encodeSeconds({
+              power: second(6900),
+              nonActive: second(0),
+              voltage: second(2300),
+            }),
+          },
+        ),
+      );
+    }
+    // A minute without its seconds is not taken as 60 s at its peak.
+    await minute(NOW - 3 * 60, 9_000);
+    const config = { vapid: await vapid(), rowsReadLimit: 5_000_000, fetcher };
+    await checkAlerts(sql, household, NOW, config);
+    expect(sent.map((item) => item.url)).toEqual([ENDPOINT]);
+    await checkAlerts(sql, household, NOW + 300, config);
+    expect(sent).toHaveLength(1);
   });
 
   it("sends tomorrow's cheap hours once, to the devices that asked", async () => {
@@ -528,7 +636,7 @@ describe('/v1/push', () => {
       alerts,
     });
     expect(saved.status).toBe(204);
-    expect(await (await find()).json()).toEqual({ alerts });
+    expect(await (await find()).json()).toEqual({ alerts, options: OPTIONS });
     // Another user does not see it.
     expect((await find(await signIn('rui@example.pt'))).status).toBe(404);
     expect((await call('POST', '/v1/push/test', { endpoint: ENDPOINT })).status).toBe(204);
@@ -546,7 +654,24 @@ describe('/v1/push', () => {
       keys: DEVICE_KEYS,
       alerts: older,
     });
-    expect(await (await find()).json()).toEqual({ alerts: { ...NO_ALERTS, ...older } });
+    expect(await (await find()).json()).toEqual({
+      alerts: { ...NO_ALERTS, ...older },
+      options: OPTIONS,
+    });
+  });
+
+  it('keeps the power options, a tier from the list only', async () => {
+    const put = (options: unknown) =>
+      call('PUT', '/v1/push/subscription', {
+        endpoint: ENDPOINT,
+        keys: DEVICE_KEYS,
+        alerts,
+        options,
+      });
+    expect((await put({ powerPct: 100, tierVa: 4600 })).status).toBe(204);
+    expect(await (await find()).json()).toMatchObject({ options: { powerPct: 100, tierVa: 4600 } });
+    expect((await put({ powerPct: 110, tierVa: 4600 })).status).toBe(400);
+    expect((await put({ powerPct: 120, tierVa: 5000 })).status).toBe(400);
   });
 
   it("keeps the household's budget, and removes it", async () => {
@@ -596,5 +721,34 @@ describe('migration 0032', () => {
     expect(() =>
       db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'nonsense')`),
     ).toThrow();
+  });
+});
+
+describe('migration 0034', () => {
+  it('keeps subscriptions and states, the power at 120 %, and takes the tierTrip kind', () => {
+    const db = new DatabaseSync(':memory:');
+    const folder = join(__dirname, '..', 'migrations');
+    const files = readdirSync(folder)
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    const run = (name: string) => db.exec(readFileSync(join(folder, name), 'utf8'));
+    for (const name of files.filter((name) => name < '0034')) run(name);
+    db.exec(`INSERT INTO households (id, name, created_at) VALUES ('h', 'Casa', 0);
+      INSERT INTO users (id, household_id, email, password_hash, created_at)
+        VALUES ('u', 'h', 'a@b.pt', 'x', 0);
+      INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth, created_at)
+        VALUES ('https://push.example/1', 'h', 'u', 'k', 'a', 0);
+      INSERT INTO alert_state (household_id, kind, since) VALUES ('h', 'power', 7);`);
+    run(files.find((name) => name.startsWith('0034')) as string);
+    expect(db.prepare('SELECT kind, since FROM alert_state').all()).toEqual([
+      { kind: 'power', since: 7 },
+    ]);
+    expect(
+      db
+        .prepare('SELECT alert_power_pct, alert_tier_trip, alert_tier_va FROM push_subscriptions')
+        .get(),
+    ).toEqual({ alert_power_pct: 120, alert_tier_trip: 0, alert_tier_va: null });
+    db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'tierTrip')`);
+    expect(() => db.exec(`UPDATE push_subscriptions SET alert_power_pct = 110`)).toThrow();
   });
 });

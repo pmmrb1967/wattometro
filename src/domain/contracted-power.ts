@@ -34,6 +34,18 @@ export const SINGLE_PHASE: TripCurve = { q: trip.q, k: trip.kSinglePhase };
 export const TIERS_VA: readonly number[] = powerTiers.tiersVa;
 export const DEFAULT_MARGIN_PCT = 10;
 
+/** Without a known contract, the tier offered first (a common one in houses). */
+const USUAL_TIER_VA = 4600;
+
+/**
+ * The tier to simulate first (the tierTrip alert): the one just below the
+ * contracted power, the usual question; the lowest when it is the lowest.
+ */
+export function tierBelow(contractedVa: number | null): number {
+  if (contractedVa === null) return USUAL_TIER_VA;
+  return TIERS_VA.filter((va) => va < contractedVa).at(-1) ?? (TIERS_VA[0] as number);
+}
+
 /** Highest one-second power of a period: apparent where known, else active (VA or W). */
 export function periodPeak(meter: {
   apparentMaxVa: number | null;

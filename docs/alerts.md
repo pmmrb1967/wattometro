@@ -7,7 +7,8 @@ Os avisos chegam ao telemóvel ou ao computador mesmo com a app fechada. O Cron 
 | Aviso | Quando | Repetição |
 |---|---|---|
 | O Shelly deixou de enviar | Nenhum dispositivo ativo enviou há `STALE_MINUTES` (15) | Uma vez; outra quando volta |
-| Potência perto do corte | Um segundo acima de `k × Sc`: o contador inteligente começa a contar para cortar (`k` = 1,2 em monofásico, `src/data/power-trip.json`, fonte em `docs/contracted-power.md`) | No máximo um por hora |
+| Potência perto do corte | Um segundo acima de `k × Sc`: o contador inteligente começa a contar para cortar (`k` = 1,2 em monofásico, `src/data/power-trip.json`, fonte em `docs/contracted-power.md`). Cada aparelho pode escolher avisar já a partir de 1,0 × a potência contratada ("Potência acima da contratada"; migração 0034) | No máximo um por hora |
+| Com outro escalão, a luz teria ido abaixo | Para escolher a potência a contratar: o aparelho escolhe um escalão qualquer (`src/data/power-tiers.json`; por omissão o abaixo do contratado) e o Cron aplica aos valores ao segundo do Shelly a curva de corte do contador com esse escalão (`nearTripEpisodes`, `src/domain/contracted-power.ts`, sem margem). Avisa quando teria cortado. Revê os últimos 30 minutos em cada execução, para apanhar sobrecargas entre execuções; um minuto sem valores ao segundo não conta (o pico durante 60 s exageraria). Desligado por omissão | No máximo um por hora |
 | Base de dados perto do limite | O D1 já leu 80 % das linhas diárias do plano gratuito; abre Definições → Servidor (`docs/admin.md`) | Uma vez por dia UTC |
 | Horas mais baratas de amanhã | Saem os preços OMIE do dia seguinte (a partir das 12:00 de Lisboa): as 3 horas seguidas mais baratas e as mais caras (`docs/omie.md`). Desligado por omissão: só conta num tarifário com preço à hora | Uma vez por dia |
 | Importar a E-Redes | O último dia importado da E-Redes tem mais de 31 dias. Desligado por omissão | No máximo uma vez por mês |

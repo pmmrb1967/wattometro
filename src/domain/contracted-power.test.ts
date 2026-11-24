@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import {
+  tierBelow,
   annualFixedCents,
   decodePeaks,
   effectiveLimit,
@@ -250,5 +251,14 @@ describe('savings', () => {
     // 365 × 0,3436 = 125,414 € × 1,23 = 154,26 €; 365 × 0,29 = 105,85 € × 1,23 = 130,20 €.
     expect(annualFixedCents(tariff, 6900, 343_600)).toBe(15_426);
     expect(annualFixedCents(tariff, 5750, 290_000)).toBe(13_020);
+  });
+});
+
+describe('tierBelow', () => {
+  it('offers the tier below the contract first', () => {
+    expect(tierBelow(6900)).toBe(5750);
+    expect(tierBelow(10350)).toBe(6900);
+    expect(tierBelow(1150)).toBe(1150);
+    expect(tierBelow(null)).toBe(4600);
   });
 });

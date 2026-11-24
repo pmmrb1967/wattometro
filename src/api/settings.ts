@@ -56,9 +56,21 @@ const PushAlerts = z.object({
   unusualDay: z.boolean().default(false),
   // Absent from a server older than migration 0032.
   backup: z.boolean().default(false),
+  // Absent from a server older than migration 0034.
+  tierTrip: z.boolean().default(false),
 });
 
 export type PushAlerts = z.infer<typeof PushAlerts>;
+
+/** How this browser's power alerts are set (migration 0034). */
+const PushOptions = z.object({
+  powerPct: z.union([z.literal(100), z.literal(120)]),
+  tierVa: z.number().int().nullable(),
+});
+
+export type PushOptions = z.infer<typeof PushOptions>;
+
+export const DEFAULT_PUSH_OPTIONS: PushOptions = { powerPct: 120, tierVa: null };
 
 /** The server's VAPID key; "invalid" when the server has none (503 not_configured). */
 export async function fetchPushKey(): Promise<{ ok: true; publicKey: string } | Failure> {
@@ -84,17 +96,17 @@ export async function fetchPushKey(): Promise<{ ok: true; publicKey: string } | 
 /** null: the server does not know this browser's subscription. */
 export async function fetchPushAlerts(
   endpoint: string,
-): Promise<{ ok: true; alerts: PushAlerts | null } | Failure> {
+): Promise<{ ok: true; alerts: PushAlerts | null; options: PushOptions } | Failure> {
   const response = await send(
     'GET',
     `/v1/push/subscription?endpoint=${encodeURIComponent(endpoint)}`,
   );
-  if (response?.status === 404) return { ok: true, alerts: null };
+  if (response?.status === 404) return { ok: true, alerts: null, options: DEFAULT_PUSH_OPTIONS };
   if (response?.ok) {
-    return {
-      ok: true,
-      alerts: z.object({ alerts: PushAlerts }).parse(await response.json()).alerts,
-    };
+    const known = z
+      .object({ alerts: PushAlerts, options: PushOptions.default(DEFAULT_PUSH_OPTIONS) })
+      .parse(await response.json());
+    return { ok: true, alerts: known.alerts, options: known.options };
   }
   return failure(response, []);
 }
@@ -103,6 +115,7 @@ export async function savePushSubscription(subscription: {
   endpoint: string;
   keys: { p256dh: string; auth: string };
   alerts: PushAlerts;
+  options: PushOptions;
 }): Promise<{ ok: true } | Failure> {
   const response = await send('PUT', '/v1/push/subscription', subscription);
   if (response?.ok) return { ok: true };

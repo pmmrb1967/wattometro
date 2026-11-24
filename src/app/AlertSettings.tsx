@@ -5,15 +5,21 @@
  * Worker checks them every 5 minutes (server/src/alerts.ts).
  */
 import { useEffect, useState } from 'react';
+import { tierBelow, TIERS_VA } from '../domain/contracted-power';
 import { t } from '../i18n/pt-PT';
+import { lisbonToday } from '../lib/time';
+import { formatKva } from '../lib/units';
 import {
+  DEFAULT_PUSH_OPTIONS,
   deletePushSubscription,
   fetchPushAlerts,
   fetchPushKey,
+  fetchTariffs,
   savePushSubscription,
   sendTestPush,
   type Failure,
   type PushAlerts,
+  type PushOptions,
 } from './api';
 import { currentSubscription, PushError, pushSupport, subscribe, subscriptionKeys } from './push';
 import { failureText, useSession } from './session';
@@ -32,10 +38,12 @@ const ALL_ALERTS: PushAlerts = {
   budget: false,
   unusualDay: false,
   backup: false,
+  tierTrip: false,
 };
 const KINDS = [
   'stale',
   'power',
+  'tierTrip',
   'database',
   'cheapHours',
   'eredesImport',
@@ -48,7 +56,7 @@ const KINDS = [
 type View =
   | { kind: 'loading' }
   | { kind: 'needsInstall' | 'unsupported' | 'off' }
-  | { kind: 'on'; subscription: PushSubscription; alerts: PushAlerts };
+  | { kind: 'on'; subscription: PushSubscription; alerts: PushAlerts; options: PushOptions };
 
 export function AlertSection() {
   const { signOut } = useSession();
@@ -58,6 +66,21 @@ export function AlertSection() {
   );
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const busy = status.kind === 'busy';
+  /** The contracted power today, to name it in the tiers and choose the one below. */
+  const [contractedVa, setContractedVa] = useState<number | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    void fetchTariffs().then((outcome) => {
+      if (!current || !outcome.ok) return;
+      const today = lisbonToday();
+      const tariff = outcome.tariffs.filter((item) => item.validFrom <= today).at(-1);
+      setContractedVa(tariff?.powerVa ?? null);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (support !== 'supported') return;
@@ -67,7 +90,7 @@ export function AlertSection() {
       const known = subscription ? await fetchPushAlerts(subscription.endpoint) : null;
       if (!current) return;
       if (subscription && known?.ok && known.alerts) {
-        setView({ kind: 'on', subscription, alerts: known.alerts });
+        setView({ kind: 'on', subscription, alerts: known.alerts, options: known.options });
       } else {
         setView({ kind: 'off' });
       }
@@ -100,19 +123,26 @@ export function AlertSection() {
       endpoint: subscription.endpoint,
       keys: subscriptionKeys(subscription),
       alerts: ALL_ALERTS,
+      options: DEFAULT_PUSH_OPTIONS,
     });
     if (!saved.ok) return failed(saved, texts.failed);
-    setView({ kind: 'on', subscription, alerts: ALL_ALERTS });
+    setView({ kind: 'on', subscription, alerts: ALL_ALERTS, options: DEFAULT_PUSH_OPTIONS });
     setStatus({ kind: 'done', text: texts.turnedOn });
   }
 
-  async function choose(subscription: PushSubscription, alerts: PushAlerts) {
-    setView({ kind: 'on', subscription, alerts });
+  async function choose(subscription: PushSubscription, alerts: PushAlerts, options: PushOptions) {
+    // Turning on the simulation without a tier yet: the one below the contract.
+    const chosen =
+      alerts.tierTrip && options.tierVa === null
+        ? { ...options, tierVa: tierBelow(contractedVa) }
+        : options;
+    setView({ kind: 'on', subscription, alerts, options: chosen });
     setStatus({ kind: 'busy' });
     const saved = await savePushSubscription({
       endpoint: subscription.endpoint,
       keys: subscriptionKeys(subscription),
       alerts,
+      options: chosen,
     });
     if (!saved.ok) return failed(saved, texts.failed);
     setStatus({ kind: 'done', text: texts.saved });
@@ -161,15 +191,54 @@ export function AlertSection() {
                   checked={view.alerts[kind]}
                   disabled={busy}
                   onChange={(event) =>
-                    void choose(view.subscription, {
-                      ...view.alerts,
-                      [kind]: event.target.checked,
-                    })
+                    void choose(
+                      view.subscription,
+                      { ...view.alerts, [kind]: event.target.checked },
+                      view.options,
+                    )
                   }
                 />
                 <span>
                   {texts.kinds[kind]}
                   <span className="hint">{texts.kindNotes[kind]}</span>
+                  {kind === 'power' && view.alerts.power && (
+                    <select
+                      aria-label={texts.powerLevel}
+                      value={view.options.powerPct}
+                      disabled={busy}
+                      onChange={(event) =>
+                        void choose(view.subscription, view.alerts, {
+                          ...view.options,
+                          powerPct: event.target.value === '100' ? 100 : 120,
+                        })
+                      }
+                    >
+                      {([120, 100] as const).map((pct) => (
+                        <option key={pct} value={pct}>
+                          {texts.powerLevels[pct]}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {kind === 'tierTrip' && view.alerts.tierTrip && (
+                    <select
+                      aria-label={texts.tier}
+                      value={view.options.tierVa ?? tierBelow(contractedVa)}
+                      disabled={busy}
+                      onChange={(event) =>
+                        void choose(view.subscription, view.alerts, {
+                          ...view.options,
+                          tierVa: Number(event.target.value),
+                        })
+                      }
+                    >
+                      {TIERS_VA.map((va) => (
+                        <option key={va} value={va}>
+                          {va === contractedVa ? texts.tierCurrent(formatKva(va)) : formatKva(va)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </span>
               </label>
             ))}
