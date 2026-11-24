@@ -35,4 +35,20 @@ describe('parseEnv', () => {
       parseEnv('# comment\r\nSHELLY_HOST=192.168.1.50\r\nSHELLY_PASSWORD=a=b c\r\nOTHER=x\r\n'),
     ).toEqual({ SHELLY_HOST: '192.168.1.50', SHELLY_PASSWORD: 'a=b c', OTHER: 'x' });
   });
+
+  it('allows spaces around the equals sign', () => {
+    expect(parseEnv("BACKUP_DIR = 'C:\\x y'\r\n  BACKUP_KEEP= 8\r\n")).toEqual({
+      BACKUP_DIR: 'C:\\x y',
+      BACKUP_KEEP: '8',
+    });
+  });
+
+  it('drops matching quotes around a value, and only those', () => {
+    expect(parseEnv(`A='C:\\Users\\x'\nB="y z"\nC='half\nD=it's\n`)).toEqual({
+      A: 'C:\\Users\\x',
+      B: 'y z',
+      C: "'half",
+      D: "it's",
+    });
+  });
 });

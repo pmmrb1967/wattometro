@@ -78,6 +78,8 @@ const AdminStats = z.object({
     .default(null),
   databaseBytes: int.nullable(),
   cron: z.object({ rolledUpUntil: int.nullable(), purgedAt: int.nullable() }),
+  /** The last database copy (pnpm db:backup); absent from an older server. */
+  backupAt: int.nullable().default(null),
   accounts: z.object({ users: int, households: int, pushDevices: int }),
   devices: z.array(
     z.object({

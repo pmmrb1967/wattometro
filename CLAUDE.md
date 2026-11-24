@@ -158,6 +158,7 @@ pnpm icons               # gera os ícones da PWA a partir de public/icon.svg
 pnpm db:migrate:local    # migrações D1 locais
 pnpm db:migrate:remote   # migrações D1 na Cloudflare
 pnpm user:create --remote  # cria uma conta ou muda a password (num terminal normal: pede a password)
+pnpm db:backup           # cópia cifrada da base D1 para BACKUP_DIR (.env); --decrypt <ficheiro> para repor (docs/admin.md)
 pnpm deploy:server       # Worker `api` (sem endereço público; publicar antes da app)
 pnpm deploy:app          # build + Worker `app` → https://app.wattometro.workers.dev (/v1/* → api)
 pnpm shelly:install      # instala/atualiza shelly/wattometro.js no Shelly de casa (SHELLY_HOST e SHELLY_PASSWORD no .env)

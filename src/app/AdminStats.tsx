@@ -3,10 +3,12 @@
  * "Definições › Servidor", for administrators only (ADMIN_EMAILS, docs/admin.md):
  * D1's daily rows read and written against the free plan, its size, the free
  * AI's Neurons against Workers AI's free daily allocation, the Cron,
- * the Shelly's minutes today, the accounts and the visits per page. Totals only.
+ * the last database copy, the Shelly's minutes today, the accounts and the
+ * visits per page. Totals only.
  */
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/pt-PT';
+import { BACKUP_STALE_DAYS } from '../lib/backup';
 import { formatDuration } from '../lib/time';
 import { fetchAdminStats, type AdminStats } from './api';
 import { useSession } from './session';
@@ -34,6 +36,7 @@ function Panel({ stats }: { stats: AdminStats }) {
   };
   const freeAiOn = (day: string) => stats.freeAi?.find((usage) => usage.day === day)?.neurons ?? 0;
   const late = cron.rolledUpUntil !== null && now - cron.rolledUpUntil > CRON_LATE_SECONDS;
+  const backupLate = stats.backupAt === null || now - stats.backupAt > BACKUP_STALE_DAYS * 86_400;
   return (
     <>
       <dl className="stats">
@@ -102,6 +105,13 @@ function Panel({ stats }: { stats: AdminStats }) {
       <p className="hint">
         {cron.purgedAt === null ? texts.purgedNever : texts.purged(ago(now, cron.purgedAt))}
       </p>
+
+      <h3>{texts.backup}</h3>
+      <p className={backupLate ? 'error' : undefined}>
+        {stats.backupAt === null ? texts.backupNever : texts.backupLast(ago(now, stats.backupAt))}{' '}
+        {backupLate && stats.backupAt !== null && texts.backupLate(BACKUP_STALE_DAYS)}
+      </p>
+      <p className="hint">{texts.backupNote}</p>
 
       <h3>{texts.shelly}</h3>
       {stats.devices.length === 0 && <p className="hint">{texts.noDevices}</p>}

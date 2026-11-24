@@ -38,12 +38,19 @@ export function digestAuth(challenge: Challenge, password: string, cnonce: numbe
   };
 }
 
-/** The variables of a .env file (no quotes, no expansion). */
+/**
+ * The variables of a .env file: `KEY=value` or `KEY = value`, matching quotes
+ * around a value dropped, no expansion.
+ */
 export function parseEnv(text: string): Record<string, string> {
   const env: Record<string, string> = {};
   for (const line of text.split(/\r?\n/)) {
-    const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
-    if (match) env[match[1]!] = match[2]!.trim();
+    const match = /^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$/.exec(line);
+    if (!match) continue;
+    const value = match[2]!.trim();
+    // A value between matching quotes (BACKUP_DIR='C:\…') is read without them.
+    const quoted = /^(["'])(.*)\1$/.exec(value);
+    env[match[1]!] = quoted ? quoted[2]! : value;
   }
   return env;
 }

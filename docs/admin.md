@@ -21,6 +21,7 @@ Os emails nunca entram no repositório. `GET /v1/auth/me` diz `admin: true` a es
 | IA gratuita: neurons hoje e nos últimos 7 dias (UTC), e pedidos de hoje | Estimados a partir dos tokens de cada resposta do Workers AI (`server/src/ai-free.ts`, `docs/ai.md`), em `maintenance_state` (`ai_neurons:AAAA-MM-DD`, `ai_calls:AAAA-MM-DD`). Sem o binding `AI`, aparece "Desligada" | 10 000 por dia (a app para aos 9 000) |
 | Tamanho da base | Medido pelo Cron uma vez por dia | 500 MB |
 | Agregações | Até onde o Cron agregou os minutos (a casa mais atrasada) e a última limpeza | O Cron corre de 5 em 5 min |
+| Cópias da base de dados | A hora da última `pnpm db:backup` (`maintenance_state`, `backup_at`; ver abaixo) | Em atraso a partir de 8 dias |
 | Shelly | Por dispositivo ativo, sem nome: modelo, versão do script, última mensagem e minutos recebidos hoje (canal 0) contra os esperados desde a meia-noite de Lisboa | — |
 | Contas | Número de utilizadores, casas e aparelhos com avisos | — |
 | Visitas | Visitas por página e dia de Lisboa, nos últimos 30 dias | — |
@@ -32,3 +33,58 @@ Quando as linhas lidas passam 80 % do limite, o Cron envia o aviso "Base de dado
 ## Visitas (regra 1 do CLAUDE.md)
 
 Sem Cloudflare Web Analytics nem outro serviço externo. A app envia `POST /v1/visit {page}` quando a sessão está aberta e muda de página; a página tem de ser uma das de `src/lib/pages.ts` (nunca o endereço escrito). Guarda-se só `(dia de Lisboa, página, número)` na tabela `page_views` (migração 0022): sem utilizador, casa, IP, browser nem hora. O Cron apaga as visitas com mais de 90 dias. A demonstração não envia nada.
+
+## Cópias da base de dados
+
+Duas proteções, para coisas diferentes. Decidido a 2026-11-24 (`planning/plan.md`, Decisões).
+
+| | Time Travel (Cloudflare) | `pnpm db:backup` (este computador) |
+|---|---|---|
+| Para quê | Um erro recente: migração, purga ou script mal feitos | Perder a conta Cloudflare ou precisar de voltar mais atrás |
+| Até onde volta | 7 dias no plano gratuito, 30 no Workers Paid ([documentação](https://developers.cloudflare.com/d1/reference/time-travel/), consultada a 2026-11-24) | As `BACKUP_KEEP` cópias guardadas (8 por omissão) |
+| Onde fica | Na Cloudflare, na UE | Numa pasta tua, cifrada |
+
+### Fazer uma cópia
+
+No `.env` (ver `.env.example`): `BACKUP_DIR` (uma pasta **fora do repositório**), `BACKUP_PASSWORD` (mínimo 12 caracteres; guarda-a também num gestor de palavras-passe: sem ela nenhuma cópia abre) e, se quiseres, `BACKUP_KEEP`.
+
+```bash
+pnpm db:backup
+```
+
+- Faz `wrangler d1 export --remote` (com o login do wrangler deste computador), comprime o SQL, cifra-o no computador (PBKDF2-SHA256 com 600 000 iterações → AES-256-GCM, `scripts/backup/backup-file.ts`) e grava `wattometro-AAAA-MM-DDTHHMMZ.sql.gz.enc` em `BACKUP_DIR`. Apaga as cópias mais antigas além de `BACKUP_KEEP` (só ficheiros com este nome).
+- **Para a ter também na cloud:** usa como `BACKUP_DIR` uma pasta sincronizada pelo programa do OneDrive, Google Drive ou Dropbox deste computador. O ficheiro é escrito primeiro como `.part` e só depois mudado de nome, para o programa da cloud nunca enviar meia cópia. O que lá vai está cifrado, por isso os dados das casas não ficam legíveis fora da Cloudflare (regra 1 do `CLAUDE.md`).
+- **A base fica bloqueada enquanto exporta** (limitação do D1). O Shelly volta a enviar esses minutos depois, como em qualquer falha, mas a app não responde durante esse tempo: faz a cópia de madrugada. A exportação lê a base inteira, por isso conta para as linhas lidas do dia; uma vez por semana fica longe do limite.
+- **Agendar no Windows**: uma vez por semana, ao domingo às 04:00, com a tua sessão (o wrangler usa o teu login). Num PowerShell, uma vez:
+
+  ```powershell
+  $action = New-ScheduledTaskAction -Execute 'cmd.exe' -WorkingDirectory '<pasta do projeto>' `
+    -Argument '/c pnpm db:backup > "%TEMP%\wattometro-backup.log" 2>&1'
+  $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 4am
+  $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+  Register-ScheduledTask -TaskName 'Wattometro - copia da base' -Action $action `
+    -Trigger $trigger -Settings $settings
+  ```
+
+  - `-StartWhenAvailable`: se o PC estiver desligado (ou sem a tua sessão) à hora marcada, a cópia corre logo que esteja disponível.
+  - `-WakeToRun`: acorda o PC da suspensão para a fazer (desligado, não).
+  - O resultado da última execução fica em `%TEMP%\wattometro-backup.log`. Para correr já: `Start-ScheduledTask 'Wattometro - copia da base'`. Se o login do wrangler expirar, a cópia falha até correres `pnpm exec wrangler login`.
+- **Saber se está em dia.** No fim de cada cópia, o script grava a hora em `maintenance_state` (`backup_at`: só a hora, nada da cópia). O painel (Definições › Servidor, "Cópias da base de dados") mostra há quanto tempo foi e marca-a em atraso a partir de 8 dias (`src/lib/backup.ts`). O aviso "A cópia da base de dados está em atraso" (Definições › Avisos, só para o administrador; migração 0032) diz o mesmo por notificação: de manhã, e de novo uma semana depois enquanto durar (`decideBackup` em `server/src/alerts.ts`). Apanha o que o Agendador não resolve: o PC desligado semanas, o login do wrangler expirado, a pasta desaparecida.
+
+### Repor
+
+**Até 7 dias atrás: Time Travel.** Substitui a base atual pelo estado nesse momento (devolve um marcador para desfazer):
+
+```bash
+pnpm exec wrangler d1 time-travel info wattometro -c server/wrangler.toml
+pnpm exec wrangler d1 time-travel restore wattometro --timestamp=2026-11-24T04:00:00Z -c server/wrangler.toml
+```
+
+**A partir de um ficheiro: para uma base nova**, sem tocar na atual:
+
+1. `pnpm db:backup --decrypt <ficheiro>` escreve o SQL na pasta temporária do sistema (ou em `--out <ficheiro.sql>`, nunca dentro do repositório).
+2. `CLOUDFLARE_ACCOUNT_ID=<conta> pnpm exec wrangler d1 create wattometro-reposta --jurisdiction eu` (a conta está em `server/wrangler.toml`).
+3. Em `server/wrangler.toml`, troca o `database_id` pelo da base nova (o `database_name` fica `wattometro`, para os comandos continuarem iguais).
+4. `pnpm exec wrangler d1 execute wattometro --remote -c server/wrangler.toml --file <ficheiro.sql>`. O SQL traz as tabelas, os dados e a tabela das migrações aplicadas, por isso `pnpm db:migrate:remote` só aplica as que vieram depois da cópia.
+5. `pnpm deploy:server` (ou um push ao `main`) e apaga o ficheiro `.sql`. A base antiga fica na Cloudflare até a apagares.

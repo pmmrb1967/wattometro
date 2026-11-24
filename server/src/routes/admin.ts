@@ -81,6 +81,8 @@ export function adminRoutes(
       freeAi: config.ai ? await freeAiSince(config.sql, utcDay(at - 6 * DAY)) : null,
       databaseBytes: await getState(config.sql, STATE.databaseBytes),
       cron: { rolledUpUntil, purgedAt: await getState(config.sql, STATE.purgedAt) },
+      // The last pnpm db:backup (scripts/db-backup.ts records it); null: none yet.
+      backupAt: await getState(config.sql, STATE.backupAt),
       accounts: await accountTotals(config.sql),
       devices,
       visits: {

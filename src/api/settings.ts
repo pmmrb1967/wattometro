@@ -54,6 +54,8 @@ const PushAlerts = z.object({
   budget: z.boolean(),
   // Absent from a server older than migration 0023.
   unusualDay: z.boolean().default(false),
+  // Absent from a server older than migration 0032.
+  backup: z.boolean().default(false),
 });
 
 export type PushAlerts = z.infer<typeof PushAlerts>;

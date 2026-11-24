@@ -70,6 +70,7 @@ describe('the administrator', () => {
       days: [{ day: '2026-07-15', rowsRead: 2000, rowsWritten: 30 }],
       accounts: { users: 2, households: 1, pushDevices: 0 },
       devices: [{ model: null, lastSeenAt: null, minutesToday: 0, expectedToday: 630 }],
+      backupAt: null,
     });
     // Totals only: nothing that names a person or the house.
     expect(JSON.stringify(stats)).not.toMatch(/example\.pt|Casa|Quadro/);

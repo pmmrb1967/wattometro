@@ -26,12 +26,13 @@ const PushAlerts = z.object({
   stale: z.boolean(),
   power: z.boolean(),
   database: z.boolean(),
-  // Absent from an app cached before migrations 0019, 0020 and 0023: off.
+  // Absent from an app cached before migrations 0019, 0020, 0023 and 0032: off.
   cheapHours: z.boolean().default(false),
   eredesImport: z.boolean().default(false),
   tariffReview: z.boolean().default(false),
   budget: z.boolean().default(false),
   unusualDay: z.boolean().default(false),
+  backup: z.boolean().default(false),
 });
 
 const PushEndpoint = z.string().max(2000).refine(isPushEndpoint);

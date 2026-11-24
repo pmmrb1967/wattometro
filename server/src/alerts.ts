@@ -13,11 +13,13 @@
  *   last E-Redes day over a month old; at most once a month), tariffReview (in
  *   January and July), budget (from day BUDGET_FROM_DAY, the month's pace past
  *   the budget's energy; once a month), unusualDay (yesterday far from the
- *   usual, by the app's own test on the daily totals: src/ml/anomalies.ts).
+ *   usual, by the app's own test on the daily totals: src/ml/anomalies.ts),
+ *   backup (the administrator's: the last pnpm db:backup over BACKUP_STALE_DAYS
+ *   old, or none; again a week later while it lasts).
  *
  * The decisions are pure (decideStale, decidePower, decideDatabase,
  * decideCheapHours, decideEredesImport, decideTariffReview, decideBudget,
- * decideUnusualDay); a
+ * decideUnusualDay, decideBackup); a
  * condition that lasts is announced once, as alert_state remembers.
  */
 import trip from '../../src/data/power-trip.json';
@@ -37,6 +39,7 @@ import {
   startOfLisbonDay,
 } from '../../src/lib/time';
 import { formatKva, formatKwh } from '../../src/lib/units';
+import { BACKUP_STALE_DAYS } from '../../src/lib/backup';
 import type { Sql } from './db';
 import { MAX_CHANNEL } from './ingest';
 import { PUBLISHED_HOUR } from './omie';
@@ -61,7 +64,9 @@ import {
   type Subscription,
 } from './repo/push';
 import { listTariffs } from './repo/tariffs';
+import { getState } from './repo/rollups';
 import { rowsReadOn, utcDay } from './repo/usage';
+import { STATE } from './rollups';
 import { sendPush, type Fetcher, type VapidKeys } from './webpush';
 
 export const STALE_MINUTES = 15;
@@ -77,6 +82,8 @@ export const REMINDER_HOUR = 10;
 export const EREDES_STALE_DAYS = 31;
 /** The month's pace is too uncertain before this day. */
 export const BUDGET_FROM_DAY = 7;
+/** While it stays late, the reminder again after this. */
+const BACKUP_REPEAT_DAYS = 7;
 
 export interface AlertMessage {
   title: string;
@@ -385,6 +392,31 @@ export function decideUnusualDay(
   };
 }
 
+/**
+ * The last database copy (pnpm db:backup, docs/admin.md) over BACKUP_STALE_DAYS
+ * old, or none recorded: at once, then every BACKUP_REPEAT_DAYS while it lasts.
+ */
+export function decideBackup(state: AlertState, backupAt: number | null, now: number): Decision {
+  const checked = checkedToday(state, now);
+  const late = backupAt === null || now - backupAt > BACKUP_STALE_DAYS * DAY;
+  if (!late) return { state: { ...checked, active: false }, message: null };
+  if (state.active && state.sentAt !== null && now - state.sentAt < BACKUP_REPEAT_DAYS * DAY) {
+    return { state: { ...checked, active: true }, message: null };
+  }
+  return {
+    state: { ...checked, active: true, since: state.active ? state.since : now, sentAt: now },
+    message: {
+      title: t.alerts.backupTitle,
+      body:
+        backupAt === null
+          ? t.alerts.backupNeverBody
+          : t.alerts.backupBody(Math.floor((now - backupAt) / DAY)),
+      tag: 'backup',
+      url: '/definicoes#servidor',
+    },
+  };
+}
+
 export interface AlertConfig {
   vapid: VapidKeys;
   rowsReadLimit: number;
@@ -495,6 +527,11 @@ export async function checkAlerts(
       days = days.filter((day) => day.date < today);
     }
     decisions.push(['unusualDay', decideUnusualDay(states.unusualDay, days, follows, now)]);
+  }
+
+  if (wants('backup') && reminderDue(states.backup, now)) {
+    const backupAt = await getState(sql, STATE.backupAt);
+    decisions.push(['backup', decideBackup(states.backup, backupAt, now)]);
   }
 
   for (const [kind, decision] of decisions) {

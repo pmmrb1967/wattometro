@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { DatabaseSync } from 'node:sqlite';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { tariffInputSchema } from '../../src/domain/tariff';
 import { memorySql } from '../test/sqlite';
 import {
   checkAlerts,
+  decideBackup,
   decideBudget,
   decideDatabase,
   decideEredesImport,
@@ -50,6 +53,7 @@ const NO_ALERTS: AlertChoice = {
   tariffReview: false,
   budget: false,
   unusualDay: false,
+  backup: false,
 };
 
 async function vapid() {
@@ -112,6 +116,23 @@ describe('the decisions', () => {
     expect(warned.message?.body).toContain('até às 00:00');
     expect(decideDatabase(warned.state, 4_500_000, 5_000_000, NOW + 600).message).toBeNull();
     expect(decideDatabase(warned.state, 4_100_000, 5_000_000, NOW + 86_400).message).not.toBeNull();
+  });
+
+  it('reminds of a database copy over 8 days old, again a week later while it lasts', () => {
+    const DAY = 86_400;
+    // 8 days is still on time; 8 days and a second is late.
+    expect(decideBackup(QUIET_STATE, NOW - 8 * DAY, NOW).message).toBeNull();
+    const late = decideBackup(QUIET_STATE, NOW - 8 * DAY - 1, NOW);
+    expect(late.message).toMatchObject({ tag: 'backup', url: '/definicoes#servidor' });
+    expect(late.message?.body).toContain('tem 8 dias');
+    expect(late.state).toMatchObject({ active: true, since: NOW, sentAt: NOW });
+    expect(decideBackup(late.state, NOW - 8 * DAY - 1, NOW + 6 * DAY).message).toBeNull();
+    const again = decideBackup(late.state, NOW - 8 * DAY - 1, NOW + 7 * DAY);
+    expect(again.message?.body).toContain('tem 15 dias');
+    expect(again.state.since).toBe(NOW);
+    // A new copy ends it; none at all is late too.
+    expect(decideBackup(again.state, NOW + 7 * DAY, NOW + 7 * DAY).state.active).toBe(false);
+    expect(decideBackup(QUIET_STATE, null, NOW).message?.body).toContain('Ainda não há nenhuma');
   });
 });
 
@@ -408,6 +429,25 @@ describe('a Cron run', () => {
     expect(sent).toHaveLength(1);
   });
 
+  it('reminds the administrator of a late database copy, once a day at most', async () => {
+    await subscribe({ backup: true });
+    const config = { vapid: await vapid(), rowsReadLimit: 5_000_000, fetcher };
+    // No copy recorded: told, and not again the same day.
+    await checkAlerts(sql, household, NOW, config);
+    await checkAlerts(sql, household, NOW + 300, config);
+    expect(sent).toHaveLength(1);
+    // A copy the next morning (as scripts/db-backup.ts records it): quiet again.
+    const tomorrow = startOfLisbonDay('2026-10-27') + 11 * 3600;
+    db.prepare(`INSERT INTO maintenance_state (name, value) VALUES ('backup_at', ?)`).run(
+      tomorrow - 60,
+    );
+    await checkAlerts(sql, household, tomorrow, config);
+    expect(sent).toHaveLength(1);
+    expect(db.prepare(`SELECT active FROM alert_state WHERE kind = 'backup'`).get()).toEqual({
+      active: 0,
+    });
+  });
+
   it('forgets a device the push service says is gone', async () => {
     await subscribe();
     seen(NOW - 20 * 60);
@@ -519,5 +559,35 @@ describe('/v1/push', () => {
       alerts,
     });
     expect(response.status).toBe(400);
+  });
+});
+
+describe('migration 0032', () => {
+  it('keeps subscriptions and states, the backup alert off, and takes its kind', () => {
+    const db = new DatabaseSync(':memory:');
+    const folder = join(__dirname, '..', 'migrations');
+    const files = readdirSync(folder)
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    const run = (name: string) => db.exec(readFileSync(join(folder, name), 'utf8'));
+    for (const name of files.filter((name) => name < '0032')) run(name);
+    db.exec(`INSERT INTO households (id, name, created_at) VALUES ('h', 'Casa', 0);
+      INSERT INTO users (id, household_id, email, password_hash, created_at)
+        VALUES ('u', 'h', 'a@b.pt', 'x', 0);
+      INSERT INTO push_subscriptions (endpoint, household_id, user_id, p256dh, auth,
+          alert_database, created_at)
+        VALUES ('https://push.example/1', 'h', 'u', 'k', 'a', 1, 0);
+      INSERT INTO alert_state (household_id, kind, since) VALUES ('h', 'unusualDay', 7);`);
+    run(files.find((name) => name.startsWith('0032')) as string);
+    expect(db.prepare('SELECT kind, since FROM alert_state').all()).toEqual([
+      { kind: 'unusualDay', since: 7 },
+    ]);
+    expect(db.prepare('SELECT alert_database, alert_backup FROM push_subscriptions').get()).toEqual(
+      { alert_database: 1, alert_backup: 0 },
+    );
+    db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'backup')`);
+    expect(() =>
+      db.exec(`INSERT INTO alert_state (household_id, kind) VALUES ('h', 'nonsense')`),
+    ).toThrow();
   });
 });

@@ -47,6 +47,8 @@ export const STATE = {
   rolledUpUntil: (householdId: string) => `rollup_until:${householdId}`,
   purgedAt: 'purge_at',
   databaseBytes: 'db_size_bytes',
+  /** When pnpm db:backup last made a copy (scripts/db-backup.ts writes it). */
+  backupAt: 'backup_at',
 } as const;
 
 export interface MaintenanceConfig {
