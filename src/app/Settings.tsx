@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { AdminSection } from './AdminStats';
 import { AiSection } from './AiSettings';
+import { BackupSection } from './BackupSection';
+import { isDemo } from '../demo/mode';
 import { AlertSection } from './AlertSettings';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
@@ -213,6 +215,8 @@ function AccountSettings() {
       <SettingsGroup id="dados" name={GROUPS[1][1]}>
         <EredesImportSection />
         <DevicesSection />
+        {/* The demonstration's house is in the browser and goes back as it was. */}
+        {!isDemo() && <BackupSection />}
       </SettingsGroup>
       <SettingsGroup id="avisos" name={GROUPS[2][1]}>
         <AlertSection />

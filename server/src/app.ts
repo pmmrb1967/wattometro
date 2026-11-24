@@ -37,6 +37,7 @@ import { solarRoutes } from './routes/solar';
 import { equipmentRoutes } from './routes/equipment';
 import { energyRoutes } from './routes/energy';
 import { googleRoutes } from './routes/google';
+import { backupRoutes } from './routes/backup';
 
 export { DEFAULT_ROWS_READ_LIMIT } from './routes/context';
 export { MAX_IMPORT_QUARTERS } from './routes/energy';
@@ -86,6 +87,7 @@ export function createApp(config: AppConfig): Hono<AppEnv> {
   equipmentRoutes(app, context);
   energyRoutes(app, context);
   googleRoutes(app, context);
+  backupRoutes(app, context);
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
   app.onError((error, c) => {

@@ -16,6 +16,7 @@ import { tariffsTexts } from './pt-PT/tariffs';
 import { setupTexts } from './pt-PT/setup';
 import { cloudTexts } from './pt-PT/cloud';
 import { privacyTexts } from './pt-PT/privacy';
+import { backupTexts } from './pt-PT/backup';
 
 export const t = {
   ...commonTexts,
@@ -31,4 +32,5 @@ export const t = {
   ...setupTexts,
   ...cloudTexts,
   ...privacyTexts,
+  ...backupTexts,
 } as const;

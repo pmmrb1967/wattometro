@@ -50,6 +50,14 @@ export async function rowsReadOn(sql: Sql, day: string): Promise<number> {
   return row?.value ?? 0;
 }
 
+export async function rowsWrittenOn(sql: Sql, day: string): Promise<number> {
+  const row = await sql.first<{ value: number }>(
+    'SELECT value FROM maintenance_state WHERE name = ?',
+    WRITTEN_PREFIX + day,
+  );
+  return row?.value ?? 0;
+}
+
 export interface DayUsage {
   /** UTC day. */
   day: string;

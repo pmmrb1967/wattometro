@@ -1008,6 +1008,12 @@ a.action:hover {
   color: var(--text);
 }
 
+/* A reminder (the household copy), not a problem. */
+.notice-box.reminder {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .action-title {
   font-weight: 600;
 }

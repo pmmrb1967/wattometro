@@ -14,7 +14,7 @@ Os avisos chegam ao telemóvel ou ao computador mesmo com a app fechada. O Cron 
 | Rever o tarifário | Em janeiro e em julho. Desligado por omissão | Uma vez em cada um desses meses |
 | Orçamento do mês | A partir do dia 7, a energia do mês ao ritmo até agora passa a que o orçamento compra. Desligado por omissão | Uma vez por mês |
 | Ontem, fora do habitual | Ontem a casa gastou muito mais (ou muito menos) do que é costume nesse tipo de dia: o mesmo teste da app (`judgeDay`, `src/ml/anomalies.ts`) sobre os totais diários. Só nas casas que disseram que a temperatura não conta (aquecimento não elétrico e sem ar condicionado). Desligado por omissão | Uma vez por dia anómalo |
-| Cópia da base de dados em atraso | Só para o administrador (só a ele aparece a escolha): a última `pnpm db:backup` tem mais de 8 dias, ou ainda não há nenhuma registada (`docs/admin.md`, "Cópias da base de dados"). Desligado por omissão | De manhã; de novo uma semana depois enquanto durar |
+| É altura de guardar uma cópia da casa | A última cópia da casa feita na app passou do prazo escolhido em Definições › Dados e Shelly (7 dias por omissão, 15, 1 mês ou nunca), ou ainda não há nenhuma (`docs/backup.md`; migração 0033, que reaproveita o aviso `backup` da 0032). Desligado por omissão | De manhã; de novo uma semana depois enquanto durar |
 
 Escolhido pelo utilizador a 2026-10-26: o limiar de potência é o do contador (120 %), não a potência contratada (100 %). O pico usado é o aparente ao segundo de cada minuto (`apparent_max_va`), ou o ativo quando o minuto não tem valores ao segundo. Cada aparelho escolhe os avisos que quer (Definições → Avisos). Quando o D1 já bloqueou, o próprio Cron não consegue ler e não há avisos: o aviso aos 80 % existe para isso.
 

@@ -17,6 +17,7 @@ import { Privacy, PRIVACY_PATH } from './Privacy';
 import { clearWeatherCache } from '../weather/weather';
 import { isVisitPage } from '../lib/pages';
 import { clearEnergyCache } from './energy-cache';
+import { cancelRestore, resumeRestore } from '../backup/restore';
 import { clearPowerActionCache } from './power-tier';
 import { clearSecondsCache } from './seconds-cache';
 import { NavIcon, type SectionId } from './NavIcon';
@@ -108,6 +109,12 @@ export function AppShell() {
   useEffect(() => {
     if (signedIn && isVisitPage(pathname)) void recordVisit(pathname);
   }, [signedIn, pathname]);
+  // A household copy put back over several days goes on whenever the app opens (docs/backup.md).
+  const householdId = me?.householdId;
+  useEffect(() => {
+    if (householdId === undefined || isDemo() || isLocal()) return;
+    void resumeRestore(householdId, Math.floor(Date.now() / 1000));
+  }, [householdId]);
 
   // Stable within a session, so pages can depend on it in effects.
   const email = me?.email;
@@ -129,6 +136,8 @@ export function AppShell() {
       return;
     }
     if (email !== undefined) forgetSyncedAiCopy(email);
+    // A copy still being put back is kept sealed in this browser: not for the next person.
+    void cancelRestore();
     void logout().then(() => setMe(null));
   }, [setMe, email]);
   // Signing in, or opening the demonstration, always starts on Início, not on

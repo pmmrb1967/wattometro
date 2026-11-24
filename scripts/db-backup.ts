@@ -5,10 +5,11 @@
  * password, into a folder of this computer (one synced by OneDrive, Google
  * Drive or Dropbox puts it in the cloud too). Keeps the newest BACKUP_KEEP.
  * Then records the time in D1 (maintenance_state), for the administrator's
- * panel and the "late copy" alert (server/src/alerts.ts, decideBackup).
+ * panel. Run by hand (each household also keeps its own copy: docs/backup.md).
  *
  *   pnpm db:backup                          # a new copy (BACKUP_DIR, BACKUP_PASSWORD in .env)
  *   pnpm db:backup --decrypt <file> [--out <file.sql>]   # the SQL back, to restore
+ *                                           # (a household copy, .wmbk, opens too: its lines)
  *
  * The export locks the database while it runs (Cloudflare's docs): the Shelly
  * sends that minute again later, as after any failure.
@@ -60,8 +61,10 @@ function argument(flag: string): string | undefined {
 if (process.argv.includes('--decrypt')) {
   const file = argument('--decrypt') ?? fail('Indica o ficheiro: --decrypt <ficheiro>.');
   // By default outside the repository (it is public): the system's temporary folder.
-  const out =
-    argument('--out') ?? join(tmpdir(), basename(file).replace(/\.gz\.enc$/, '') || 'copia.sql');
+  const name = basename(file)
+    .replace(/\.gz\.enc$/, '')
+    .replace(/\.wmbk$/, '.ndjson');
+  const out = argument('--out') ?? join(tmpdir(), name || 'copia.sql');
   try {
     writeFileSync(out, openBackup(readFileSync(file), password));
   } catch (error) {

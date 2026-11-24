@@ -4,7 +4,7 @@ export const privacyTexts = {
   privacyPage: {
     link: 'Privacidade',
     title: 'Privacidade',
-    updated: 'Última atualização: 23 de novembro de 2026.',
+    updated: 'Última atualização: 24 de novembro de 2026.',
     intro:
       'O Wattómetro foi feito para que os consumos da tua casa fiquem contigo. Esta página explica, sem letra miudinha, que dados existem, onde ficam e quem os pode ver.',
     sections: [
@@ -39,6 +39,7 @@ export const privacyTexts = {
           'Da conta guarda-se o email e a palavra-passe em forma irreversível (hash). A sessão usa um único cookie, só para te manter com a sessão iniciada.',
           'Para travar tentativas de adivinhar palavras-passe, o endereço de onde chegam falhas de entrada guarda-se apenas em forma irreversível e é esquecido ao fim de 15 minutos.',
           'Para saber que páginas são usadas, conta-se só o número de visitas por página e por dia, sem utilizador, casa, endereço nem browser.',
+          'A cópia da casa (Definições › Dados e Shelly) é cifrada neste browser com a palavra-passe da conta e gravada só na pasta que escolheres ou nas transferências; o servidor guarda apenas a data da última. Enquanto uma cópia é reposta, o ficheiro fica cifrado neste browser até acabar.',
         ],
       },
       {

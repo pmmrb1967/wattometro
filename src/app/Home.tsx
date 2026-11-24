@@ -21,6 +21,7 @@ import { BillForecastCard } from './BillForecast';
 import { ActionValue, HomeActions } from './HomeActions';
 import { useHouseholdEnergy } from './household-energy';
 import { useSession } from './session';
+import { BackupReminder } from './BackupSection';
 
 const REFRESH_MS = 60_000;
 /** The script sends every minute: three without news means something is wrong. */
@@ -353,6 +354,7 @@ export function Home() {
               <DatabaseWarning database={now.database} />
             </>
           )}
+          <BackupReminder />
           <HomeActions energy={energy} />
           <div className="action-group">
             <BillForecastCard energy={energy} />

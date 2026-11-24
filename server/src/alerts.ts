@@ -14,8 +14,8 @@
  *   January and July), budget (from day BUDGET_FROM_DAY, the month's pace past
  *   the budget's energy; once a month), unusualDay (yesterday far from the
  *   usual, by the app's own test on the daily totals: src/ml/anomalies.ts),
- *   backup (the administrator's: the last pnpm db:backup over BACKUP_STALE_DAYS
- *   old, or none; again a week later while it lasts).
+ *   backup (the household's last copy, made in the app, older than its
+ *   reminder's days, or none; again a week later while it lasts).
  *
  * The decisions are pure (decideStale, decidePower, decideDatabase,
  * decideCheapHours, decideEredesImport, decideTariffReview, decideBudget,
@@ -23,6 +23,7 @@
  * condition that lasts is announced once, as alert_state remembers.
  */
 import trip from '../../src/data/power-trip.json';
+import { isBackupLate } from '../../src/backup/format';
 import { t } from '../../src/i18n/pt-PT';
 import { priceWindows } from '../../src/domain/omie';
 import type { Budget } from '../../src/domain/budget';
@@ -39,7 +40,6 @@ import {
   startOfLisbonDay,
 } from '../../src/lib/time';
 import { formatKva, formatKwh } from '../../src/lib/units';
-import { BACKUP_STALE_DAYS } from '../../src/lib/backup';
 import type { Sql } from './db';
 import { MAX_CHANNEL } from './ingest';
 import { PUBLISHED_HOUR } from './omie';
@@ -64,9 +64,8 @@ import {
   type Subscription,
 } from './repo/push';
 import { listTariffs } from './repo/tariffs';
-import { getState } from './repo/rollups';
+import { getBackupState, type BackupState } from './repo/backup';
 import { rowsReadOn, utcDay } from './repo/usage';
-import { STATE } from './rollups';
 import { sendPush, type Fetcher, type VapidKeys } from './webpush';
 
 export const STALE_MINUTES = 15;
@@ -393,12 +392,14 @@ export function decideUnusualDay(
 }
 
 /**
- * The last database copy (pnpm db:backup, docs/admin.md) over BACKUP_STALE_DAYS
- * old, or none recorded: at once, then every BACKUP_REPEAT_DAYS while it lasts.
+ * The household's last copy (Definições › Dados, docs/backup.md) older than the
+ * reminder's days, or none yet: at once, then every BACKUP_REPEAT_DAYS while it
+ * lasts. A reminder of 0 days: never.
  */
-export function decideBackup(state: AlertState, backupAt: number | null, now: number): Decision {
+export function decideBackup(state: AlertState, backup: BackupState, now: number): Decision {
   const checked = checkedToday(state, now);
-  const late = backupAt === null || now - backupAt > BACKUP_STALE_DAYS * DAY;
+  const backupAt = backup.lastAt;
+  const late = isBackupLate(backupAt, backup.remindDays, now);
   if (!late) return { state: { ...checked, active: false }, message: null };
   if (state.active && state.sentAt !== null && now - state.sentAt < BACKUP_REPEAT_DAYS * DAY) {
     return { state: { ...checked, active: true }, message: null };
@@ -412,7 +413,7 @@ export function decideBackup(state: AlertState, backupAt: number | null, now: nu
           ? t.alerts.backupNeverBody
           : t.alerts.backupBody(Math.floor((now - backupAt) / DAY)),
       tag: 'backup',
-      url: '/definicoes#servidor',
+      url: '/definicoes#dados',
     },
   };
 }
@@ -530,8 +531,8 @@ export async function checkAlerts(
   }
 
   if (wants('backup') && reminderDue(states.backup, now)) {
-    const backupAt = await getState(sql, STATE.backupAt);
-    decisions.push(['backup', decideBackup(states.backup, backupAt, now)]);
+    const backup = await getBackupState(sql, householdId);
+    decisions.push(['backup', decideBackup(states.backup, backup, now)]);
   }
 
   for (const [kind, decision] of decisions) {

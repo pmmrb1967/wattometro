@@ -21,7 +21,7 @@ Os emails nunca entram no repositório. `GET /v1/auth/me` diz `admin: true` a es
 | IA gratuita: neurons hoje e nos últimos 7 dias (UTC), e pedidos de hoje | Estimados a partir dos tokens de cada resposta do Workers AI (`server/src/ai-free.ts`, `docs/ai.md`), em `maintenance_state` (`ai_neurons:AAAA-MM-DD`, `ai_calls:AAAA-MM-DD`). Sem o binding `AI`, aparece "Desligada" | 10 000 por dia (a app para aos 9 000) |
 | Tamanho da base | Medido pelo Cron uma vez por dia | 500 MB |
 | Agregações | Até onde o Cron agregou os minutos (a casa mais atrasada) e a última limpeza | O Cron corre de 5 em 5 min |
-| Cópias da base de dados | A hora da última `pnpm db:backup` (`maintenance_state`, `backup_at`; ver abaixo) | Em atraso a partir de 8 dias |
+| Cópias da base de dados | A hora da última `pnpm db:backup` (`maintenance_state`, `backup_at`; ver abaixo) | Marcada a partir de 8 dias |
 | Shelly | Por dispositivo ativo, sem nome: modelo, versão do script, última mensagem e minutos recebidos hoje (canal 0) contra os esperados desde a meia-noite de Lisboa | — |
 | Contas | Número de utilizadores, casas e aparelhos com avisos | — |
 | Visitas | Visitas por página e dia de Lisboa, nos últimos 30 dias | — |
@@ -36,7 +36,7 @@ Sem Cloudflare Web Analytics nem outro serviço externo. A app envia `POST /v1/v
 
 ## Cópias da base de dados
 
-Duas proteções, para coisas diferentes. Decidido a 2026-11-24 (`planning/plan.md`, Decisões).
+Três proteções, para coisas diferentes. Decidido a 2026-11-24 (`planning/plan.md`, Decisões). Cada casa guarda também a sua própria cópia na app, à mão, e repõe-na juntando (`docs/backup.md`): é essa a que tem lembrete.
 
 | | Time Travel (Cloudflare) | `pnpm db:backup` (este computador) |
 |---|---|---|
@@ -54,23 +54,9 @@ pnpm db:backup
 
 - Faz `wrangler d1 export --remote` (com o login do wrangler deste computador), comprime o SQL, cifra-o no computador (PBKDF2-SHA256 com 600 000 iterações → AES-256-GCM, `scripts/backup/backup-file.ts`) e grava `wattometro-AAAA-MM-DDTHHMMZ.sql.gz.enc` em `BACKUP_DIR`. Apaga as cópias mais antigas além de `BACKUP_KEEP` (só ficheiros com este nome).
 - **Para a ter também na cloud:** usa como `BACKUP_DIR` uma pasta sincronizada pelo programa do OneDrive, Google Drive ou Dropbox deste computador. O ficheiro é escrito primeiro como `.part` e só depois mudado de nome, para o programa da cloud nunca enviar meia cópia. O que lá vai está cifrado, por isso os dados das casas não ficam legíveis fora da Cloudflare (regra 1 do `CLAUDE.md`).
-- **A base fica bloqueada enquanto exporta** (limitação do D1). O Shelly volta a enviar esses minutos depois, como em qualquer falha, mas a app não responde durante esse tempo: faz a cópia de madrugada. A exportação lê a base inteira, por isso conta para as linhas lidas do dia; uma vez por semana fica longe do limite.
-- **Agendar no Windows**: uma vez por semana, ao domingo às 04:00, com a tua sessão (o wrangler usa o teu login). Num PowerShell, uma vez:
-
-  ```powershell
-  $action = New-ScheduledTaskAction -Execute 'cmd.exe' -WorkingDirectory '<pasta do projeto>' `
-    -Argument '/c pnpm db:backup > "%TEMP%\wattometro-backup.log" 2>&1'
-  $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 4am
-  $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 1)
-  Register-ScheduledTask -TaskName 'Wattometro - copia da base' -Action $action `
-    -Trigger $trigger -Settings $settings
-  ```
-
-  - `-StartWhenAvailable`: se o PC estiver desligado (ou sem a tua sessão) à hora marcada, a cópia corre logo que esteja disponível.
-  - `-WakeToRun`: acorda o PC da suspensão para a fazer (desligado, não).
-  - O resultado da última execução fica em `%TEMP%\wattometro-backup.log`. Para correr já: `Start-ScheduledTask 'Wattometro - copia da base'`. Se o login do wrangler expirar, a cópia falha até correres `pnpm exec wrangler login`.
-- **Saber se está em dia.** No fim de cada cópia, o script grava a hora em `maintenance_state` (`backup_at`: só a hora, nada da cópia). O painel (Definições › Servidor, "Cópias da base de dados") mostra há quanto tempo foi e marca-a em atraso a partir de 8 dias (`src/lib/backup.ts`). O aviso "A cópia da base de dados está em atraso" (Definições › Avisos, só para o administrador; migração 0032) diz o mesmo por notificação: de manhã, e de novo uma semana depois enquanto durar (`decideBackup` em `server/src/alerts.ts`). Apanha o que o Agendador não resolve: o PC desligado semanas, o login do wrangler expirado, a pasta desaparecida.
+- **A base fica bloqueada enquanto exporta** (limitação do D1). O Shelly volta a enviar esses minutos depois, como em qualquer falha, mas a app não responde durante esse tempo: faz a cópia a uma hora calma. A exportação lê a base inteira, por isso conta para as linhas lidas do dia.
+- **À mão, sem agendamento.** Escolhido pelo utilizador a 2026-11-24: nada de Agendador do Windows. Corre-se quando se quer, por exemplo antes de uma migração grande. Se o login do wrangler expirar, corre `pnpm exec wrangler login`.
+- **Saber quando foi.** No fim de cada cópia, o script grava a hora em `maintenance_state` (`backup_at`: só a hora, nada da cópia). O painel (Definições › Servidor, "Cópias da base de dados") mostra há quanto tempo foi e marca-a a partir de 8 dias (`src/lib/backup.ts`). Não há aviso por notificação para esta cópia: o aviso de cópia é o da casa (`docs/backup.md`).
 
 ### Repor
 

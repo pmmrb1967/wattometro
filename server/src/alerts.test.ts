@@ -33,6 +33,7 @@ import { QUIET_STATE, saveSubscription, type AlertChoice } from './repo/push';
 import { saveTariff } from './repo/tariffs';
 import { addRowsRead, utcDay } from './repo/usage';
 import { createUser } from './repo/users';
+import { recordBackup } from './repo/backup';
 
 // 2026-10-26 18:00 UTC (18:00 in Lisbon, winter time).
 const NOW = 1_793_037_600;
@@ -118,21 +119,29 @@ describe('the decisions', () => {
     expect(decideDatabase(warned.state, 4_100_000, 5_000_000, NOW + 86_400).message).not.toBeNull();
   });
 
-  it('reminds of a database copy over 8 days old, again a week later while it lasts', () => {
+  it('reminds of a household copy past its days, again a week later while it lasts', () => {
     const DAY = 86_400;
-    // 8 days is still on time; 8 days and a second is late.
-    expect(decideBackup(QUIET_STATE, NOW - 8 * DAY, NOW).message).toBeNull();
-    const late = decideBackup(QUIET_STATE, NOW - 8 * DAY - 1, NOW);
-    expect(late.message).toMatchObject({ tag: 'backup', url: '/definicoes#servidor' });
-    expect(late.message?.body).toContain('tem 8 dias');
+    const copy = (lastAt: number | null, remindDays: 0 | 7 | 15 | 30 = 15) => ({
+      lastAt,
+      remindDays,
+    });
+    // 15 days is still on time; 15 days and a second is late.
+    expect(decideBackup(QUIET_STATE, copy(NOW - 15 * DAY), NOW).message).toBeNull();
+    const late = decideBackup(QUIET_STATE, copy(NOW - 15 * DAY - 1), NOW);
+    expect(late.message).toMatchObject({ tag: 'backup', url: '/definicoes#dados' });
+    expect(late.message?.body).toContain('tem 15 dias');
     expect(late.state).toMatchObject({ active: true, since: NOW, sentAt: NOW });
-    expect(decideBackup(late.state, NOW - 8 * DAY - 1, NOW + 6 * DAY).message).toBeNull();
-    const again = decideBackup(late.state, NOW - 8 * DAY - 1, NOW + 7 * DAY);
-    expect(again.message?.body).toContain('tem 15 dias');
+    expect(decideBackup(late.state, copy(NOW - 15 * DAY - 1), NOW + 6 * DAY).message).toBeNull();
+    const again = decideBackup(late.state, copy(NOW - 15 * DAY - 1), NOW + 7 * DAY);
+    expect(again.message?.body).toContain('tem 22 dias');
     expect(again.state.since).toBe(NOW);
-    // A new copy ends it; none at all is late too.
-    expect(decideBackup(again.state, NOW + 7 * DAY, NOW + 7 * DAY).state.active).toBe(false);
-    expect(decideBackup(QUIET_STATE, null, NOW).message?.body).toContain('Ainda não há nenhuma');
+    // A new copy ends it; none at all is late too, unless the reminder is off.
+    expect(decideBackup(again.state, copy(NOW + 7 * DAY), NOW + 7 * DAY).state.active).toBe(false);
+    expect(decideBackup(QUIET_STATE, copy(null), NOW).message?.body).toContain(
+      'Ainda não guardaste',
+    );
+    expect(decideBackup(QUIET_STATE, copy(null, 0), NOW).message).toBeNull();
+    expect(decideBackup(QUIET_STATE, copy(NOW - 8 * DAY, 7), NOW).message).not.toBeNull();
   });
 });
 
@@ -429,18 +438,16 @@ describe('a Cron run', () => {
     expect(sent).toHaveLength(1);
   });
 
-  it('reminds the administrator of a late database copy, once a day at most', async () => {
+  it('reminds of a late household copy, once a day at most', async () => {
     await subscribe({ backup: true });
     const config = { vapid: await vapid(), rowsReadLimit: 5_000_000, fetcher };
     // No copy recorded: told, and not again the same day.
     await checkAlerts(sql, household, NOW, config);
     await checkAlerts(sql, household, NOW + 300, config);
     expect(sent).toHaveLength(1);
-    // A copy the next morning (as scripts/db-backup.ts records it): quiet again.
+    // A copy the next morning (POST /v1/backup/done): quiet again.
     const tomorrow = startOfLisbonDay('2026-10-27') + 11 * 3600;
-    db.prepare(`INSERT INTO maintenance_state (name, value) VALUES ('backup_at', ?)`).run(
-      tomorrow - 60,
-    );
+    await recordBackup(sql, household, tomorrow - 60);
     await checkAlerts(sql, household, tomorrow, config);
     expect(sent).toHaveLength(1);
     expect(db.prepare(`SELECT active FROM alert_state WHERE kind = 'backup'`).get()).toEqual({

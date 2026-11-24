@@ -109,6 +109,7 @@ wattometro/
 - `readings_15m` — energia, pico ao segundo e tensão mín./máx. por 15 min e por contador (`meter`: `device_id:channel` ou `eredes`), **alinhados com a E-Redes**; origem `shelly` ou `eredes` (E-Redes com marca `estimated`). Retenção indefinida.
 - `daily` — por contador e dia de Lisboa: energia, potência máxima, tensão mín./máx.; energia por período horário e consumo base na Fase 3.
 - `maintenance_state` — progresso do Cron (até onde agregou, última purga, tamanho da base).
+- `household_backup` — data da última cópia da casa feita na app e prazo do lembrete (`docs/backup.md`); a cópia em si fica só com o utilizador, cifrada.
 - `voltage_10m` — tensão por 10 min (Cron), para a NP EN 50160; `outages` — um registo por arranque do Shelly (o script envia a hora de arranque); episódios de tensão e conformidade calculados no browser (`src/domain/voltage.ts`). Zona de qualidade de serviço em `households.quality_zone`.
 - `equipment` — registo opcional dos equipamentos da casa (nome único por casa, potência da chapa, programas do manual em JSON, estimativa pela etiqueta ou pela chapa e o uso, em JSON); `appliances.period_s` guarda o ritmo dos aparelhos aos pulsos; `appliances.equipment_id` liga os aparelhos reconhecidos, que ficam com o nome do equipamento (`docs/equipment.md`).
 - `tariffs` — tarifário da casa (opção horária, ciclo, mapa de períodos, potência em VA, preços sem IVA em **micro-euros inteiros**, taxas da fatura, data de início).

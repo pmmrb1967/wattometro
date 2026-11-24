@@ -15,11 +15,11 @@ export const settingsTexts = {
     databaseTitle: 'Base de dados perto do limite diário',
     databaseBody: (percent: number, resetsAt: string) =>
       `Hoje já se leram ${percent} % das linhas que o plano gratuito da Cloudflare permite por dia. Aos 100 %, a app deixa de gravar até às ${resetsAt}.`,
-    backupTitle: 'Cópia da base de dados em atraso',
+    backupTitle: 'É altura de guardar uma cópia da casa',
     backupBody: (days: number) =>
-      `A última cópia da base de dados (pnpm db:backup) tem ${days} dias. Liga o computador das cópias ou corre o comando; vê Definições › Servidor.`,
+      `A última cópia da casa tem ${days} dias. Guarda outra em Definições › Dados e Shelly.`,
     backupNeverBody:
-      'Ainda não há nenhuma cópia da base de dados registada. Corre pnpm db:backup no computador das cópias (docs/admin.md).',
+      'Ainda não guardaste nenhuma cópia da casa. Guarda uma em Definições › Dados e Shelly.',
     cheapTitle: 'Amanhã: as horas mais baratas',
     cheapBody: (
       from: string,
@@ -83,9 +83,9 @@ export const settingsTexts = {
       backup: 'Cópias da base de dados',
       backupLast: (ago: string) => `Última cópia (pnpm db:backup) há ${ago}.`,
       backupNever: 'Ainda não há nenhuma cópia registada.',
-      backupLate: (days: number) => `Em atraso: passou de ${days} dias.`,
+      backupLate: (days: number) => `Passou de ${days} dias.`,
       backupNote:
-        'A cópia é feita no computador do administrador, cifrada, para uma pasta dele; aqui só fica a hora da última. O Time Travel da Cloudflare repõe a base até 7 dias atrás (docs/admin.md).',
+        'A cópia da base inteira é feita à mão no computador do administrador, cifrada, para uma pasta dele; aqui só fica a hora da última. O Time Travel da Cloudflare repõe a base até 7 dias atrás; cada casa guarda também a sua cópia em Definições › Dados e Shelly (docs/admin.md).',
       shelly: 'Shelly',
       shellyLine: (index: number, model: string, script: string) =>
         `Shelly ${index} · ${model} · script ${script}`,
@@ -133,7 +133,7 @@ export const settingsTexts = {
         tariffReview: 'É altura de rever o tarifário',
         budget: 'O mês vai passar o orçamento',
         unusualDay: 'Ontem foi fora do habitual',
-        backup: 'A cópia da base de dados está em atraso',
+        backup: 'É altura de guardar uma cópia da casa',
       },
       kindNotes: {
         stale: 'Ao fim de 15 minutos sem medições, e outra vez quando voltar.',
@@ -151,7 +151,7 @@ export const settingsTexts = {
         unusualDay:
           'De manhã, quando ontem a casa gastou muito mais (ou muito menos) do que é costume nesse tipo de dia. Só nas casas em que a temperatura não mexe na eletricidade (em Definições › Casa: aquecimento que não é elétrico e sem ar condicionado).',
         backup:
-          'Só para o administrador: quando a última cópia (pnpm db:backup) tem mais de 8 dias, ou ainda não há nenhuma. De manhã, e de novo uma semana depois enquanto durar.',
+          'Quando a última cópia da casa passa do prazo escolhido em Definições › Dados e Shelly, ou ainda não há nenhuma. De manhã, e de novo uma semana depois enquanto durar.',
       },
       saved: 'Escolha guardada.',
       test: 'Enviar aviso de teste',

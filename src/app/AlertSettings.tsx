@@ -44,8 +44,6 @@ const KINDS = [
   'unusualDay',
   'backup',
 ] as const;
-/** Only the administrator makes the database copies (docs/admin.md). */
-const ADMIN_KINDS: readonly (typeof KINDS)[number][] = ['backup'];
 
 type View =
   | { kind: 'loading' }
@@ -53,8 +51,7 @@ type View =
   | { kind: 'on'; subscription: PushSubscription; alerts: PushAlerts };
 
 export function AlertSection() {
-  const { me, signOut } = useSession();
-  const kinds = KINDS.filter((kind) => me.admin || !ADMIN_KINDS.includes(kind));
+  const { signOut } = useSession();
   const [support] = useState(pushSupport);
   const [view, setView] = useState<View>(() =>
     support === 'supported' ? { kind: 'loading' } : { kind: support },
@@ -157,7 +154,7 @@ export function AlertSection() {
         <div className="form">
           <fieldset className="alert-kinds">
             <legend>{texts.which}</legend>
-            {kinds.map((kind) => (
+            {KINDS.map((kind) => (
               <label key={kind} className="checkbox">
                 <input
                   type="checkbox"
