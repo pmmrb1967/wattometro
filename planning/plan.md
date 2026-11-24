@@ -159,6 +159,12 @@ Uma PWA que transforma o consumo elétrico de uma casa portuguesa em **poupança
 - [x] Web Push a partir do Worker (chave VAPID privada como secret) para: potência perto do corte, Shelly sem enviar há 15 minutos, base de dados perto do limite diário (`server/src/alerts.ts`, `docs/alerts.md`)
 - [x] Web Push para anomalias: "Ontem, fora do habitual", uma vez por dia a partir das 10:00, com o mesmo teste da app (`judgeDay`) sobre os totais diários; só nas casas em que a temperatura não conta (migração 0023, `docs/alerts.md`)
 - [x] Supressão de alertas repetidos (`alert_state`: uma vez por condição; potência no máximo uma por hora)
+- [x] **O que estava ligado no pico (fase 1, sem hardware):** os avisos de potência (1,0 × ou 1,2 × a contratada, ou o escalão simulado) dizem que máquinas provavelmente estavam ligadas no segundo do pico (degraus ao segundo das últimas horas, classificados contra os aparelhos com nome), quanto é o resto da casa e qual desligar para ficar abaixo do limite desse aviso (`src/nilm/at-peak.ts`; `docs/alerts.md`)
+- [ ] *Candidata (fase 2):* tomadas Shelly (Plug S Gen3 ou semelhante) nas máquinas grandes de tomada, lidas pelo Shelly EM na rede de casa a cada minuto e enviadas no mesmo pedido (campo opcional em `/v1/ingest`; só valores por minuto, sem os ao segundo, para poupar a base). A potência de cada máquina no aviso e na página Potência, e para treinar o NILM. Por confirmar: API real das tomadas (resposta de um aparelho), IP fixo e password, limite de corrente do modelo
+- [ ] *Candidata:* segunda pinça do Shelly EM Gen3 num circuito do quadro (forno, placa, termoacumulador): mede esse circuito com certeza. O script lê hoje um só canal (`wattometro.channel`): ler os dois e distinguir o canal "casa" do canal "circuito"
+- [ ] *Candidata:* Shelly PM Mini / 1PM no quadro para as máquinas sem tomada (forno, placa, termoacumulador, carregador do carro), como as tomadas da fase 2 (precisa de eletricista)
+- [ ] *Candidata (fase 3):* corte local por prioridades: lista ordenada de cargas que se podem desligar sem prejuízo (termoacumulador, aquecedor, carregador; nunca máquinas a meio de um programa); o script do Shelly EM desliga a tomada/relé quando a potência se aproxima do corte e volta a ligar depois, sem internet. Junta-se ao item "Corte local de carga adiável" acima
+- [ ] *Candidata:* sinal em casa (anel de luz da tomada Shelly a vermelho acima da contratada), a confirmar no modelo
 
 **Aceitação:** teste com carga real dispara alerta (e corte, se ativo) mesmo sem internet.
 

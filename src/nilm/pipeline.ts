@@ -18,6 +18,15 @@ export function findCycles(
   series: SecondsSeries,
   fridge: Fridge | null = null,
 ): Cycle[] {
-  const cycles = boundCycleEnergy(mergePulses(pairCycles(events), series), series);
+  return mergeCycles(pairCycles(events), series, fridge);
+}
+
+/** Paired cycles as the views use them: pulses and programmes made one. */
+export function mergeCycles(
+  paired: readonly Cycle[],
+  series: SecondsSeries,
+  fridge: Fridge | null = null,
+): Cycle[] {
+  const cycles = boundCycleEnergy(mergePulses(paired, series), series);
   return mergeProgrammes(cycles, series, fridge);
 }

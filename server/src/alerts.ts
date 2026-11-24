@@ -49,7 +49,18 @@ import {
   nextDate,
   startOfLisbonDay,
 } from '../../src/lib/time';
-import { formatKva, formatKwh } from '../../src/lib/units';
+import { formatKva, formatKwh, formatPower } from '../../src/lib/units';
+import {
+  breakdownAt,
+  MAX_SWITCH_OFF,
+  PEAK_WINDOW_S,
+  peakSecond,
+  switchOff,
+  type PeakBreakdown,
+  type PeakLoad,
+} from '../../src/nilm/at-peak';
+import { decodeSecondsRecords, toSeries, type MinuteSeconds } from '../../src/nilm/series';
+import type { Appliance } from '../../src/nilm/appliances';
 import type { Sql } from './db';
 import { MAX_CHANNEL } from './ingest';
 import { PUBLISHED_HOUR } from './omie';
@@ -75,6 +86,8 @@ import {
   type Subscription,
 } from './repo/push';
 import { listTariffs } from './repo/tariffs';
+import { listAppliances } from './repo/appliances';
+import { secondsRecords } from './repo/seconds';
 import { getBackupState, type BackupState } from './repo/backup';
 import { rowsReadOn, utcDay } from './repo/usage';
 import { sendPush, type Fetcher, type VapidKeys } from './webpush';
@@ -114,7 +127,31 @@ export interface ChoiceDecision {
   state: AlertState;
   /** By the choice: a percentage of the contracted power, or a tier in VA. */
   messages: Map<number, AlertMessage>;
+  /** For each message, the peak it is about, to say what was on then. */
+  peaks: Map<number, PeakRef>;
 }
+
+/** Which Shelly channel measured a peak. */
+export interface MeterRef {
+  deviceId: string;
+  channel: number;
+}
+
+/** A peak a power alert is about: its seconds [from, to), and the limit of that alert. */
+export interface PeakRef {
+  meter: MeterRef | null;
+  from: number;
+  to: number;
+  /** What to be below: the contracted power, k × it, or k × the simulated tier. */
+  limitVa: number;
+}
+
+type MinutePeak = { ts: number; peak: number } & Partial<MeterRef>;
+
+const meterOf = (item: Partial<MeterRef>): MeterRef | null =>
+  item.deviceId !== undefined && item.channel !== undefined
+    ? { deviceId: item.deviceId, channel: item.channel }
+    : null;
 
 export function decideStale(
   state: AlertState,
@@ -184,31 +221,38 @@ export const powerFactor = (pct: number) => (pct === 100 ? 1 : POWER_FACTOR);
  */
 export function decidePower(
   state: AlertState,
-  peaks: readonly { ts: number; peak: number }[],
+  peaks: readonly MinutePeak[],
   contractedVa: number | null,
   now: number,
   choices: readonly number[] = [120],
 ): ChoiceDecision {
   const checkedUntil = Math.max(state.checkedUntil ?? 0, ...peaks.map((minute) => minute.ts + 60));
   const next = { ...state, checkedUntil };
-  const none = new Map<number, AlertMessage>();
-  if (contractedVa === null || choices.length === 0) return { state: next, messages: none };
+  const none = { messages: new Map<number, AlertMessage>(), peaks: new Map<number, PeakRef>() };
+  if (contractedVa === null || choices.length === 0) return { state: next, ...none };
   const limit = (pct: number) => powerFactor(pct) * contractedVa;
   const lowest = Math.min(...choices.map(limit));
   const over = peaks.filter((minute) => minute.peak > lowest && minute.ts > (state.since ?? 0));
-  if (over.length === 0) return { state: next, messages: none };
+  if (over.length === 0) return { state: next, ...none };
   const quiet = state.sentAt !== null && now - state.sentAt < POWER_QUIET_SECONDS;
   // Announced or not, these minutes are done with.
   const latest = Math.max(...over.map((minute) => minute.ts));
-  if (quiet) return { state: { ...next, since: latest }, messages: none };
+  if (quiet) return { state: { ...next, since: latest }, ...none };
   const messages = new Map<number, AlertMessage>();
+  const refs = new Map<number, PeakRef>();
   for (const pct of new Set(choices)) {
     const mine = over.filter((minute) => minute.peak > limit(pct));
     if (mine.length === 0) continue;
     const highest = mine.reduce((best, minute) => (minute.peak > best.peak ? minute : best));
     messages.set(pct, powerMessage(pct, highest, contractedVa));
+    refs.set(pct, {
+      meter: meterOf(highest),
+      from: highest.ts,
+      to: highest.ts + 60,
+      limitVa: Math.round(limit(pct)),
+    });
   }
-  return { state: { ...next, active: true, since: latest, sentAt: now }, messages };
+  return { state: { ...next, active: true, since: latest, sentAt: now }, messages, peaks: refs };
 }
 
 /** How far back the tierTrip check runs the curve again: an overload spans Cron runs. */
@@ -221,11 +265,11 @@ export const TIER_LOOKBACK_SECONDS = 30 * 60;
  */
 export function decideTierTrip(
   state: AlertState,
-  episodes: ReadonlyMap<number, readonly NearTripEpisode[]>,
+  episodes: ReadonlyMap<number, readonly (NearTripEpisode & Partial<MeterRef>)[]>,
   now: number,
 ): ChoiceDecision {
   const next = { ...state, checkedUntil: now };
-  const none = new Map<number, AlertMessage>();
+  const none = { messages: new Map<number, AlertMessage>(), peaks: new Map<number, PeakRef>() };
   const since = state.since ?? 0;
   const fresh = [...episodes]
     .map(
@@ -233,13 +277,21 @@ export function decideTierTrip(
         [tierVa, list.filter((item) => item.tripped && item.start > since)] as const,
     )
     .filter(([, list]) => list.length > 0);
-  if (fresh.length === 0) return { state: next, messages: none };
+  if (fresh.length === 0) return { state: next, ...none };
   const latest = Math.max(...fresh.flatMap(([, list]) => list.map((item) => item.start)));
   const quiet = state.sentAt !== null && now - state.sentAt < POWER_QUIET_SECONDS;
-  if (quiet) return { state: { ...next, since: latest }, messages: none };
+  if (quiet) return { state: { ...next, since: latest }, ...none };
   const messages = new Map<number, AlertMessage>();
+  const refs = new Map<number, PeakRef>();
   for (const [tierVa, list] of fresh) {
     const worst = list.reduce((best, item) => (item.peakVa > best.peakVa ? item : best));
+    refs.set(tierVa, {
+      meter: meterOf(worst),
+      from: worst.start,
+      to: worst.start + worst.seconds,
+      // Below k × the tier, the meter does not count towards a cut.
+      limitVa: Math.round(POWER_FACTOR * tierVa),
+    });
     messages.set(tierVa, {
       title: t.alerts.tierTripTitle(formatKva(tierVa)),
       body: t.alerts.tierTripBody(
@@ -252,7 +304,69 @@ export function decideTierTrip(
       url: '/potencia',
     });
   }
-  return { state: { ...next, active: true, since: latest, sentAt: now }, messages };
+  return { state: { ...next, active: true, since: latest, sentAt: now }, messages, peaks: refs };
+}
+
+/** An appliance as the alert names it: its name(s), or its power and when it went on. */
+function loadName(load: PeakLoad): string {
+  return load.labels.length > 0
+    ? load.labels.join(t.alerts.peakOr)
+    : t.alerts.peakUnnamed(formatPower(load.powerW), formatLisbonTime(load.since));
+}
+
+/**
+ * What the alert adds about the peak: what was probably on, and what to
+ * switch off to be below the alert's limit; empty when no appliance was seen.
+ */
+export function peakText(breakdown: PeakBreakdown, limitVa: number): string {
+  if (breakdown.loads.length === 0) return '';
+  const shown = breakdown.loads.slice(0, MAX_SWITCH_OFF);
+  const listed = shown.map((load) =>
+    load.labels.length > 0 ? `${loadName(load)} ${formatPower(load.powerW)}` : loadName(load),
+  );
+  const parts = [t.alerts.peakLoads(listed.join(', '), formatPower(breakdown.restW))];
+  const off = switchOff(breakdown, limitVa);
+  if (off) {
+    parts.push(
+      t.alerts.peakSwitchOff(
+        off.loads.map(loadName).join(t.alerts.peakAnd),
+        formatKva(off.apparentVa),
+        formatKva(limitVa),
+      ),
+    );
+  }
+  return parts.join(' ');
+}
+
+/** What was on at a peak, from the seconds around it; null without them. */
+export async function breakdownOf(
+  sql: Sql,
+  householdId: string,
+  peak: PeakRef,
+  appliances: readonly Appliance[],
+  now: number,
+): Promise<PeakBreakdown | null> {
+  if (!peak.meter) return null;
+  const from = peak.from - PEAK_WINDOW_S;
+  const records = await secondsRecords(
+    sql,
+    householdId,
+    peak.meter.deviceId,
+    peak.meter.channel,
+    from,
+    now + 60,
+  );
+  let minutes: MinuteSeconds[];
+  try {
+    minutes = decodeSecondsRecords(records);
+  } catch {
+    // A format this version does not read: the alert without the appliances.
+    return null;
+  }
+  if (minutes.length === 0) return null;
+  const series = toSeries(minutes, from, Math.max(...minutes.map((minute) => minute.ts)) + 60);
+  const ts = peakSecond(series, peak.from, peak.to);
+  return ts === null ? null : breakdownAt(series, ts, appliances);
 }
 
 export function decideDatabase(
@@ -599,7 +713,9 @@ export async function checkAlerts(
     const from = Math.max(states.tierTrip.checkedUntil ?? now, now - DAY) - TIER_LOOKBACK_SECONDS;
     // Below the lowest tier's k × Sc no second counts towards a cut.
     const threshold = Math.min(...tiers.map((tierVa) => tripThreshold(tierVa, 0, SINGLE_PHASE)));
-    const episodes = new Map<number, NearTripEpisode[]>(tiers.map((tierVa) => [tierVa, []]));
+    const episodes = new Map<number, (NearTripEpisode & MeterRef)[]>(
+      tiers.map((tierVa) => [tierVa, []]),
+    );
     for (const device of devices) {
       for (let channel = 0; channel <= MAX_CHANNEL; channel++) {
         const minutes = await peakMinutesSince(
@@ -614,7 +730,13 @@ export async function checkAlerts(
         const { samples } = samplesOf(minutes.filter((minute) => minute.seconds !== null));
         if (samples.length === 0) continue;
         for (const tierVa of tiers) {
-          episodes.get(tierVa)?.push(...nearTripEpisodes(samples, tierVa, SINGLE_PHASE));
+          episodes.get(tierVa)?.push(
+            ...nearTripEpisodes(samples, tierVa, SINGLE_PHASE).map((item) => ({
+              ...item,
+              deviceId: device.id,
+              channel,
+            })),
+          );
         }
       }
     }
@@ -681,10 +803,25 @@ export async function checkAlerts(
       await setAlertState(sql, householdId, kind, decision.state);
     }
   }
+  let appliances: Appliance[] | null = null;
+  const breakdowns = new Map<string, PeakBreakdown | null>();
   for (const [kind, decision, choice] of choiceDecisions) {
     for (const [key, message] of decision.messages) {
       const to = subscriptions.filter((item) => choice(item) === key);
-      await deliverTo(sql, to, message, config, now);
+      let body = message.body;
+      const peak = decision.peaks.get(key);
+      if (peak && to.length > 0) {
+        // Read once a run (at most one power alert an hour), for every message of the same peak.
+        const id = `${peak.meter?.deviceId}:${peak.meter?.channel}:${peak.from}:${peak.to}`;
+        if (!breakdowns.has(id)) {
+          appliances ??= await listAppliances(sql, householdId);
+          breakdowns.set(id, await breakdownOf(sql, householdId, peak, appliances, now));
+        }
+        const breakdown = breakdowns.get(id);
+        const extra = breakdown ? peakText(breakdown, peak.limitVa) : '';
+        if (extra) body = `${body} ${extra}`;
+      }
+      await deliverTo(sql, to, { ...message, body }, config, now);
     }
     if (JSON.stringify(decision.state) !== JSON.stringify(states[kind])) {
       await setAlertState(sql, householdId, kind, decision.state);

@@ -294,6 +294,20 @@ function joinSteps(first: PowerEvent, second: PowerEvent): PowerEvent {
 }
 
 export function pairCycles(events: readonly PowerEvent[]): Cycle[] {
+  return pairSteps(events).cycles;
+}
+
+/** An appliance switched on and not yet off at the end of the steps. */
+export interface OpenLoad {
+  on: PowerEvent;
+  /** Its current state: measured, and at 230 V, W; non-active, var. */
+  powerW: number;
+  powerW230: number;
+  nonActiveVar: number;
+}
+
+/** The cycles, and what was still on after the last step (the power alerts: at-peak.ts). */
+export function pairSteps(events: readonly PowerEvent[]): { cycles: Cycle[]; open: OpenLoad[] } {
   const open: Open[] = [];
   const cycles: Cycle[] = [];
   for (let index = 0; index < events.length; index++) {
@@ -368,5 +382,16 @@ export function pairCycles(events: readonly PowerEvent[]): Cycle[] {
       });
     }
   }
-  return cycles.sort((a, b) => a.start - b.start);
+  return {
+    cycles: cycles.sort((a, b) => a.start - b.start),
+    open: open.map((item) => {
+      const level = current(item);
+      return {
+        on: item.on,
+        powerW: Math.round(level.w),
+        powerW230: Math.round(level.w230),
+        nonActiveVar: Math.round(level.var),
+      };
+    }),
+  };
 }

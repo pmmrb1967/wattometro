@@ -261,20 +261,19 @@ export async function minutePeaksSince(
   deviceIds: readonly string[],
   channels: number,
   from: number,
-): Promise<{ ts: number; peak: number }[]> {
-  const peaks: { ts: number; peak: number }[] = [];
+): Promise<{ ts: number; peak: number; deviceId: string; channel: number }[]> {
+  const peaks: { ts: number; peak: number; deviceId: string; channel: number }[] = [];
   for (const deviceId of deviceIds) {
     for (let channel = 0; channel < channels; channel++) {
-      peaks.push(
-        ...(await sql.all<{ ts: number; peak: number }>(
-          `SELECT ts, COALESCE(apparent_max_va, power_max_w) AS peak FROM readings_1m
-           WHERE device_id = ? AND channel = ? AND ts >= ? AND household_id = ?`,
-          deviceId,
-          channel,
-          from,
-          householdId,
-        )),
+      const rows = await sql.all<{ ts: number; peak: number }>(
+        `SELECT ts, COALESCE(apparent_max_va, power_max_w) AS peak FROM readings_1m
+         WHERE device_id = ? AND channel = ? AND ts >= ? AND household_id = ?`,
+        deviceId,
+        channel,
+        from,
+        householdId,
       );
+      peaks.push(...rows.map((row) => ({ ...row, deviceId, channel })));
     }
   }
   return peaks;

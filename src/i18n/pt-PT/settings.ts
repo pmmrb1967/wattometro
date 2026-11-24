@@ -18,6 +18,13 @@ export const settingsTexts = {
     tierTripTitle: (tier: string) => `Com ${tier}, a luz teria ido abaixo`,
     tierTripBody: (tier: string, time: string, peak: string, seconds: number) =>
       `Às ${time} chegaste a ${peak} durante ${seconds} s: com ${tier} contratados, o contador teria cortado a luz (curva por omissão da E-Redes). Vê os escalões em Potência.`,
+    peakLoads: (loads: string, rest: string) =>
+      `Nesse segundo estava ligado, provavelmente: ${loads}; o resto da casa, ${rest}.`,
+    peakUnnamed: (power: string, since: string) => `algo de ${power} ligado às ${since}`,
+    peakOr: ' ou ',
+    peakAnd: ' e ',
+    peakSwitchOff: (loads: string, after: string, limit: string) =>
+      `Desligar ${loads} baixava para cerca de ${after}, abaixo de ${limit}.`,
     databaseTitle: 'Base de dados perto do limite diário',
     databaseBody: (percent: number, resetsAt: string) =>
       `Hoje já se leram ${percent} % das linhas que o plano gratuito da Cloudflare permite por dia. Aos 100 %, a app deixa de gravar até às ${resetsAt}.`,

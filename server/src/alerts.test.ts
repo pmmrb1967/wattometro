@@ -13,6 +13,8 @@ import {
   decideEredesImport,
   decidePower,
   decideTierTrip,
+  breakdownOf,
+  peakText,
   decideStale,
   decideTariffReview,
   decideUnusualDay,
@@ -36,6 +38,7 @@ import { saveTariff } from './repo/tariffs';
 import { addRowsRead, utcDay } from './repo/usage';
 import { createUser } from './repo/users';
 import { recordBackup } from './repo/backup';
+import { createAppliance, listAppliances } from './repo/appliances';
 
 // 2026-10-26 18:00 UTC (18:00 in Lisbon, winter time).
 const NOW = 1_793_037_600;
@@ -486,6 +489,68 @@ describe('a Cron run', () => {
     expect(sent.map((item) => item.url)).toEqual([ENDPOINT]);
     await checkAlerts(sql, household, NOW + 300, config);
     expect(sent).toHaveLength(1);
+  });
+
+  it('says what was on at the peak, and what to switch off', async () => {
+    await createAppliance(
+      sql,
+      household,
+      {
+        label: 'Forno',
+        powerW: 2500,
+        statesW: [2500],
+        pulsing: false,
+        minDurationS: null,
+        maxDurationS: null,
+        heats: null,
+        periodS: null,
+      },
+      NOW,
+    );
+    // 2 kW of house; the oven from 25 minutes ago; 3 kW of something from 17:48:30.
+    const watts = (ts: number) =>
+      2000 + (ts >= NOW - 25 * 60 ? 2500 : 0) + (ts >= NOW - 690 ? 3000 : 0);
+    for (let ts = NOW - 30 * 60; ts < NOW - 5 * 60; ts += 60) {
+      const power = Array.from({ length: 60 }, (_, second) => watts(ts + second));
+      await sql.batch(
+        minuteStatements(
+          { id: deviceId, householdId: household },
+          {
+            ts,
+            channel: 0,
+            samples: 60,
+            energyWh: 100,
+            powerAvgW: Math.max(...power),
+            powerMinW: Math.min(...power),
+            powerMaxW: Math.max(...power),
+            voltageMinDv: 2300,
+            voltageAvgDv: 2300,
+            voltageMaxDv: 2300,
+            pfAvgPct: 100,
+            apparentMaxVa: Math.max(...power),
+            seconds: encodeSeconds({
+              power,
+              nonActive: power.map(() => 0),
+              voltage: power.map(() => 2300),
+            }),
+          },
+        ),
+      );
+    }
+    const peak = { meter: { deviceId, channel: 0 }, from: NOW - 720, to: NOW - 660, limitVa: 6900 };
+    const breakdown = await breakdownOf(
+      sql,
+      household,
+      peak,
+      await listAppliances(sql, household),
+      NOW,
+    );
+    expect(breakdown?.ts).toBe(NOW - 690);
+    expect(breakdown && peakText(breakdown, 6900)).toBe(
+      'Nesse segundo estava ligado, provavelmente: algo de 3,00 kW ligado às 17:48, Forno 2,50 kW; o resto da casa, 2,00 kW. Desligar Forno baixava para cerca de 5 kVA, abaixo de 6,9 kVA.',
+    );
+    // Without the seconds, nothing to add.
+    expect(await breakdownOf(sql, household, { ...peak, meter: null }, [], NOW)).toBeNull();
   });
 
   it("sends tomorrow's cheap hours once, to the devices that asked", async () => {
