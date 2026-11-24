@@ -20,28 +20,11 @@ import { appProvider, freeAiOffered } from './ai-provider';
 import { aiErrorText } from './ai-errors';
 import { pullAiSettings, removeAiSettings, storeAiSettings, type AiHome } from './ai-sync';
 import { fetchFreeAiStatus, type FreeAiStatus } from './api';
+import { EyeIcon } from './SecretInput';
 import { failureText, useSession } from './session';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.settings.ai;
-
-function EyeIcon({ open }: { open: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path
-        d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      {!open && (
-        <path d="M4 20 20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      )}
-    </svg>
-  );
-}
 
 export function AiSection() {
   const { me, signOut } = useSession();

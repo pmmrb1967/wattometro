@@ -13,6 +13,7 @@ import { cloudHasHouse, joinFromCloud, localHouseHasData } from '../local/cloud-
 import { cloudFailure } from './cloud-failure';
 import { browserStore } from '../local/store';
 import { download } from './download';
+import { SecretInput } from './SecretInput';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.cloud;
@@ -72,16 +73,22 @@ export function CloudJoin({
     <form className="form" onSubmit={submit}>
       <h3>{form.title(providerName(signIn.provider))}</h3>
       <p className="hint">{form.intro}</p>
-      <label>
-        {byRecovery ? form.recoveryKey : form.password}
-        <input
-          key={byRecovery ? 'recovery' : 'password'}
+      {byRecovery ? (
+        <label>
+          {form.recoveryKey}
+          <input key="recovery" name="secret" type="text" autoComplete="off" required />
+        </label>
+      ) : (
+        <SecretInput
+          key="password"
+          label={form.password}
+          showLabel={texts.showPassword}
+          hideLabel={texts.hidePassword}
           name="secret"
-          type={byRecovery ? 'text' : 'password'}
-          autoComplete={byRecovery ? 'off' : 'current-password'}
+          autoComplete="current-password"
           required
         />
-      </label>
+      )}
       <button type="button" className="link-button" onClick={() => setByRecovery(!byRecovery)}>
         {byRecovery ? form.usePassword : form.useRecovery}
       </button>

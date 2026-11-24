@@ -63,6 +63,8 @@ export const cloudTexts = {
         `Esta pasta do ${service} ainda não tem uma casa. Usa sem conta e liga o ${service} em Definições.`,
     },
     cancel: 'Cancelar',
+    showPassword: 'Mostrar a palavra-passe',
+    hidePassword: 'Esconder a palavra-passe',
     linked: (service: string, account: string, when: string) =>
       `${service} de ${account} · última sincronização: ${when}`,
     neverSynced: 'ainda não',

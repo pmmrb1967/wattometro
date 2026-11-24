@@ -4,7 +4,7 @@
  * OneDrive, Google Drive or Dropbox (docs/superpowers/specs/2026-11-22-local-cloud-sync-design.md,
  * "Ligar", "Aparelho novo", "Interface"). The work is in src/local/cloud-runner.ts.
  */
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { signInToCloud } from '../cloud/cloud-drives';
 import {
   availableProviders,
@@ -37,6 +37,7 @@ import {
 } from '../local/cloud-return';
 import { cloudFailure } from './cloud-failure';
 import { CloudJoin } from './CloudJoin';
+import { SecretInput } from './SecretInput';
 import { StatusLine, type Status } from './StatusLine';
 
 const texts = t.cloud;
@@ -110,26 +111,24 @@ function CreateForm({
     <form className="form" onSubmit={submit}>
       <h3>{form.title}</h3>
       <p className="hint">{form.hint(providerCompany(signIn.provider))}</p>
-      <label>
-        {form.password(MIN_PASSWORD_LENGTH)}
-        <input
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          required
-        />
-      </label>
-      <label>
-        {form.repeat}
-        <input
-          name="repeat"
-          type="password"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          required
-        />
-      </label>
+      <SecretInput
+        label={form.password(MIN_PASSWORD_LENGTH)}
+        showLabel={texts.showPassword}
+        hideLabel={texts.hidePassword}
+        name="password"
+        autoComplete="new-password"
+        minLength={MIN_PASSWORD_LENGTH}
+        required
+      />
+      <SecretInput
+        label={form.repeat}
+        showLabel={texts.showPassword}
+        hideLabel={texts.hidePassword}
+        name="repeat"
+        autoComplete="new-password"
+        minLength={MIN_PASSWORD_LENGTH}
+        required
+      />
       <StatusLine status={status} />
       <div className="actions">
         <button type="submit" className="primary" disabled={status.kind === 'busy'}>
@@ -326,6 +325,20 @@ export function CloudSection() {
     };
   }, []);
 
+  // Back from the sign-in, the next step is here: open the settings group
+  // around it (closed at first), bring it into view and put the cursor in its
+  // first field (the cloud password).
+  const section = useRef<HTMLElement>(null);
+  const shown = status !== null;
+  useEffect(() => {
+    const here = section.current;
+    if (step.kind === 'idle' || here === null) return;
+    const group = here.closest('details');
+    if (group !== null && !group.open) group.open = true;
+    here.scrollIntoView?.({ block: 'start' });
+    here.querySelector('input')?.focus({ preventScroll: true });
+  }, [step.kind, shown]);
+
   if (!cloudAvailable() || status === null) return null;
 
   const idle = () => setStep({ kind: 'idle' });
@@ -392,7 +405,7 @@ export function CloudSection() {
   }
 
   return (
-    <section className="card" id="nuvem">
+    <section className="card" id="nuvem" ref={section}>
       <h2>{status.linked ? texts.titleLinked(providerName(status.provider)) : texts.title}</h2>
       <p className="hint">{texts.intro}</p>
       {body}

@@ -2702,6 +2702,11 @@ a.button-link {
   padding-right: 48px;
 }
 
+/* Edge's own eye: gone once the field loses focus, and a second eye here. */
+.secret-field input::-ms-reveal {
+  display: none;
+}
+
 .secret-toggle {
   position: absolute;
   bottom: 2px;
